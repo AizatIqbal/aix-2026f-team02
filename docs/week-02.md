@@ -298,6 +298,9 @@ Group A's failure is not due to the model, we believe that due to lack of resour
 
 
 ## 내가 개입해야 했던 지점 / Where you intervened
+```
+we do not intervened
+```
 
 
 
