@@ -30,6 +30,7 @@ Principle: record your **reasoning**, not just prompts.
 ## 2026-09-09 · 메모 검색 기능 (2주차 활동)
 
 **지시**
+
 [지시]
 메모 검색 기능을 추가해줘. 제목과 본문에서 키워드로 검색된다.
 [규약]
