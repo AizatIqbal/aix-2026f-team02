@@ -286,22 +286,22 @@ SELECT id, title, created_at
 ## 두 방식의 차이 / Difference
 4-1. What is the biggest difference between the two results?
 
-One of the biggest differences is that group B provided the AI with specific instructions and material that group A did not provide, thus the output yielded by group B was faster by 31 seconds difference and more accurate. The AI is able to follow the guidelines specified in CONVENTIONS.md while group A managed to violate all of the guidelines.
+    - One of the biggest differences is that group B provided the AI with specific instructions and material that group A did not provide, thus the output yielded by group B was faster by 31 seconds difference and more accurate. The AI is able to follow the guidelines specified in CONVENTIONS.md while group A managed to violate all of the guidelines.
 
 
 
 4-2. Is Group A's failure due to the model, or is it due to what we did not provide? Please state your reasoning.
 
-Group A's failure is not due to the model, we believe that due to lack of resources like route.js and service.js, the result does not follow the main objectives included in CONVENTIONS.md as intended. Without the additional information in structure management, the result ends up as a stand-alone code.
+    - Group A's failure is not due to the model, we believe that due to lack of resources like route.js and service.js, the result does not follow the main objectives included in CONVENTIONS.md as intended. Without the additional information in structure management, the result ends up as a stand-alone code.
 
 4-3. Among the materials provided by Group B, what would you choose as the one that changed the results the most? Why do you think so?
 
-I think the 근거 material is the one that changed the results the most. In my opinon, most of the requirements specified in the 규약 material is implied or can be deduced just by looking at the 근거 material. this is especially true when the added search memo function is structually similar to the other functions that is found in the service.js and routes.js files. 
+    - I think the 근거 material is the one that changed the results the most. In my opinon, most of the requirements specified in the 규약 material is implied or can be deduced just by looking at the 근거 material. this is especially true when the added search memo function is structually similar to the other functions that is found in the service.js and routes.js files. 
 
 
 ## 내가 개입해야 했던 지점 / Where you intervened
-Group A: Corrections on method search_notes()
-Group B: The agent outputs only the added part of the code, and has to be copy and pasted into the full files by hand
+     Group A: Corrections on method search_notes()
+     Group B: The agent outputs only the added part of the code, and has to be copy and pasted into the full files by hand
 
 
 
