@@ -2,9 +2,9 @@
 
 | | |
 | :-- | :-- |
-| 팀명 | |
-| 작성일 | |
-| 참여자 | |
+| 팀명 |Team02 |
+| 작성일 |2026.09.09 |
+| 참여자 |Aizat Syafiq Farhana Che Qassim |
 
 ---
 
@@ -12,10 +12,10 @@
 
  `memo-seed` 저장소를 엽니다. 다음 파일이 있는지 확인하세요.
 
-- [ ] `schema.sql`
-- [ ] `service.js`
-- [ ] `routes.js`
-- [ ] `CONVENTIONS.md`
+- [/ ] `schema.sql`
+- [/ ] `service.js`
+- [/ ] `routes.js`
+- [/ ] `CONVENTIONS.md`
 
 ---
 
