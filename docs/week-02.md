@@ -20,8 +20,52 @@ Gemini
 ## 방식 A — 통째로 요청 / One big request
 
 ### 프롬프트 
+메모 검색 기능 만들어줘. 제목이랑 본문에서 키워드로 찾을 수 있게.
 ### 결과
+# Example data structure using a list of dictionaries
+notes = [
+    {"id": 1, "title": "Shopping List", "content": "Buy apples, bananas, milk", "user_id": 101},
+    {"id": 2, "title": "Meeting Notes", "content": "Project kickoff tomorrow at 10 AM", "user_id": 101},
+    {"id": 3, "title": "Study Plan", "content": "Learn Python list comprehensions", "user_id": 102}  # Different user
+]
+
+def search_notes(notes, keyword, user_id):
+    """
+    Searches notes belonging strictly to `user_id` by matching `keyword` in title or content.
+    """
+    trimmed_keyword = keyword.strip().lower()
+    
+    results = []
+    for note in notes:
+        # 1. User Security Check: Ensure only the user's own notes are processed
+        if note["user_id"] != user_id:
+            continue
+            
+        # If keyword is empty, return all notes for this user
+        if not trimmed_keyword:
+            results.append(note)
+            continue
+            
+        # 2. Case-insensitive keyword matching
+        title_match = trimmed_keyword in note["title"].lower()
+        content_match = trimmed_keyword in note["content"].lower()
+        
+        if title_match or content_match:
+            results.append(note)
+            
+    return results
+
+# Example Usage:
+print("User 101 searching for 'meeting':")
+print(search_notes(notes, "meeting", user_id=101))
+
+print("\nUser 101 searching for 'python' (belongs to User 102):")
+print(search_notes(notes, "python", user_id=101))  # Returns [] because of user isolation
 ### 문제점
+→ CONVENTIONS.md violations
+- Did not follow the project's JavaScript/SQL layer structure.
+- Empty keyword was not validated as a 400 error.
+- Did not follow the required { ok: true, data } / { ok: false, error } response format.
 
 ## 방식 B — 4단계 분해 / spec → context → unit → verify
 
@@ -142,7 +186,17 @@ module.exports = router;
 ### 결과
 Here is the detailed check and report based on the provided requirements and generated code:
 
-### Check Report
+### Check Report for group A
+
+| No. | Check Item | Result / Details |
+| --- | --- | --- |
+| **①** | **Time taken to successful execution** | `1 minute` |
+| **②** | **Number of non-existent functions and columns created** | `0` (No made-up names used) |
+| **③** | **CONVENTIONS.md Number of violations** | `0` (Followed all guidelines: verbs for function names, snake_case DB columns, `{ ok, data/error }` structure, `user_id` scope, and input validation) |
+| **④** | **Points fixed by hand** | `None` (Code is fully functional and strictly follows Express route ordering rules) |
+| **⑤** | **Is only my own memo returned?** | **Yes** |
+
+### Check Report for group B
 
 | No. | Check Item | Result / Details |
 | --- | --- | --- |
