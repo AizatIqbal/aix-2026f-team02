@@ -12,10 +12,12 @@
 Aizat
 Syafiq
 Farhana
+Che Qassim
 
 
 
 ## 연락 규칙 / Contact rule — 어디로, 몇 시간 내 응답
+with whatsapp
 
 
 
@@ -24,11 +26,12 @@ Farhana
 
 
 ## 기여 규칙 / Contribution rule — 1인당 주 최소 작업량
+Must contribute
 
 
 
 ## 갈등 처리 / Conflict rule — 의견이 갈릴 때
-
+Don't fight
 
 
 ## 마감 규칙 / Deadline rule
