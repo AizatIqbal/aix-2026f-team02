@@ -228,6 +228,12 @@ SELECT id, title, created_at
 - outputs only the changed part of code, and has to be copy and pasted into the full document by hand
 
 ## 두 방식의 차이 / Difference
+4-1. What is the biggest difference between the two results?
+
+
+4-2. Is Group A's failure due to the model, or is it due to what we did not provide? Please state your reasoning.
+
+4-3. Among the materials provided by Group B, what would you choose as the one that changed the results the most? Why do you think so?
 
 
 
