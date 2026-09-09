@@ -240,7 +240,7 @@ router.get('/memos/search', async (req, res) => {
 
 | No. | Check Item | Result / Details |
 | --- | --- | --- |
-| **①** | **Time taken to successful execution** | `40 seconds` |
+| **①** | **Time taken to successful execution** | `0 minutes 40 seconds` |
 | **②** | **Number of non-existent functions and columns created** | `1` (No made-up names used) |
 | **③** | **CONVENTIONS.md Number of violations** | `4` (Followed all guidelines: verbs for function names, snake_case DB columns, `{ ok, data/error }` structure, `user_id` scope, and input validation) |
 | **④** | **Points fixed by hand** | `None` (Code is fully functional and strictly follows Express route ordering rules) |
@@ -250,7 +250,7 @@ router.get('/memos/search', async (req, res) => {
 
 | No. | Check Item | Result / Details |
 | --- | --- | --- |
-| **①** | **Time taken to successful execution** | `1 minute` |
+| **①** | **Time taken to successful execution** | `0 minutes 9 seconds` |
 | **②** | **Number of non-existent functions and columns created** | `0` (No made-up names used) |
 | **③** | **CONVENTIONS.md Number of violations** | `0` (Followed all guidelines: verbs for function names, snake_case DB columns, `{ ok, data/error }` structure, `user_id` scope, and input validation) |
 | **④** | **Points fixed by hand** | `None` (Code is fully functional and strictly follows Express route ordering rules) |
