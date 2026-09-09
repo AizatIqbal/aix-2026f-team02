@@ -10,7 +10,7 @@
 ---
 
 ## 구현할 작은 기능 / Small feature
-없음
+Search memo function
 
 
 ## 사용한 도구 / Tool used
