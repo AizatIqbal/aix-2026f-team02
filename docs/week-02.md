@@ -2,28 +2,32 @@
 
 **AI 협업 방식 비교 / Comparing two ways of working with AI**
 
-- 작성일 / Date: 
-- 참여자 / Present: 
+- 작성일 / Date: 9/9/2026
+- 참여자 / Present: 3/4 (파르하나, 무하마드 샤피크, 아이잣)
 - 결과보고서 / Report chapter: 6장 AI 활용과 판단
 - 최종 반영 / Feeds into: PROMPTS.md 첫 항목
 
 ---
 
 ## 구현할 작은 기능 / Small feature
-
+없음
 
 
 ## 사용한 도구 / Tool used
-
+Gemini
 
 
 ## 방식 A — 통째로 요청 / One big request
 
-프롬프트 / 결과 / 문제점
+### 프롬프트 
+### 결과
+### 문제점
 
 ## 방식 B — 4단계 분해 / spec → context → unit → verify
 
-
+### 프롬프트 
+### 결과
+### 문제점
 
 ## 두 방식의 차이 / Difference
 
