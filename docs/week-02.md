@@ -19,9 +19,9 @@ Gemini
 
 ## 방식 A — 통째로 요청 / One big request
 
-### 프롬프트 
+.### 프롬프트 
 메모 검색 기능 만들어줘. 제목이랑 본문에서 키워드로 찾을 수 있게.
-### 결과
+.### 결과
 # Example data structure using a list of dictionaries
 notes = [
     {"id": 1, "title": "Shopping List", "content": "Buy apples, bananas, milk", "user_id": 101},
@@ -55,13 +55,13 @@ def search_notes(notes, keyword, user_id):
             
     return results
 
-# Example Usage:
+.# Example Usage:
 print("User 101 searching for 'meeting':")
 print(search_notes(notes, "meeting", user_id=101))
 
 print("\nUser 101 searching for 'python' (belongs to User 102):")
 print(search_notes(notes, "python", user_id=101))  # Returns [] because of user isolation
-### 문제점
+.### 문제점
 → CONVENTIONS.md violations
 - Did not follow the project's JavaScript/SQL layer structure.
 - Empty keyword was not validated as a 400 error.
