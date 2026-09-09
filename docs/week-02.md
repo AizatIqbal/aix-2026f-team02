@@ -19,9 +19,9 @@ Gemini
 
 ## 방식 A — 통째로 요청 / One big request
 
-.### 프롬프트 
+.# 프롬프트 
 메모 검색 기능 만들어줘. 제목이랑 본문에서 키워드로 찾을 수 있게.
-.### 결과
+### 결과
 # Example data structure using a list of dictionaries
 notes = [
     {"id": 1, "title": "Shopping List", "content": "Buy apples, bananas, milk", "user_id": 101},
