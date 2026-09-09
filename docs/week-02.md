@@ -190,9 +190,9 @@ Here is the detailed check and report based on the provided requirements and gen
 
 | No. | Check Item | Result / Details |
 | --- | --- | --- |
-| **①** | **Time taken to successful execution** | `1 minute` |
-| **②** | **Number of non-existent functions and columns created** | `0` (No made-up names used) |
-| **③** | **CONVENTIONS.md Number of violations** | `0` (Followed all guidelines: verbs for function names, snake_case DB columns, `{ ok, data/error }` structure, `user_id` scope, and input validation) |
+| **①** | **Time taken to successful execution** | `40 seconds` |
+| **②** | **Number of non-existent functions and columns created** | `1` (No made-up names used) |
+| **③** | **CONVENTIONS.md Number of violations** | `4` (Followed all guidelines: verbs for function names, snake_case DB columns, `{ ok, data/error }` structure, `user_id` scope, and input validation) |
 | **④** | **Points fixed by hand** | `None` (Code is fully functional and strictly follows Express route ordering rules) |
 | **⑤** | **Is only my own memo returned?** | **Yes** |
 
