@@ -242,14 +242,15 @@ router.get('/memos/search', async (req, res) => {
 
 > **참고**: Express 라우팅 특성상 `GET /memos/search` 요청이 `GET /memos/:id`에 가려지지 않도록, `/memos/search` 라우트를 `/memos/:id` 라우터보다 **상단**에 작성해야 합니다.
 
+
 ### Check Report for group A
 
 | No. | Check Item | Result / Details |
 | --- | --- | --- |
 | **①** | **Time taken to successful execution** | `0 minutes 40 seconds` |
-| **②** | **Number of non-existent functions and columns created** | `1` (No made-up names used) |
-| **③** | **CONVENTIONS.md Number of violations** | `4` (Followed all guidelines: verbs for function names, snake_case DB columns, `{ ok, data/error }` structure, `user_id` scope, and input validation) |
-| **④** | **Points fixed by hand** | `None` (Code is fully functional and strictly follows Express route ordering rules) |
+| **②** | **Number of non-existent functions and columns created** | `1` (search_result()) |
+| **③** | **CONVENTIONS.md Number of violations** | `4` |
+| **④** | **Points fixed by hand** | `search_result()` |
 | **⑤** | **Is only my own memo returned?** | **Yes** |
 
 ### Check Report for group B
