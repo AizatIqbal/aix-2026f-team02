@@ -281,7 +281,11 @@ SELECT id, title, created_at
 4-1. What is the biggest difference between the two results?
 
 
+
 4-2. Is Group A's failure due to the model, or is it due to what we did not provide? Please state your reasoning.
+```
+Group A's failure is not due to the model, we believe that due to lack of resources like route.js and service.js, the result does not follow the main objectives included in CONVENTIONS.md as intended. Without the additional information in structure management, the result ends up as a stand-alone code.
+```
 
 4-3. Among the materials provided by Group B, what would you choose as the one that changed the results the most? Why do you think so?
 
