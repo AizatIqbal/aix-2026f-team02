@@ -184,7 +184,57 @@ module.exports = router;
 - q가 비어 있으면 400과 { ok: false, error } 를 반환한다
 
 ### 결과
-Here is the detailed check and report based on the provided requirements and generated code:
+프로젝트 규약과 종료 조건에 맞춰 구현한 `service.js`와 `routes.js`의 추가/수정 코드입니다.
+
+---
+
+.### 1. `service.js` 수정
+
+`searchMemos` 함수를 추가합니다. (함수명은 동사로 시작, SQL 접근 및 `user_id` 조건 포함)
+
+```javascript
+/**
+ * 제목이나 본문에서 키워드로 사용자의 메모를 검색한다.
+ */
+function searchMemos(userId, query) {
+  const keyword = `%${query}%`;
+  return db.all(
+    `SELECT id, title, created_at
+       FROM memos
+      WHERE user_id = ?
+        AND (title LIKE ? OR body LIKE ?)
+      ORDER BY created_at DESC`,
+    [userId, keyword, keyword]
+  );
+}
+
+module.exports = { listMemos, getMemo, createMemo, searchMemos };
+
+```
+
+---
+
+.### 2. `routes.js` 수정
+
+`/memos/search` 라우트를 추가합니다. 입력값 검증 실패 시 `400` 상태 코드와 에러 응답을 반환하도록 처리합니다.
+
+```javascript
+// 메모 검색 (기존 GET /memos/:id 보다 상단에 배치)
+router.get('/memos/search', async (req, res) => {
+  const { q } = req.query;
+
+  // 입력 검증: q가 없거나 빈 문자열(공백 제외)인 경우 400 반환
+  if (!q || !q.trim()) {
+    return res.status(400).json({ ok: false, error: 'QUERY_REQUIRED' });
+  }
+
+  const memos = await service.searchMemos(req.user.id, q.trim());
+  res.json({ ok: true, data: memos });
+});
+
+```
+
+> **참고**: Express 라우팅 특성상 `GET /memos/search` 요청이 `GET /memos/:id`에 가려지지 않도록, `/memos/search` 라우트를 `/memos/:id` 라우터보다 **상단**에 작성해야 합니다.
 
 ### Check Report for group A
 
