@@ -50,8 +50,8 @@
 
 | 질문 | 후보 A | 후보 B | 후보 C |
 |---|---|---|---|
-| 이 안에 **누구의 정보**가 들어가는가<br>그 사람이 우리 사용자와 같은 사람인가 |  |  |  |
-| 쓰고 싶어도 **못 쓰는 사람**은 누구인가 |  |  |  |
+| 이 안에 **누구의 정보**가 들어가는가<br>그 사람이 우리 사용자와 같은 사람인가 | Customer and business data. No, they are not the same as the user | The student's own goals, tasks, and progress. Yes, they are the same as the user |  |
+| 쓰고 싶어도 **못 쓰는 사람**은 누구인가 | Customers who generate business and purchasing data | None. The user controls their own goal and progress information |  |
 
 ---
 
