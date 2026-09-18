@@ -19,10 +19,10 @@
 
 | 네 요소 Four elements | 후보 A | 후보 B | 후보 C |
 |---|---|---|---|
-| 사용자 Who |  |  |  |
-| 상황 When/Where |  |  |  |
-| 페인포인트 What — 무엇이 **얼마나** |  |  |  |
-| 성공 기준 Done |  |  |  |
+| 사용자 Who |  |  Students, Coworkers|  |
+| 상황 When/Where |  | Managing and tracking progress to achieve goals |  |
+| 페인포인트 What — 무엇이 **얼마나** |  | Struggle to manage their goals |  |
+| 성공 기준 Done |  | Making a schedule to track progress |  |
 
 **한 문장으로 / One sentence each** — 네 칸을 이어 붙여 소리 내어 읽어 보세요.
 형식: **[사용자]는 [상황]에서 [페인포인트] 때문에 [손해]를 본다.**
