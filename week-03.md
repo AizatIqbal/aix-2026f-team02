@@ -28,9 +28,9 @@
 형식: **[사용자]는 [상황]에서 [페인포인트] 때문에 [손해]를 본다.**
 읽었을 때 어색하면 그 칸이 아직 덜 채워진 것입니다.
 
-- A: 
-- B: 
-- C: 
+- A:  Small business owners suffer difficulty making data-informed business decisions when starting or planning their business due to limited access to relevant customer, marketing, and market information.
+- B: University students struggle to manage progress toward their goals because they have difficulty breaking broad goals into manageable steps and determining whether they are on track.
+- C: Foreign students living in Korea waste time finding information about everyday local services because relevant information about locations, schedules, and procedures is difficult to find.
 
 > 무엇을 **만들지는 쓰지 않습니다.**  기능은 4~5주차에 정합니다. / Describe the problem, not the solution.
 
