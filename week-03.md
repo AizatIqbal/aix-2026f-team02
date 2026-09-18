@@ -73,9 +73,9 @@
 
 | # | 후보 | 우리가 사실이라 믿는 것 | 방법 | 누구에게 / 무엇을 | 담당 | 기한 |
 |---|---|---|---|---|---|---|
-| 1 |  |  |  |  |  |  |
-| 2 |  |  |  |  |  |  |
-| 3 |  |  |  |  |  |  |
+| 1 | A | New/small business owners have difficulty interpreting useful data for decisions about customers and marketing | Interview | 3+ entrepreneurs or people who recently started/planned a business | Team |  |
+| 2 | B | Students with long-term goals have difficulty turning those goals into manageable actions and tracking whether they are progressing appropriately | Interview | 3+ university students with ongoing academic/personal goals | Team |  |
+| 3 | C |  |  |  | Team |  |
 
 > **인터뷰를 쓴다면** 팀원 외 3명 이상,이 문제를 겪고 있는 당사자를 포함하세요.
 > 3명은 **주제를 거르기 위한 최소치**입니다. 통계가 아닙니다.
