@@ -73,9 +73,9 @@
 
 | # | 후보 | 우리가 사실이라 믿는 것 | 방법 | 누구에게 / 무엇을 | 담당 | 기한 |
 |---|---|---|---|---|---|---|
-| 1 | A | New/small business owners have difficulty interpreting useful data for decisions about customers and marketing | Interview | 3+ entrepreneurs or people who recently started/planned a business | Team |  |
-| 2 | B | Students with long-term goals have difficulty turning those goals into manageable actions and tracking whether they are progressing appropriately | Interview | 3+ university students with ongoing academic/personal goals | Team |  |
-| 3 | C |  |  |  | Team |  |
+| 1 | A | New/small business owners have difficulty interpreting useful data for decisions about customers and marketing | Interview | 3+ entrepreneurs or people who recently started/planned a business | Team | 2026.09.30 |
+| 2 | B | Students with long-term goals have difficulty turning those goals into manageable actions and tracking whether they are progressing appropriately | Interview | 3+ university students with ongoing academic/personal goals | Team | 2026.09.30 |
+| 3 | C |  |  |  | Team | 2026.09.30 |
 
 > **인터뷰를 쓴다면** 팀원 외 3명 이상,이 문제를 겪고 있는 당사자를 포함하세요.
 > 3명은 **주제를 거르기 위한 최소치**입니다. 통계가 아닙니다.
@@ -95,6 +95,17 @@
 > 과거형으로. "쓰시겠어요?"(X) → "최근에 그런 적 있으셨어요?"(O)
 > 미래 의향을 물으면 대부분 "네"가 나옵니다.
 
+후보 A
+1. How do you track data about sales records, marketing data, and/or operational data?
+2. Do you experience any difficulty when analyzing said data? If so, describe the problems you face.
+3. Have you used any tools to help you make business decisions? If so, what tool(s) is it?
+
+후보 B
+1. How do you currently schedule your routine?
+2. Have you used any tools to check your progress and objectives? If so, what tool(s) is it?
+3. On a scale of 1-10, how much do you think you struggle to keep consistency in your routine?
+
+후보 C
 1. 
 2. 
 3. 
@@ -113,10 +124,10 @@
 
 | 상황 | 기록? |
 |---|---|
-| "EARS가 뭐야?" 같은 개념 질문, 번역, 오타 수정 | 안 함 |
-| AI가 뽑아준 인터뷰 질문을 3절에 옮겨 적음 | **함** |
-| AI에게 후보 아이디어를 받아 1절에 반영함 | **함** |
-| 받았지만 안 쓰기로 한 것 중, 판단이 오래 걸린 것 | **함** |
+|"EARS가 뭐야?" 같은 개념 질문, 번역, 오타 수정|*안 함*|
+|AI가 뽑아준 인터뷰 질문을 3절에 옮겨 적음	|*안 함*|
+|AI에게 후보 아이디어를 받아 1절에 반영함	|*안 함*|
+|받았지만 안 쓰기로 한 것 중, 판단이 오래 걸린 것	|*함*|
 
 **주당 최대 3건.** 3건을 넘으면 가장 중요한 3건만 고릅니다. 억지로 채우지 마세요.
 나머지는 한 줄로 / Summarise the rest in one line: 
@@ -133,7 +144,7 @@
 > 그대로 1절에 옮기면 '가짜 사용자형'이 됩니다. 사용자는 여러분이 찾아야 합니다.
 
 - [ ] 해당 건을 `PROMPTS.md`에 기록했다 / Logged in `PROMPTS.md`
-- [ ] 산출물에 들어간 AI 결과물이 없다 / Nothing from AI made it into our work
+- [x] 산출물에 들어간 AI 결과물이 없다 / Nothing from AI made it into our work
 
 ---
 
