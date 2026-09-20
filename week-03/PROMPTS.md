@@ -43,8 +43,6 @@ what is the solution can be done.Make it in table for easier visualisation.
  ```
 4. 버렸다면 왜 버렸는가 — 이 한 줄을 봅니다
   ```
-We take AI suggestions for developing an app for AI assisting managing and
-tracking their progress.Also specialised app for business statistic analyst for
-people to easily understand their business performance by simply giving input data.  
+We do not take majority of suggestions from AI as it is similiar to each other.However,we take AI suggestions for developing an app for AI assisting managing and tracking their progress.Also specialised app for business statistic analyst for people to easily understand their business performance by simply giving input data.  
 
 ```
