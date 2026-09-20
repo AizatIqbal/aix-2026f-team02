@@ -3,19 +3,19 @@
 PROMPTS.md에 남길 것 — 건당 네 줄이면 충분합니다
 
 1. 무엇을 하려고 썼는가
-   '''
+ ```
    Suggestion from AI what common struggles people have to deal in daily life.
 
-   '''
+```
 2. 넣은 프롬프트 원문 그대로 — 요약하지 않습니다
-   '''
+  ```
    Give me examples for me to develop an app that could solve people's daily problem.
 State targeted person, when and where they could apply it ,their struggles and 
 what is the solution can be done.Make it in table for easier visualisation.
 
-   '''
+ ```
 3. 나온 것 중 쓴 것 / 버린 것
-   '''
+ ```
    AI RESULT:
 | #  | Target person                               | When & where they use it                         | Their struggle                                                    | App solution                                                               | Example features                                                                  |
 | -- | ------------------------------------------- | ------------------------------------------------ | ----------------------------------------------------------------- | -------------------------------------------------------------------------- | --------------------------------------------------------------------------------- |
@@ -40,11 +40,11 @@ what is the solution can be done.Make it in table for easier visualisation.
 | 19 | **Students learning Korean**                | Campus, shops, daily life                        | Know textbook Korean but struggle with real situations            | **Situation Korean**                                                       | Scenario-based phrases for restaurants, professors, hospitals, shops              |
 | 20 | **People who forget appointments**          | Daily life                                       | Remember the appointment but forget preparation                   | **Appointment Preparation Assistant**                                      | Appointment reminder + checklist such as documents, transportation, payment       |
 
-   '''
+ ```
 4. 버렸다면 왜 버렸는가 — 이 한 줄을 봅니다
-   '''
+  ```
 We take AI suggestions for developing an app for AI assisting managing and
 tracking their progress.Also specialised app for business statistic analyst for
 people to easily understand their business performance by simply giving input data.  
 
-   '''
+```
