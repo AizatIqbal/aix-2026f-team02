@@ -106,9 +106,9 @@
 3. On a scale of 1-10, how much do you think you struggle to keep consistency in your routine?
 
 후보 C
-1. 
-2. 
-3. 
+1. Have you recently needed information about a Korean local service, such as waste disposal, bills, insurance, or a government office?
+2. How did you find the information you needed?
+3. Have you recently spent significant time searching for or asking someone about how to handle a local service?
 
 **관찰·데이터·직접 해보기를 한다면 / If you observe instead**
 
