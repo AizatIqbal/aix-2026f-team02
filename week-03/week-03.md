@@ -19,10 +19,10 @@
 
 | 네 요소 Four elements | 후보 A | 후보 B | 후보 C |
 |---|---|---|---|
-| 사용자 Who | Micro/Small business owners, local restaurant owners |  Students, Coworkers|  |
-| 상황 When/Where | Making business decisions | Managing and tracking progress to achieve goals |  |
-| 페인포인트 What — 무엇이 **얼마나** | Decisions driven without facts and data, business growth is limited | Struggle to manage their goals |  |
-| 성공 기준 Done | Having accessible visualization and analysis of data | Making a schedule to track progress |  |
+| 사용자 Who | Micro/Small business owners, local restaurant owners |  Students, Coworkers| Newly arrived foreign residents, international students, and travelers in Korea with limited Korean language skills |
+| 상황 When/Where | Making business decisions | Managing and tracking progress to achieve goals |In Korea while attempting daily mobility, transit, navigation, or basic local tasks  |
+| 페인포인트 What — 무엇이 **얼마나** | Decisions driven without facts and data, business growth is limited | Struggle to manage their goals | Severe fragmentation needing dozens of separate apps for maps, subway, bus, taxi, and delivery combined with language barriers, resulting in high anxiety, wasted time, and total helplessness if their phone battery dies or an app fails |
+| 성공 기준 Done | Having accessible visualization and analysis of data | Making a schedule to track progress | Anyone should navigate to a destination, take local transport, or handle a daily task without needing 5+ different local apps or feeling stranded |
 
 **한 문장으로 / One sentence each** — 네 칸을 이어 붙여 소리 내어 읽어 보세요.
 형식: **[사용자]는 [상황]에서 [페인포인트] 때문에 [손해]를 본다.**
@@ -50,8 +50,8 @@
 
 | 질문 | 후보 A | 후보 B | 후보 C |
 |---|---|---|---|
-| 이 안에 **누구의 정보**가 들어가는가<br>그 사람이 우리 사용자와 같은 사람인가 | Customer and business data. No, they are not the same as the user | The student's own goals, tasks, and progress. Yes, they are the same as the user |  |
-| 쓰고 싶어도 **못 쓰는 사람**은 누구인가 | Customers who generate business and purchasing data | None. The user controls their own goal and progress information |  |
+| 이 안에 **누구의 정보**가 들어가는가<br>그 사람이 우리 사용자와 같은 사람인가 | Customer and business data. No, they are not the same as the user | The student's own goals, tasks, and progress. Yes, they are the same as the user | Transit operators and venue locations. No, they are not the same as the user |
+| 쓰고 싶어도 **못 쓰는 사람**은 누구인가 | Customers who generate business and purchasing data | None. The user controls their own goal and progress information | Short-term tourists without a Korean SIM or Alien Registration Card for identity verification |
 
 ---
 
@@ -75,7 +75,7 @@
 |---|---|---|---|---|---|---|
 | 1 | A | New/small business owners have difficulty interpreting useful data for decisions about customers and marketing | Interview | 3+ entrepreneurs or people who recently started/planned a business | Team | 2026.09.30 |
 | 2 | B | Students with long-term goals have difficulty turning those goals into manageable actions and tracking whether they are progressing appropriately | Interview | 3+ university students with ongoing academic/personal goals | Team | 2026.09.30 |
-| 3 | C |  |  |  | Team | 2026.09.30 |
+| 3 | C | Foreigners/travelers in Korea face difficulty navigating daily transit and tasks due to app fragmentation and language barriers | Interview | 3+ foreign residents (lived for 5 or more years) or travelers living in Korea | Team | 2026.09.30 |
 
 > **인터뷰를 쓴다면** 팀원 외 3명 이상,이 문제를 겪고 있는 당사자를 포함하세요.
 > 3명은 **주제를 거르기 위한 최소치**입니다. 통계가 아닙니다.
