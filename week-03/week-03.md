@@ -21,8 +21,8 @@
 |---|---|---|---|
 | 사용자 Who | Micro/Small business owners, local restaurant owners |  Students, Coworkers| Newly arrived foreign residents, international students, and travelers in Korea with limited Korean language skills |
 | 상황 When/Where | Making business decisions | Managing and tracking progress to achieve goals |In Korea while attempting daily mobility, transit, navigation, or basic local tasks  |
-| 페인포인트 What — 무엇이 **얼마나** | Decisions driven without facts and data, business growth is limited | Struggle to manage their goals | Severe fragmentation needing dozens of separate apps for maps, subway, bus, taxi, and delivery combined with language barriers, resulting in high anxiety, wasted time, and total helplessness if their phone battery dies or an app fails |
-| 성공 기준 Done | Having accessible visualization and analysis of data | Making a schedule to track progress | Anyone should navigate to a destination, take local transport, or handle a daily task without needing 5+ different local apps or feeling stranded |
+| 페인포인트 What — 무엇이 **얼마나** | Decisions driven without facts and data, business growth is limited | Struggle to manage their goals, lack of clarity and inconvenient habit tracking methods may cause them to give up on their goals | Severe fragmentation needing dozens of separate apps for maps, subway, bus, taxi, and delivery combined with language barriers, resulting in high anxiety, wasted time, and total helplessness if their phone battery dies or an app fails |
+| 성공 기준 Done | Having accessible visualization and analysis of data | Having a schedule and an easy intuitive way to track progress | Being able to navigate to a destination, take local transport, or handle a daily task in just one centralized app/place |
 
 **한 문장으로 / One sentence each** — 네 칸을 이어 붙여 소리 내어 읽어 보세요.
 형식: **[사용자]는 [상황]에서 [페인포인트] 때문에 [손해]를 본다.**
