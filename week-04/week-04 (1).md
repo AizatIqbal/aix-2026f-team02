@@ -2,8 +2,8 @@
 
 **주제 선택과 요구 명세 / Choosing a problem & writing the spec**
 
-- 작성일 / Date: 
-- 참여자 / Present: 
+- 작성일 / Date: 2026/09/23
+- 참여자 / Present: Aizat,Syafiq,Farhana
 
 ---
 
