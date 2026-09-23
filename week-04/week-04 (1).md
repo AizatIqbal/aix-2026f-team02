@@ -11,8 +11,9 @@
 
 | 항목 Item | 내용 |
 |---|---|
-| 선택한 주제 Chosen |  |
-| 선택 근거 Why |  |
+| 선택한 주제 Chosen | Business analyst problem |
+| 선택 근거 Why | Comparing with other problems we had proposed, it is more feasible to develop an app that has functionality of providing analysis services for users that can be implemented by the developers themselves rather than only relying on Artificial Intelligence features.
+  |
 
 ## ② 성공 기준 가져오기 / Success criteria from Week 3
 
