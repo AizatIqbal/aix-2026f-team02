@@ -19,7 +19,7 @@
 | 3주차 성공 기준 원문 Original (Week 3) | 모호한 표현 Vague words |
 |---|---|
 | *(예시) 학생들이 과제 제출 현황을 쉽게 확인할 수 있다* | *쉽게, 확인할 수 있다* |
-|  |  |
+| Having accessible visualization and analysis of data  | Accessible |
 
 ## ③ Acceptance Criteria
 
