@@ -3,7 +3,7 @@
 **1-page 기획서 / One-page plan**
 
 - 작성일 / Date: 30.9.2026
-- 참여자 / Present: Aizat,Syafiq,Farhana,Qassim
+- 참여자 / Present: Aizat,Syafiq,Farhana,Qasim
 
 ---
 
