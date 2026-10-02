@@ -101,8 +101,16 @@ graph LR
 
 - 특수 장비·유료 API·실제 개인정보가 필요한가? 필요하다면 대안은?
   *Does it need special hardware, paid APIs or real personal data? If so, what is the alternative?*
+  Special hardware / paid API / personal data
+     - No special hardware is required. The core service can be developed using sample business data. An AI API may be required only if the optional AI business-planning feature is implemented. 
+User accounts / server
+   - A user account system would require additional backend infrastructure, authentication, database management, and security considerations. Therefore, user login is outside the core scope for this semester. 
+AI API
+   - The core analysis and statistics can be implemented without an AI API. AI API usage is only planned for the optional AI business-planning feature.
+
 - 15주차에 발표장에서 시연할 수 있는 형태인가?
   *Can it be demonstrated live in Week 15?*
+  Yes, can be implemented.
 
 ---
 
