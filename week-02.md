@@ -2,7 +2,7 @@
 
 | | |
 | :-- | :-- |
-| 팀명 |Team02 |
+| 팀명 |Null|
 | 작성일 |2026.09.09 |
 | 참여자 |Aizat Syafiq Farhana Che Qassim |
 
@@ -50,8 +50,7 @@
 
 ```
 [지시]
-메모 검색 기능을 추가해줘. 제목과 본문에서 키워드로 검색된다.
-
+Add a memo search function. It searches by keyword in the title and body.
 [규약]
 (CONVENTIONS.md 내용 전체를 붙여넣기)
 
@@ -68,7 +67,7 @@
 ### 실제로 붙여넣은 것 (원문 그대로, 요약 금지)
 
 ```
-(여기에 붙여넣기)
+"Add a memo search function. It searches by keyword in the title and body", all contents from CONVENTIONS.md, schema.sql, service.js, route.js was also pasted
 ```
 
 > 요약하지 마세요. 나중에 이 기록이 무엇이 결과를 만들었는지 확인하는 근거가 됩니다.
@@ -125,13 +124,13 @@
 위 2번의 프롬프트 원문을 저장소의 `PROMPTS.md`에 추가하고 커밋하세요.
 
 ```markdown
-## 2026-__-__ · 메모 검색 기능 (2주차 활동)
+## 2026-9-9 · 메모 검색 기능 (2주차 활동)
 
 **지시**
-(붙여넣은 프롬프트 원문)
+메모 검색 기능을 추가해줘. 제목과 본문에서 키워드로 검색된다
 
 **채택 여부**
-(전체 채택 / 일부 채택 — 무엇을 어떻게 수정했는지 / 미채택)
+None
 
 **참고**
 (있으면)
