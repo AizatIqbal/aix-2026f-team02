@@ -12,6 +12,7 @@
 Aizat
 Syafiq
 Farhana
+Qassim
 
 
 
@@ -20,26 +21,36 @@ Farhana
 
 
 ## 회의 규칙 / Meeting rule — 요일·시간·불참 처리
-
+1. Additional meeting will be decided according to how much discussion as the worksheet require in order to be properly completed.
+2. Every members will be given task before the meeting and the said tasks will be presented in meeting.
 
 
 ## 기여 규칙 / Contribution rule — 1인당 주 최소 작업량
+1. 2 of the team members will be given responsiblity to handle commits and PR.
+2. Team leader will submit the repo link of the said worksheet after all the work has been done.
+3. Team members that didnt contribute as much in the prior week worksheet will be given additional task .
 
 
 
 ## 갈등 처리 / Conflict rule — 의견이 갈릴 때
+- Every commit must be commited as a branch first, and only after getting reviewed by other teammates will the pull request be merged.
 
 
 
-## 마감 규칙 / Deadline rule
+## 마감 규칙 / Deadline rule\
+- Every assignment must be submited by Monday night.
 
 
 
 ## **팀 공용 언어 / Working language** — 회의 언어 / 기록 언어
+1. Python
+2. Java
 
 
 
 ## AI 사용에 대한 팀 합의 / Team agreement on AI use
+1. Results from any AI tools cannot be directly pasted to the worksheet
+   
 
 
 
