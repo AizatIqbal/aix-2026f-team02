@@ -51,8 +51,16 @@
 
 ```mermaid
 graph LR
-  T1["#1 태스크명"] --> T3["#3 태스크명"]
-  T2["#2 태스크명"] --> T3
+  T1["#1 Define business data structure"] --> T2["#2 Create database and storage"]
+  T2 --> T3["#3 Define logic for business data input system"]
+  T3 --> T4["#4 Implement sales & marketing data retrieval"]
+  T4 --> T5["#5 Implement data analysis & statistics"]
+  T3 --> T6["#6 Design Main screens and required UI elements"]
+  T5 --> T7["#7 Build dashboard & visualizations"]
+  T6 --> T7
+  T7 --> T9["#9 Integrate complete user flow"]
+  T6 --> T8["#8 Build interface for business data input"]
+  T8 --> T9
 ```
 
 - 지금 착수 가능 (진입 차수 0) / Can start now (in-degree 0): 
