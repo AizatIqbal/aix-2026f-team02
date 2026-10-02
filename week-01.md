@@ -3,20 +3,29 @@
 **팀 규칙 세우기 / Setting team rules**
 
 - 작성일 / Date:2026/09/08
-- 참여자 / Present: 
+- 참여자 / Present: Syafiq, Aizat, Farhana, Qassim
 - 최종 반영 / Feeds into: docs/team-rules.md
 
 ---
 
 ## 팀명·팀원·학부 / Team, members, department
-Aizat
-Syafiq
-Farhana
-Qassim
+
+| Team Name | Null |
+|---|---|
+
+| Name | Department |
+| ---|---|
+| Aizat  | Computer Science |
+| Syafiq  | Computer Science |
+| Farhana  | Computer Science |
+| Qassim  | Computer Science |
 
 
 
 ## 연락 규칙 / Contact rule — 어디로, 몇 시간 내 응답
+1. Team members will be contacted via Whatsappp
+2. Any discussion regarding task that are needed to be discussed will be done via Whatsapp
+3. Online team discussion will be done through Discord chatrooom
 
 
 
