@@ -26,10 +26,15 @@
 
 | # | 태스크 Task | 완료 조건 Done when | 선행 태스크 Depends on | 담당 Owner |
 |---|---|---|---|---|
-|  |  |  |  |  |
-|  |  |  |  |  |
-|  |  |  |  |  |
-|  |  |  |  |  |
+| 1 | Define business data structure | Required business, sales, and marketing fields are documented | - | Farhana |
+| 2 | Create database and storage | Business data can be successfully saved and retrieved | #1 | Qasim |
+| 3 | Build business data input | User can enter and submit data successfully | #1, #2 | Syafiq |
+| 4 | Implement sales & marketing data retrieval | Required sales/marketing data can be retrieved by the platform | #2, #3 | Syafiq |
+| 5 | Implement data analysis & statistics | Retrieved data is processed into required statistics | #4 | Aizat |
+| 6 | Main screens and required UI elements are documented/designed | Main screens for data input and dashboard are usable | #1, #3 | Aizat |
+| 7 | Build dashboard & visualizations | Statistics are displayed correctly through charts/tables | #5, #6 | Farhana |
+| 8 | Integrate complete user flow | User can input data → store/retrieve data → data analyzing → view dashboard | #3, #4, #7 | Qasim |
+
 
 ### 의존 관계 그래프 / Dependency graph (DAG)
 
