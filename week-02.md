@@ -25,8 +25,8 @@
 
 | 조 | 참여자 |
 | :-- | :-- |
-| A조 |Farhana |
-| B조 | Syafiq, Aizat|
+| A조 |Syafiq, Aizat |
+| B조 |Farhana|
 
 **두 조는 같은 과제를 동시에 수행합니다.** 서로의 화면을 보지 마세요.
 
