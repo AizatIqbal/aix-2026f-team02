@@ -33,7 +33,8 @@
 | 5 | Implement data analysis & statistics | Retrieved data is processed into required statistics | #4 | Aizat |
 | 6 | Main screens and required UI elements are documented/designed | Main screens for data input and dashboard are usable | #1, #3 | Aizat |
 | 7 | Build dashboard & visualizations | Statistics are displayed correctly through charts/tables | #5, #6 | Farhana |
-| 8 | Integrate complete user flow | User can input data → store/retrieve data → data analyzing → view dashboard | #3, #4, #7 | Qasim |
+| 8 | Build interface for business data input | Users can use the interface to navigate/ submit data | #7 | Syafiq |
+| 9 | Integrate complete user flow | User can input data → store/retrieve data → data analyzing → view dashboard | #3, #4, #7 | Qasim |
 
 
 ### 의존 관계 그래프 / Dependency graph (DAG)
