@@ -96,7 +96,9 @@ graph LR
 |---|---|
 | Multiple languages supports | Outside the core scenario and limited development time |
 | Accessibility features such as visual and auditory accessibility | Difficult to implement within the current project scope, requires |
-| Payment/subscription system | Not necessary for demonstrating the core business analysis service |
+| Payment/subscription system | Not necessary for demonstrating the core business analysis service | \
+
+Integration with ad platforms  - Limited development time and difficult to coordinate systems with multiple different platform APIs \
 
 ### 실행 가능성 확인 / Feasibility check
 
