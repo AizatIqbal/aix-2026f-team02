@@ -3,7 +3,7 @@
 **1-page 기획서 / One-page plan**
 
 - 작성일 / Date: 30.9.2026
-- 참여자 / Present: Aizat,Syafiq,Farhana,Qasim
+- 참여자 / Present: Aizat, Syafiq, Farhana, Qasim
 
 ---
 
@@ -94,13 +94,14 @@ graph LR
 
 | Won't 항목 Item | 포기한 이유 Why |
 |---|---|
-|  |  |
-|  |  |
+| Multiple languages supports | Outside the core scenario and limited development time |
+| Accessibility features such as visual and auditory accessibility | Difficult to implement within the current project scope, requires |
+| Payment/subscription system | Not necessary for demonstrating the core business analysis service |
 
 ### 실행 가능성 확인 / Feasibility check
 
 - 특수 장비·유료 API·실제 개인정보가 필요한가? 필요하다면 대안은?
-  *Does it need special hardware, paid APIs or real personal data? If so, what is the alternative?*
+  *Does it need special hardware, paid APIs or real personal data? If so, what is the alternative?* \
   Special hardware / paid API / personal data
      - No special hardware is required. The core service can be developed using sample business data. An AI API may be required only if the optional AI business-planning feature is implemented. 
 User accounts / server
@@ -109,7 +110,7 @@ AI API
    - The core analysis and statistics can be implemented without an AI API. AI API usage is only planned for the optional AI business-planning feature.
 
 - 15주차에 발표장에서 시연할 수 있는 형태인가?
-  *Can it be demonstrated live in Week 15?*
+  *Can it be demonstrated live in Week 15?* \
   Yes, can be implemented.
 
 ---
