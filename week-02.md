@@ -109,17 +109,22 @@ Add a memo search function. It searches by keyword in the title and body.
 ## 4. 두 조의 결과 비교
 
 **4-1. 두 결과의 가장 큰 차이는 무엇입니까?**
-
+```
 One of the biggest differences is that group B provided the AI with specific instructions and material that group A did not provide, thus the output yielded by group B was faster by 31 seconds difference and more accurate. The AI is able to follow the guidelines specified in CONVENTIONS.md while group A managed to violate all of the guidelines.
-
+```
 
 **4-2. A조의 실패는 모델 탓입니까, 우리가 주지 않은 탓입니까? 근거를 들어 적으세요.**
+```
 
 Group A's failure is not due to the model, we believe that due to lack of resources like route.js and service.js, the result does not follow the main objectives included in CONVENTIONS.md as intended. Without the additional information in structure management, the result ends up as a stand-alone code.
+```
 
 **4-3. B조가 준 자료 중 결과를 가장 크게 바꾼 것 하나를 꼽는다면 무엇입니까? 왜 그렇게 생각합니까?**
+```
 
 I think the 근거 material is the one that changed the results the most. In my opinon, most of the requirements specified in the 규약 material is implied or can be deduced just by looking at the 근거 material. this is especially true when the added search memo function is structually similar to the other functions that is found in the service.js and routes.js files.
+```
+```
 
 ---
 
