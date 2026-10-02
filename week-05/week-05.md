@@ -75,19 +75,19 @@ graph LR
 
 핵심 시나리오 1개가 끝까지 동작하는 데 필요한 것만 / *Only what the core scenario needs to work end-to-end*
 
-- 핵심 시나리오 / Core scenario: 
+- 핵심 시나리오 / Core scenario: Core Services --> business data inputs , sales and marketing data retrieval, dashboard and statistics visuals, database storage and record
 
 
 
 ### Should (없을 경우에는 작성하지 마세요)
  
- - 시나리오
+ - 시나리오 / Scenario: Basic platform still can function --> AI support for future business plan according to data retrieved and business stats.
 
 
 
 ### Could (없을 경우에는 작성하지 마세요)
 
- - 시나리오
+ - 시나리오 / Scenario: If got more time --> Local backup files,account for login
 
 ### **Won't — 이번 학기에 안 함 / not this semester**
 
