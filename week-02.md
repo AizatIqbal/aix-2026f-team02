@@ -76,16 +76,27 @@ Add a memo search function. It searches by keyword in the title and body.
 
 ## 3. 결과 확인
 
-| | 확인 항목 | 결과 |
-| :-: | :-- | :-- |
-| ① | 실행 성공까지 걸린 시간 | 분 |
-| ② | 없는 함수·컬럼을 지어낸 개수 | 개 |
-| | → 지어낸 이름 | |
-| ③ | `CONVENTIONS.md` 위반 개수 | 개 |
-| | → 무엇을 어겼는가 | |
-| ④ | 사람이 직접 고친 지점 | 곳 |
-| | → 어디를 어떻게 | |
-| ⑤ | **본인 메모만 반환되는가** | 예 / 아니오 |
+### Check Report for group A
+
+| No. | Check Item | Result / Details |
+| --- | --- | --- |
+| **①** | **Time taken to successful execution** | `0 minutes 40 seconds` |
+| **②** | **Number of non-existent functions and columns created** | `1` (search_result()) |
+| **③** | **CONVENTIONS.md Number of violations** | `4` |
+| **④** | **Points fixed by hand** | `search_result()` |
+| **⑤** | **Is only my own memo returned?** | **Yes** |
+
+### Check Report for group B
+
+| No. | Check Item | Result / Details |
+| --- | --- | --- |
+| **①** | **Time taken to successful execution** | `0 minutes 9 seconds` |
+| **②** | **Number of non-existent functions and columns created** | `0` (No made-up names used) |
+| **③** | **CONVENTIONS.md Number of violations** | `0` (Followed all guidelines: verbs for function names, snake_case DB columns, `{ ok, data/error }` structure, `user_id` scope, and input validation) |
+| **④** | **Points fixed by hand** | `None` (Code is fully functional and strictly follows Express route ordering rules) |
+| **⑤** | **Is only my own memo returned?** | **Yes** |
+
+---
 
 ### ⑤번을 반드시 확인하세요
 
