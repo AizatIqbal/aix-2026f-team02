@@ -9,8 +9,8 @@
 
 ## ① 주제 확정 / Confirm topic
 
-- 확정 주제 / Topic: 
-- 이유 / Reason: 
+- 확정 주제 / Topic: Business Analyst
+- 이유 / Reason: Compared to the other problems we proposed, it is more feasible to develop an app that provides analysis services that can be implemented by the developers themselves, rather than relying primarily on AI features.
 
 ---
 
