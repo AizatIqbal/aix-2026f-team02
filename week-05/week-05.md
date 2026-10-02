@@ -102,8 +102,7 @@ graph LR
 예 / Example: 과제 ID를 입력하면 → LMS에서 제출 기록을 받아 와서 → 화면에 제출 인원 숫자 하나가 뜬다
 
 > [무엇을 입력하면] → [무엇을 처리해서] → [화면에 무엇이 나온다]
-> 
-
+[User opens the platform and inputs business data] → [The system stores and analyzes the selected sales/marketing data] → [The dashboard displays the analysis results, or an error message and data-input option if required data is unavailable]
 ---
 
 > 수업 종료 시 커밋하세요 / Commit this at the end of class
