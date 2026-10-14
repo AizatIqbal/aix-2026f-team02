@@ -12,9 +12,9 @@
 
 | 계층 / Layer | 모듈·파일 / Modules | 의존하지 않는 것 / Does not depend on |
 |---|---|---|
-| 표현 / Presentation | | |
-| 로직 / Logic | | |
-| 데이터 / Data | | |
+| 표현 / Presentation | |Database type,database queries, and the internal formulas used to calculate statistics |
+| 로직 / Logic | | Screen layout,chart style, or whether the interface is a website or desktop app|
+| 데이터 / Data | |Screen layout,chart display and business analysis formula |
 
 ## 2. 이슈 / Issues
 
