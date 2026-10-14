@@ -2,7 +2,7 @@
 
 | 팀명 / Team | 작성일 / Date | 참여자 / Members |
 |---|---|---|
-| Null |10/14/2026 | Aizat, Syafiq, Qassim|
+| Null |10/14/2026 | Aizat, Syafiq, Qasim|
 
 ## 1. 아키텍처 다이어그램 / Architecture Diagram
 
