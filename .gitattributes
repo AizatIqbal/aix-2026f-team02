@@ -1,0 +1,22 @@
+﻿# Automatically detect text files and normalize line endings
+* text=auto
+
+# Shell scripts
+*.sh text eol=lf
+
+# Windows scripts
+*.bat text eol=crlf
+*.cmd text eol=crlf
+
+# Binary assets and database files
+*.png -text
+*.jpg -text
+*.jpeg -text
+*.gif -text
+*.ico -text
+*.pdf -text
+*.accdb -text
+*.laccdb -text
+*.db -text
+*.sqlite -text
+*.sqlite3 -text
