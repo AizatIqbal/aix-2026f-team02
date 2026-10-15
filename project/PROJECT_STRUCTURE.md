@@ -17,6 +17,9 @@ Business Management and Analytics web application.
 - `tests/` — Backend tests.
 - `requirements.txt` — Python dependencies.
 
+Server on/off switch (inform group if want to run)
+.\.venv\Scripts\python.exe -m uvicorn app.main:app --reload --reload-dir app
+
 ## Notes
 
 - The database technology is still to be confirmed.
