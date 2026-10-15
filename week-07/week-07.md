@@ -35,7 +35,7 @@
 
 | 마일스톤 / Milestone | 마감 / Due | 포함 이슈 / Issues |
 |---|---|---|
-| MVP 완료 | 11주차 | |
-| 실행 패키지 | 13주차 | |
+| MVP 완료 | 11주차 |Sales data: data inputs, data retrieval, dashboard and simple statistics, database storage and record) |
+| 실행 패키지 | 13주차 |Marketing data: data inputs, data retrieval, dashboard and simple + advanced statistics, database storage and record); Sales data: advanced statistics|
 
 > AI를 사용했다면 `PROMPTS.md`에 기록 / Log any AI use in `PROMPTS.md`
