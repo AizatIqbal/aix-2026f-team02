@@ -14,7 +14,7 @@
 |---|---|---|
 | 표현 / Presentation |Business Data Input Screen:form for entering sales and marketing data, with validation messages and save confirmation.Dashboard:charts,tables and messages when data is unavailable|Database type,database queries, and the internal formulas used to calculate statistics |
 | 로직 / Logic |Business Data Service:validates submitted data and coordinates saving, retrieval and analysis. Analysis and Statistics:calculates statistics such as total sales and total marketing spending| Screen layout,chart style, or whether the interface is a website or desktop app|
-| 데이터 / Data |Business Data Handling:saves and retrieves business , sales, and marketing records. Business Database:stores those records|Screen layout,chart display and business analysis formula |
+| 데이터 / Data | Business Database:stores those records|Screen layout,chart display and business analysis formula |
 
 ## 2. 이슈 / Issues
 
