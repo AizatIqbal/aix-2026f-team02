@@ -25,8 +25,8 @@
 | # | 제목 / Title | 라벨 / Label | 담당 / Assignee | 완료 조건 / Acceptance Criteria |
 |---|---|---|---|---|
 | 예시 #3 | 알레르기 필터 | backend | 홍길동 | '땅콩'을 선택하면 땅콩이 들어간 메뉴가 추천 결과에서 빠진다 |
-|1. | | | | |
-|2. | | | | |
+|1. |Defining the data structure |  Documentation|Farhana| Required business, sales, and marketing fields are documented and agreed upon by the team|
+|2. | Setting up the database |Database/ Backend | Qasim| Business data can be successfully saved to and retrieved from the database using the documented data structure|
 |3. |User I/O System |frontend/backend | Syafiq| Users can enter business data through the input interface, submit it, and receive confirmation that it was saved successfully |
 |4. |Data Loader |backend |Syafiq|The platform can retrieve the required sales and marketing data from the database for further processing |
 |5. |Analytics Implementtation|backend/analytics|Aizat |Retrieved data is processed into the agreed-upon sales and marketing statistics, and the results can be verified against sample data |
