@@ -8,7 +8,7 @@
 
 손그림 사진을 올리고 링크하십시오 / Upload a photo and link it.
 
-![architecture](img/week-07-arch.png)
+![Business Analyst Architecture Diagram](./ArchitectureDiagram.PNG)
 
 | 계층 / Layer | 모듈·파일 / Modules | 의존하지 않는 것 / Does not depend on |
 |---|---|---|
