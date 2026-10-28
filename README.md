@@ -22,6 +22,10 @@
 git clone <repo-url>
 # 설치 / install
 # 실행 / run
+
+Frontend server init
+#pnpm dev
+# Stop the server via CTRL C
 ```
 필요한 환경변수 / Required environment variables: `.env.example` 참고
 
