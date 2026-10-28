@@ -1,0 +1,10 @@
+{
+  "description": "A business management platform that helps teams organize operations, coordinate work, and manage day-to-day tasks in one place.",
+  "robots": {
+    "index": false
+  },
+  "accessibility": {
+    "addBypassLinks": false,
+    "ignoreReducedMotion": false
+  }
+}
