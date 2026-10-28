@@ -2,8 +2,8 @@
 
 **개발 착수 / Starting development**
 
-- 작성일 / Date: 
-- 참여자 / Present: 
+- 작성일 / Date: 10/28/2026
+- 참여자 / Present: 샤피크, 아이잣, 파르하나, Qasim
 
 ---
 
@@ -12,8 +12,8 @@
 수업 시작 후 10분 안에 확인합니다. 체크되지 않은 항목이 있으면 그것부터 해결하고 개발을 시작합니다.
 *Check within the first 10 minutes. Fix any unchecked item before you start coding.*
 
-- [ ] 초기 파일이 저장소에 올라와 있다 / Initial files are in the repository
-- [ ] 7주차 이슈가 GitHub에 등록되어 있고 담당자가 지정되어 있다 / Week 7 issues are on GitHub with owners
+- [/] 초기 파일이 저장소에 올라와 있다 / Initial files are in the repository
+- [/] 7주차 이슈가 GitHub에 등록되어 있고 담당자가 지정되어 있다 / Week 7 issues are on GitHub with owners
 - [ ] 팀원 모두 같은 환경에서 실행된다 / Everyone can run it in the same environment
 - [ ] 브랜치 규칙을 정했다 / Branch rule agreed — 
 
