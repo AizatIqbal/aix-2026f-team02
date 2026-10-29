@@ -15,7 +15,15 @@
 - [/] 초기 파일이 저장소에 올라와 있다 / Initial files are in the repository
 - [/] 7주차 이슈가 GitHub에 등록되어 있고 담당자가 지정되어 있다 / Week 7 issues are on GitHub with owners
 - [ ] 팀원 모두 같은 환경에서 실행된다 / Everyone can run it in the same environment
-- [ ] 브랜치 규칙을 정했다 / Branch rule agreed — 
+- [ ] 브랜치 규칙을 정했다 / Branch rule agreed —
+    Announce any branch creation. Give details about changes implemented: What, what and how its changed
+    Each branch should follow a specific naming convention following this structure:
+    feature/(frontend or backend or database)/feature-name
+    fix/(frontend or backend or database)/fix-name
+    chore/chore-name
+    docs/doc-name
+    Fix branches take priority over feature branches when merging.
+
 
 ---
 
@@ -30,10 +38,10 @@
 
 | 주차 Week | 수업 일정 Class | 끝낼 이슈 # Issues to close | 담당 Owner |
 |---|---|---|---|
-| 9주차 | 개발 착수 |  |  |
-| 10주차 | 막힘 진단 · 데모 시나리오 초안 |  |  |
-| 11주차 | **MVP 완료 · 중간 데모** |  |  |
-| 12주차 | 핵심 경로 테스트 |  |  |
+| 9주차 | 개발 착수 | #1 define data structure, #2 set up database,  #3 User I/O System (Sales data), #4 Data loader| #1 Farhana, #2 Qasim, #3/4 Syafiq |
+| 10주차 | 막힘 진단 · 데모 시나리오 초안 | #5 analytics implementation (Sales), UI implementation (Homepage, Menu, Sales input, Sales analytics) | #5 Aizat |
+| 11주차 | **MVP 완료 · 중간 데모** | Build interface for business data input, integrate complete user flow | Syafiq, Qasim |
+| 12주차 | 핵심 경로 테스트 | #5 analytics implementation (Marketing), UI implementation (Marketing input, Marketing analytics) | #5 Aizat |
 | 13주차 | **배포 · 실행 패키지** |  |  |
 
 > 일정이 맞지 않으면 기능을 줄입니다. 뺀 기능은 5주차 Won't 목록에 옮깁니다.
@@ -45,9 +53,11 @@
 
 | # | 제목 Title | 담당 Owner | 완료 Done |
 |---|---|---|---|
-|  |  |  | [ ] |
-|  |  |  | [ ] |
-|  |  |  | [ ] |
+| 1 | define data structure | Farhana | [x] |
+| 2 | set up database | Qasim | [x] |
+| 3 | User I/O System (Sales data) | Syafiq | [ ] |
+| 4 | Data loader | Syafiq | [ ] |
+| 5 | UI Design | Farhana | [x] |
 
 ---
 
