@@ -56,7 +56,7 @@
 | 1 | define data structure | Farhana | [x] |
 | 2 | set up database | Qasim | [x] |
 | 3 | User I/O System (Sales data) | Syafiq | [ ] |
-| 4 | Data loader | Syafiq | [ ] |
+| 4 | Data loader | Syafiq | [x] |
 | 5 | UI Design | Farhana | [x] |
 
 ---
