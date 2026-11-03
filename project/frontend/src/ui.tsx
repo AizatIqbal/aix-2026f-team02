@@ -73,7 +73,7 @@ export function Icon({
   name,
   className = 'size-5',
 }: {
-  name: 'grid' | 'chart' | 'clock' | 'minus' | 'plus' | 'arrow' | 'reset' | 'check' | 'chevron'
+  name: 'grid' | 'chart' | 'clock' | 'minus' | 'plus' | 'arrow' | 'reset' | 'check' | 'chevron' | 'download'
   className?: string
 }) {
   const paths: Record<string, ReactNode> = {
@@ -86,6 +86,7 @@ export function Icon({
     reset: <><path d="M4 4v6h6" /><path d="M5.5 15a8 8 0 1 0 1-8.5L4 10" /></>,
     check: <path d="m5 12 4 4L19 6" />,
     chevron: <path d="m8 10 4 4 4-4" />,
+    download: <><path d="M4 3h10l4 4v5" /><path d="M14 3v5h5" /><path d="M5 13v7h14v-7" /><path d="M9 13h6M9 17h6" /><path d="M12 6v7m0 0 3-3m-3 3-3-3" /></>,
   }
 
   return (
