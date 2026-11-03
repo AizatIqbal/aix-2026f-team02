@@ -1,12 +1,11 @@
 """HTTP access to the existing business data service."""
 
-import os
 from collections.abc import Iterator
 from datetime import date
 from typing import Literal
 
 from fastapi import APIRouter, Depends, HTTPException
-from mysql.connector import Error as MySQLError
+from sqlalchemy.exc import SQLAlchemyError
 
 from .analytics import Filters
 from .business_data_service import BusinessDataService
@@ -19,27 +18,13 @@ router = APIRouter(prefix="/api/v1", tags=["statistics"])
 
 def get_business_data_service() -> Iterator[BusinessDataService]:
     """Give each request its own manager and always close its connection."""
-    user = os.getenv("MYSQL_USER")
-    password = os.getenv("MYSQL_PASSWORD")
-    if not user or password is None:
+    try:
+        db = DatabaseManager()
+    except (RuntimeError, ValueError, SQLAlchemyError) as exc:
         raise HTTPException(
             status_code=503,
-            detail="Configure MYSQL_USER and MYSQL_PASSWORD before starting the server.",
-        )
-    try:
-        port = int(os.getenv("MYSQL_PORT", "3306"))
-        if not 1 <= port <= 65535:
-            raise ValueError("Port is outside the valid range")
-    except ValueError as exc:
-        raise HTTPException(status_code=503, detail="MYSQL_PORT must be a valid port number.") from exc
-
-    db = DatabaseManager(
-        user=user,
-        password=password,
-        host=os.getenv("MYSQL_HOST", "127.0.0.1"),
-        port=port,
-        database=os.getenv("MYSQL_DATABASE", "pos_database_mysql"),
-    )
+            detail="Check DB_HOST, DB_PORT, DB_USER, DB_PASSWORD and DB_NAME in backend/.env.",
+        ) from exc
     try:
         yield BusinessDataService(MySQLBusinessDataHandler(db))
     finally:
@@ -61,7 +46,7 @@ def get_statistics(
 
     try:
         return service.get_statistics(filters)
-    except MySQLError as exc:
+    except SQLAlchemyError as exc:
         raise HTTPException(
             status_code=503,
             detail="The statistics database is unavailable. Check the server connection settings.",

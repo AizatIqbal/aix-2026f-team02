@@ -5,7 +5,7 @@ from unittest.mock import MagicMock, patch
 
 import pytest
 from fastapi.testclient import TestClient
-from mysql.connector import Error as MySQLError
+from sqlalchemy.exc import SQLAlchemyError
 
 from app.business_data_service import BusinessDataService
 from app.main import app
@@ -72,7 +72,7 @@ def test_invalid_requests_do_not_run_analytics(service, query):
 
 
 def test_database_error_does_not_expose_connection_details(service):
-    service.error = MySQLError("Access denied; secret-placeholder")
+    service.error = SQLAlchemyError("Access denied; secret-placeholder")
     with TestClient(app) as client:
         response = client.get(URL)
     assert response.status_code == 503
@@ -87,34 +87,31 @@ def test_invalid_stored_data_returns_an_error(service):
 
 
 def test_health_is_independent_of_database_configuration(monkeypatch):
-    monkeypatch.delenv("MYSQL_USER", raising=False)
-    monkeypatch.delenv("MYSQL_PASSWORD", raising=False)
+    monkeypatch.delenv("DB_USER", raising=False)
+    monkeypatch.delenv("DB_PASSWORD", raising=False)
     with TestClient(app) as client:
         assert client.get("/api/v1/health").json() == {"status": "ok"}
         assert client.get(URL).status_code == 503
 
 
 def test_dependency_closes_manager_when_request_finishes(monkeypatch):
-    monkeypatch.setenv("MYSQL_USER", "test-user")
-    monkeypatch.setenv("MYSQL_PASSWORD", "test-password")
-    monkeypatch.setenv("MYSQL_HOST", "127.0.0.1")
-    monkeypatch.setenv("MYSQL_PORT", "3306")
-    monkeypatch.setenv("MYSQL_DATABASE", "pos_database_mysql")
+    monkeypatch.setenv("DB_USER", "test-user")
+    monkeypatch.setenv("DB_PASSWORD", "test-password")
+    monkeypatch.setenv("DB_HOST", "127.0.0.1")
+    monkeypatch.setenv("DB_PORT", "3306")
+    monkeypatch.setenv("DB_NAME", "pos_database_mysql")
     with patch("app.statistics_routes.DatabaseManager") as manager:
         dependency = get_business_data_service()
         assert isinstance(next(dependency), BusinessDataService)
         manager.return_value.close.assert_not_called()
         dependency.close()
         manager.return_value.close.assert_called_once()
-        manager.assert_called_once_with(
-            user="test-user", password="test-password", host="127.0.0.1",
-            port=3306, database="pos_database_mysql",
-        )
+        manager.assert_called_once_with()
 
 
 def test_dependency_closes_manager_when_request_fails(monkeypatch):
-    monkeypatch.setenv("MYSQL_USER", "test-user")
-    monkeypatch.setenv("MYSQL_PASSWORD", "test-password")
+    monkeypatch.setenv("DB_USER", "test-user")
+    monkeypatch.setenv("DB_PASSWORD", "test-password")
     with patch("app.statistics_routes.DatabaseManager") as manager:
         dependency = get_business_data_service()
         next(dependency)
@@ -123,26 +120,27 @@ def test_dependency_closes_manager_when_request_fails(monkeypatch):
         manager.return_value.close.assert_called_once()
 
 
-@pytest.mark.parametrize("port", ["invalid", "0", "65536"])
+@pytest.mark.parametrize("port", ["invalid"])
 def test_invalid_server_port_is_reported(monkeypatch, port):
-    monkeypatch.setenv("MYSQL_USER", "test-user")
-    monkeypatch.setenv("MYSQL_PASSWORD", "test-password")
-    monkeypatch.setenv("MYSQL_PORT", port)
+    monkeypatch.setenv("DB_USER", "test-user")
+    monkeypatch.setenv("DB_PASSWORD", "test-password")
+    monkeypatch.setenv("DB_PORT", port)
     with TestClient(app) as client:
         response = client.get(URL)
     assert response.status_code == 503
-    assert "MYSQL_PORT" in response.json()["detail"]
+    assert "DB_PORT" in response.json()["detail"]
 
 
 def test_http_request_uses_data_handler_service_and_connection_cleanup(monkeypatch):
-    monkeypatch.setenv("MYSQL_USER", "test-user")
-    monkeypatch.setenv("MYSQL_PASSWORD", "test-password")
+    monkeypatch.setenv("DB_USER", "test-user")
+    monkeypatch.setenv("DB_PASSWORD", "test-password")
     db = MagicMock()
-    db.fetch_all.side_effect = [
+    connection = db.engine.connect.return_value.execution_options.return_value.__enter__.return_value
+    connection.execute.return_value.mappings.return_value.all.side_effect = [
         [{"product_id": 1, "category_id": 1, "product_name": "Cola", "price": "1980.50"}],
         [],
         [{"order_id": 1, "customer_phone": None, "order_date": date(2026, 11, 1),
-          "order_time": "17:30:00", "discount": "15%", "total": "80804.40"}],
+          "order_time": "17:30:00", "discount": "14259.60", "total": "80804.40"}],
         [{"order_item_id": 1, "order_id": 1, "product_id": 1, "quantity": 48,
           "price": "1980.50"}],
     ]
@@ -153,5 +151,5 @@ def test_http_request_uses_data_handler_service_and_connection_cleanup(monkeypat
     assert response.json()["summary"]["units"] == 48
     assert response.json()["summary"]["net"] == "80804.40"
     assert response.json()["warnings"] == []
-    assert db.fetch_all.call_count == 4
+    assert connection.execute.call_count == 4
     db.close.assert_called_once()

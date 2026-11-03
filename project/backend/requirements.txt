@@ -1,5 +1,7 @@
-﻿fastapi
+fastapi
 uvicorn[standard]
 pytest
 httpx2
-mysql-connector-python
+sqlalchemy
+pymysql[rsa]
+python-dotenv

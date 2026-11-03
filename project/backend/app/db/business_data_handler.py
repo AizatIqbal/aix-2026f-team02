@@ -1,13 +1,15 @@
 """Read MySQL business records in the format BusinessDataService expects.
 
-Discount policy: a trailing '%' means a percentage of the order subtotal;
-plain numeric text means a monetary amount; NULL/blank means no discount.
+Follows project/database/schema.sql (the shared management schema).
+orders.discount is a DECIMAL monetary amount, never a percentage.
 Money follows the existing analytics module: round unit prices to two
 decimal places (half up), then multiply by quantity.
 """
 
 from collections import defaultdict
 from decimal import Decimal, InvalidOperation, ROUND_HALF_UP
+
+from sqlalchemy import text
 
 
 CENT = Decimal("0.01")
@@ -24,16 +26,9 @@ def _decimal(value, label):
 
 
 def _discount_amount(raw, subtotal, order_id):
-    text = "0" if raw is None else str(raw).strip() or "0"
-    percentage = text.endswith("%")
-    number = _decimal(text[:-1].strip() if percentage else text,
-                      f"Order {order_id} discount")
+    number = _decimal(raw, f"Order {order_id} discount amount")
     if number < 0:
         raise ValueError(f"Order {order_id} discount cannot be negative")
-    if percentage:
-        if number > 100:
-            raise ValueError(f"Order {order_id} discount cannot exceed 100%")
-        number = subtotal * number / Decimal("100")
     if number > subtotal:
         raise ValueError(f"Order {order_id} discount exceeds its subtotal")
     return number.quantize(CENT, rounding=ROUND_HALF_UP)
@@ -50,46 +45,32 @@ class MySQLBusinessDataHandler:
         self.db = database_manager
 
     def get_analysis_records(self) -> dict:
-        self.db.connect()
-        connection = self.db.connection
-        # Read the four tables from one consistent view, even if sales are
-        # being saved by another connection while this operation runs.
-        connection.start_transaction(
-            isolation_level="REPEATABLE READ",
-            consistent_snapshot=True,
-            readonly=True,
-        )
-        try:
-            products = self.db.fetch_all("""
-                SELECT Product_ID AS product_id,
-                       Category_ID AS category_id,
-                       Product_Name AS product_name, Price AS price
-                FROM `Product` ORDER BY Product_ID
-            """)
-            customers = self.db.fetch_all("""
-                SELECT Customer_ID_Phone AS customer_phone,
-                       Customer_Age AS customer_age,
-                       Customer_Gender AS customer_gender
-                FROM `Customer` ORDER BY Customer_ID_Phone
-            """)
-            orders = self.db.fetch_all("""
-                SELECT Order_ID AS order_id,
-                       Customer_ID_Phone AS customer_phone,
-                       `Date` AS order_date, `Time` AS order_time,
-                       Discount AS discount, Total AS total
-                FROM `Orders` ORDER BY Order_ID
-            """)
-            items = self.db.fetch_all("""
-                SELECT Order_Item_ID AS order_item_id,
-                       Order_ID AS order_id, Product_ID AS product_id,
-                       Quantity AS quantity, Price AS price
-                FROM `Order_Item` ORDER BY Order_Item_ID
-            """)
-            connection.commit()
-        except Exception:
-            connection.rollback()
-            raise
+        # Every SELECT uses the same repeatable-read transaction.
+        with self.db.engine.connect().execution_options(
+            isolation_level="REPEATABLE READ"
+        ) as connection:
+            with connection.begin():
+                def fetch_all(query):
+                    result = connection.execute(text(query))
+                    return [dict(row) for row in result.mappings().all()]
 
+                products = fetch_all("""
+                    SELECT product_id, category_id, product_name, price
+                    FROM product ORDER BY product_id
+                """)
+                customers = fetch_all("""
+                    SELECT customer_phone, customer_age, customer_gender
+                    FROM customer ORDER BY customer_phone
+                """)
+                orders = fetch_all("""
+                    SELECT order_id, customer_phone, order_date, order_time,
+                           discount, total
+                    FROM orders ORDER BY order_id
+                """)
+                items = fetch_all("""
+                    SELECT order_item_id, order_id, product_id, quantity, price
+                    FROM order_item ORDER BY order_item_id
+                """)
         order_ids = {order["order_id"] for order in orders}
         product_ids = {product["product_id"] for product in products}
         subtotals = defaultdict(lambda: Decimal("0.00"))

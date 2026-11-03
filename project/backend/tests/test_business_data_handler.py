@@ -10,37 +10,72 @@ from app.business_data_service import BusinessDataService
 from app.db.business_data_handler import MySQLBusinessDataHandler
 
 
+class FakeTransaction:
+    def __init__(self, connection):
+        self.connection = connection
+
+    def __enter__(self):
+        self.connection.started = True
+        return self
+
+    def __exit__(self, kind, value, traceback):
+        if kind is None:
+            self.connection.committed = True
+        else:
+            self.connection.rolled_back = True
+
+
 class FakeConnection:
-    def __init__(self):
-        self.started = False
-        self.committed = False
-        self.rolled_back = False
+    def __init__(self, database):
+        self.database = database
+        self.started = self.committed = self.rolled_back = False
 
-    def start_transaction(self, **kwargs):
-        self.started = True
+    def execution_options(self, **kwargs):
+        return self
 
-    def commit(self):
-        self.committed = True
+    def __enter__(self):
+        return self
 
-    def rollback(self):
-        self.rolled_back = True
+    def __exit__(self, *args):
+        pass
+
+    def begin(self):
+        return FakeTransaction(self)
+
+    def execute(self, query):
+        rows = self.database.fetch_all(str(query))
+        class Result:
+            def mappings(self):
+                return self
+            def all(self):
+                return rows
+        return Result()
+
+
+class FakeEngine:
+    def __init__(self, database):
+        self.database = database
+
+    def connect(self):
+        return self.database.connection
 
 
 class FakeDatabase:
     def __init__(self):
-        self.connection = FakeConnection()
+        self.connection = FakeConnection(self)
+        self.engine = FakeEngine(self)
         self.fail_on = None
         # Rows have the aliases specified by the handler's SELECT queries.
         self.tables = {
-            "Product": [{"product_id": 1, "category_id": 1,
+            "product": [{"product_id": 1, "category_id": 1,
                          "product_name": "Cola", "price": Decimal("1980.500000")}],
-            "Customer": [{"customer_phone": "test-customer", "customer_age": 25,
+            "customer": [{"customer_phone": "test-customer", "customer_age": 25,
                           "customer_gender": "Male"}],
-            "Orders": [{"order_id": 1, "customer_phone": "test-customer",
+            "orders": [{"order_id": 1, "customer_phone": "test-customer",
                         "order_date": date(2026, 11, 1),
                         "order_time": timedelta(hours=17, minutes=30),
-                        "discount": "15%", "total": Decimal("80804.400000")}],
-            "Order_Item": [{"order_item_id": 1, "order_id": 1, "product_id": 1,
+                        "discount": Decimal("14259.60"), "total": Decimal("80804.400000")}],
+            "order_item": [{"order_item_id": 1, "order_id": 1, "product_id": 1,
                             "quantity": 48, "price": Decimal("1980.500000")}],
         }
 
@@ -49,7 +84,7 @@ class FakeDatabase:
 
     def fetch_all(self, query, params=None):
         for table, rows in self.tables.items():
-            if f"FROM `{table}`" in query:
+            if f"FROM {table} " in query:
                 if table == self.fail_on:
                     raise RuntimeError("Simulated database read failure")
                 return deepcopy(rows)
@@ -76,39 +111,49 @@ class BusinessDataHandlerTests(unittest.TestCase):
         self.assertEqual(result["warnings"], [])
 
     def test_stored_total_mismatch_remains_visible(self):
-        self.db.tables["Orders"][0]["total"] = Decimal("1683.425000")
+        self.db.tables["orders"][0]["total"] = Decimal("1683.425000")
         result = self.statistics()
         self.assertEqual(result["summary"]["net"], "80804.40")
         self.assertEqual(len(result["warnings"]), 1)
-        self.assertEqual(self.db.tables["Orders"][0]["total"], Decimal("1683.425000"))
+        self.assertEqual(self.db.tables["orders"][0]["total"], Decimal("1683.425000"))
 
     def test_plain_numeric_discount_is_an_amount(self):
-        self.db.tables["Orders"][0].update(discount="10.00", total=Decimal("95054.00"))
+        self.db.tables["orders"][0].update(discount="10.00", total=Decimal("95054.00"))
         result = self.statistics()
         self.assertEqual(result["summary"]["discount"], "10.00")
         self.assertEqual(result["summary"]["net"], "95054.00")
         self.assertEqual(result["warnings"], [])
 
-    def test_blank_and_null_discounts_mean_zero(self):
+    def test_fifteen_is_money_not_fifteen_percent(self):
+        self.db.tables["orders"][0].update(discount=Decimal("15.00"), total=Decimal("95049.00"))
+        result = self.statistics()
+        self.assertEqual(result["summary"]["discount"], "15.00")
+        self.assertEqual(result["summary"]["net"], "95049.00")
+        self.assertEqual(result["warnings"], [])
+
+    def test_zero_discount_is_supported(self):
+        self.db.tables["orders"][0].update(discount=Decimal("0.00"), total=Decimal("95064.00"))
+        self.assertEqual(self.statistics()["summary"]["net"], "95064.00")
+
+    def test_blank_and_null_discounts_are_rejected(self):
         for raw in (None, "", "  "):
             with self.subTest(discount=raw):
-                self.db.tables["Orders"][0].update(discount=raw, total=Decimal("95064.00"))
-                result = self.statistics()
-                self.assertEqual(result["summary"]["discount"], "0.00")
-                self.assertEqual(result["warnings"], [])
-
-    def test_invalid_discounts_are_rejected(self):
-        for raw in ("bad", "15%%", "101%", "-1%", "-5", "NaN", "Infinity", "999999"):
-            with self.subTest(discount=raw):
-                self.db.tables["Orders"][0]["discount"] = raw
+                self.db.tables["orders"][0].update(discount=raw, total=Decimal("95064.00"))
                 with self.assertRaises(ValueError):
                     self.handler.get_analysis_records()
 
-    def test_percentage_uses_the_whole_order_subtotal(self):
-        self.db.tables["Order_Item"].append({"order_item_id": 2, "order_id": 1,
+    def test_invalid_discounts_are_rejected(self):
+        for raw in ("bad", "15%", "15%%", "101%", "-1%", "-5", "NaN", "Infinity", "999999"):
+            with self.subTest(discount=raw):
+                self.db.tables["orders"][0]["discount"] = raw
+                with self.assertRaises(ValueError):
+                    self.handler.get_analysis_records()
+
+    def test_order_discount_is_counted_once_across_multiple_items(self):
+        self.db.tables["order_item"].append({"order_item_id": 2, "order_id": 1,
                                             "product_id": 1, "quantity": 1,
                                             "price": Decimal("10.00")})
-        self.db.tables["Orders"][0]["total"] = Decimal("80812.90")
+        self.db.tables["orders"][0].update(discount=Decimal("14261.10"), total=Decimal("80812.90"))
         result = self.statistics()
         self.assertEqual(result["summary"]["units"], 49)
         self.assertEqual(result["summary"]["gross"], "95074.00")
@@ -117,8 +162,8 @@ class BusinessDataHandlerTests(unittest.TestCase):
         self.assertEqual(result["warnings"], [])
 
     def test_rounding_matches_existing_analytics(self):
-        self.db.tables["Order_Item"][0].update(price=Decimal("1.005"), quantity=2)
-        self.db.tables["Orders"][0].update(discount="10%", total=Decimal("1.82"))
+        self.db.tables["order_item"][0].update(price=Decimal("1.005"), quantity=2)
+        self.db.tables["orders"][0].update(discount=Decimal("0.20"), total=Decimal("1.82"))
         result = self.statistics()
         self.assertEqual(result["summary"]["gross"], "2.02")
         self.assertEqual(result["summary"]["discount"], "0.20")
@@ -132,7 +177,7 @@ class BusinessDataHandlerTests(unittest.TestCase):
         self.assertEqual(result["summary"]["net"], "0.00")
 
     def test_read_failure_ends_transaction_and_propagates_error(self):
-        self.db.fail_on = "Orders"
+        self.db.fail_on = "orders"
         with self.assertRaises(RuntimeError):
             self.handler.get_analysis_records()
         self.assertTrue(self.db.connection.rolled_back)
