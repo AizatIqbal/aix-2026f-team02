@@ -2,3 +2,4 @@
 uvicorn[standard]
 pytest
 httpx2
+mysql-connector-python
