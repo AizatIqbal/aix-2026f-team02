@@ -391,15 +391,27 @@ function Menu({
                   </div>
                 </CardButton>
                 {quantity > 0 && (
-                  <div className="absolute bottom-3 right-3 flex items-center gap-1 rounded-xl bg-ink p-1 text-white shadow-lg">
-                    <IconButton label={`Remove one ${product.product_name}`} className="size-9 min-h-0 border-0 bg-transparent text-white hover:bg-white/15" onClick={() => onQuantityChange(product.product_id, -1)}>
-                      <Icon name="minus" className="size-4" />
-                    </IconButton>
-                    <div className="min-w-7 text-center text-sm font-bold">{quantity}</div>
-                    <IconButton label={`Add one ${product.product_name}`} className="size-9 min-h-0 border-0 bg-transparent text-white hover:bg-white/15" onClick={() => onQuantityChange(product.product_id, 1)}>
-                      <Icon name="plus" className="size-4" />
-                    </IconButton>
-                  </div>
+                    <div className="absolute bottom-3 right-3 z-10 flex items-center gap-1 rounded-xl bg-ink p-1 text-white shadow-lg">
+                      <IconButton
+                          label={`Remove one ${product.product_name}`}
+                          className="size-9 min-h-0 rounded-lg border-0 !bg-transparent !text-white hover:!bg-white/15"
+                          onClick={() => onQuantityChange(product.product_id, -1)}
+                      >
+                        <Icon name="minus" className="size-4 shrink-0" />
+                      </IconButton>
+
+                      <div className="min-w-7 text-center text-sm font-bold tabular-nums">
+                        {quantity}
+                      </div>
+
+                      <IconButton
+                          label={`Add one ${product.product_name}`}
+                          className="size-9 min-h-0 rounded-lg border-0 !bg-transparent !text-white hover:!bg-white/15"
+                          onClick={() => onQuantityChange(product.product_id, 1)}
+                      >
+                        <Icon name="plus" className="size-4 shrink-0" />
+                      </IconButton>
+                    </div>
                 )}
               </Surface>
             )
