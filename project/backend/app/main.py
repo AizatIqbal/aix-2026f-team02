@@ -1,4 +1,5 @@
-﻿from decimal import Decimal
+import os
+from decimal import Decimal
 
 from fastapi import FastAPI, HTTPException
 from fastapi.middleware.cors import CORSMiddleware
@@ -8,10 +9,11 @@ from sqlalchemy.exc import IntegrityError
 from datetime import date
 
 from app.db.database_manager import DatabaseManager
+from app.statistics_routes import router as statistics_router
 
 
 app = FastAPI(
-    title="Business Management and Analytics API",
+    title="PointNull Management and Analytics API",
     version="0.1.0",
 )
 
@@ -84,7 +86,7 @@ def database_health_check():
         db.connect()
         return {
             "status": "connected",
-            "database": "business_management",
+            "database": os.getenv("DB_NAME", "business_management"),
         }
     except Exception:
         raise HTTPException(
@@ -674,3 +676,6 @@ def create_campaign(campaign: CampaignCreate):
     finally:
         db.close()
 
+
+# ANALYTICS AND RECOMMENDATIONS
+app.include_router(statistics_router)
