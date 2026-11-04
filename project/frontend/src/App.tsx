@@ -1,4 +1,4 @@
-import { useEffect, useState, type FormEvent } from 'react'
+import { useEffect, useState, type FormEvent, type PointerEvent } from 'react'
 import {
   addProduct,
   exportAnalytics,
@@ -677,7 +677,9 @@ function ChartGrid({ statistics, categories }: { statistics: Statistics; categor
 
   return (
     <div className="grid gap-5 lg:grid-cols-2">
-      <LineChart title="Revenue over time" data={byDate} />
+      {byDate.length > 1
+        ? <RevenueTrend data={byDate} />
+        : <BarChart title="Revenue over time" data={byDate} valueFormatter={formatMoney} />}
       <BarChart title="Revenue by hour" data={byHour} valueFormatter={formatMoney} labelStep={4} />
       <BarChart title="Revenue by day of week" data={byDay} valueFormatter={formatMoney} />
       <BarChart title="Sales by category" data={byCategory} valueFormatter={formatMoney} />
@@ -687,23 +689,91 @@ function ChartGrid({ statistics, categories }: { statistics: Statistics; categor
 }
 
 interface ChartDatum { label: string; value: number }
-function LineChart({ title, data }: { title: string; data: ChartDatum[] }) {
-  if (data.length === 1) {
-    return <BarChart title={title} data={data} valueFormatter={formatMoney} />
+
+const SHORT_CHART_DATE = new Intl.DateTimeFormat('en-US', { month: 'short', day: 'numeric', timeZone: 'UTC' })
+const CROSS_YEAR_CHART_DATE = new Intl.DateTimeFormat('en-US', { month: 'numeric', day: 'numeric', year: '2-digit', timeZone: 'UTC' })
+const FULL_CHART_DATE = new Intl.DateTimeFormat('en-US', { month: 'short', day: 'numeric', year: 'numeric', timeZone: 'UTC' })
+const DAILY_REVENUE = new Intl.NumberFormat('ko-KR', { style: 'currency', currency: 'KRW', maximumFractionDigits: 2 })
+
+function RevenueTrend({ data }: { data: ChartDatum[] }) {
+  const [inspectedIndex, setInspectedIndex] = useState<number | null>(null)
+  const lastIndex = data.length - 1
+  const activeIndex = Math.min(inspectedIndex ?? lastIndex, lastIndex)
+  const active = data[activeIndex]
+  const activeDate = FULL_CHART_DATE.format(new Date(active.label))
+  const activeRevenue = DAILY_REVENUE.format(active.value)
+  const peak = data.reduce((highest, day) => Math.max(highest, day.value), 0)
+  const targetStep = Math.max(peak / 4, 1)
+  const magnitude = 10 ** Math.floor(Math.log10(targetStep))
+  const step = Math.ceil(magnitude * ([1, 2, 2.5, 5].find((factor) => magnitude * factor >= targetStep) ?? 10))
+  const ticks = [4, 3, 2, 1, 0].map((multiplier) => multiplier * step)
+  const x = (index: number) => index / lastIndex * 100
+  const y = (value: number) => 100 - value / ticks[0] * 100
+  const points = data.map((day, index) => `${x(index)},${y(day.value)}`).join(' ')
+  const tickCount = Math.min(data.length, 5)
+  const dateTicks = Array.from({ length: tickCount }, (_, index) => Math.round(index * lastIndex / (tickCount - 1)))
+  const spansYears = data[0].label.slice(0, 4) !== data[lastIndex].label.slice(0, 4)
+  const dateFormat = spansYears ? CROSS_YEAR_CHART_DATE : SHORT_CHART_DATE
+
+  function inspectDay(event: PointerEvent<HTMLDivElement>) {
+    const { left, width } = event.currentTarget.getBoundingClientRect()
+    const index = Math.round((event.clientX - left) / width * lastIndex)
+    setInspectedIndex(Math.max(0, Math.min(index, lastIndex)))
   }
-  const max = Math.max(...data.map((item) => item.value), 1)
-  const points = data.map((item, index) => `${(index / (data.length - 1)) * 100},${90 - (item.value / max) * 72}`).join(' ')
+
   return (
-    <Surface className="p-5">
-      <div className="mb-5 font-display text-lg font-bold">{title}</div>
-      <div className="h-56 text-accent">
-        <svg className="h-full w-full overflow-visible" viewBox="0 0 100 100" preserveAspectRatio="none">
-          <path d="M0 90H100" className="stroke-line" />
-          <polyline points={points} fill="none" stroke="currentColor" strokeWidth="2.5" vectorEffect="non-scaling-stroke" />
-          {data.map((item, index) => <circle key={item.label} cx={(index / (data.length - 1)) * 100} cy={90 - (item.value / max) * 72} r="1.3" fill="currentColor" vectorEffect="non-scaling-stroke" />)}
-        </svg>
+    <Surface className="min-w-0 p-5">
+      <div className="mb-5 flex flex-wrap items-start justify-between gap-x-4 gap-y-2">
+        <div>
+          <div className="font-display text-lg font-bold">Revenue over time</div>
+          <div className="text-xs text-ink-muted">Daily net revenue</div>
+        </div>
+        <div className="rounded-lg bg-accent-soft px-3 py-1.5 text-sm text-accent-strong">
+          <time dateTime={active.label}>{activeDate}</time>
+          <strong className="ml-2">{activeRevenue}</strong>
+        </div>
       </div>
-      <div className="mt-2 flex justify-between text-xs text-ink-faint"><span>{data[0]?.label}</span><span>{data.at(-1)?.label}</span></div>
+      <div className="grid grid-cols-[auto_minmax(0,1fr)] gap-x-2 pt-2">
+        <div aria-hidden="true" className="flex h-44 flex-col items-end justify-between text-xs text-ink-muted">
+          {ticks.map((tick) => (
+            <div key={tick} className="h-0"><span className="block -translate-y-1/2">{formatMoney(tick)}</span></div>
+          ))}
+        </div>
+        <div
+          className="relative h-44 touch-pan-y rounded-sm focus-within:ring-2 focus-within:ring-accent"
+          onPointerMove={inspectDay}
+          onPointerDown={inspectDay}
+        >
+          <svg aria-hidden="true" className="pointer-events-none absolute inset-0 h-full w-full overflow-visible" viewBox="0 0 100 100" preserveAspectRatio="none">
+            <path d="M0 0V100H100 M0 0H100 M0 25H100 M0 50H100 M0 75H100" className="stroke-line" fill="none" vectorEffect="non-scaling-stroke" />
+            <polyline points={points} fill="none" className="stroke-accent-strong" strokeWidth="2" strokeLinejoin="round" vectorEffect="non-scaling-stroke" />
+          </svg>
+          <div aria-hidden="true" className="pointer-events-none absolute inset-y-0 border-l border-dashed border-accent" style={{ left: `${x(activeIndex)}%` }} />
+          <div aria-hidden="true" className="pointer-events-none absolute size-2.5 -translate-1/2 rounded-full border-2 border-white bg-accent-strong" style={{ left: `${x(activeIndex)}%`, top: `${y(active.value)}%` }} />
+          <input
+            className="sr-only"
+            type="range"
+            min={0}
+            max={lastIndex}
+            value={activeIndex}
+            aria-label="Inspect daily net revenue"
+            aria-valuetext={`${activeDate}, ${activeRevenue}`}
+            onChange={(event) => setInspectedIndex(event.currentTarget.valueAsNumber)}
+          />
+        </div>
+        <div aria-hidden="true" className="relative col-start-2 mt-2 h-4 text-xs text-ink-muted">
+          {dateTicks.map((index, tick) => {
+            const alignment = index === 0 ? '' : index === lastIndex ? '-translate-x-full' : '-translate-x-1/2'
+            const mobileVisibility = tick % 2 === 1 && index !== lastIndex ? 'hidden sm:block' : ''
+            return (
+              <span key={data[index].label} className={`absolute whitespace-nowrap ${alignment} ${mobileVisibility}`} style={{ left: `${x(index)}%` }}>
+                {dateFormat.format(new Date(data[index].label))}
+              </span>
+            )
+          })}
+        </div>
+      </div>
+      <p className="mt-2 text-xs text-ink-muted">Hover or tap the chart to see a day’s revenue.</p>
     </Surface>
   )
 }
