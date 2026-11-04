@@ -3,24 +3,18 @@ CREATE DATABASE IF NOT EXISTS business_management
   CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci;
 USE business_management;
 
--- Drop in child-to-parent order
-DROP TABLE IF EXISTS order_item;
-DROP TABLE IF EXISTS orders;
-DROP TABLE IF EXISTS product;
-DROP TABLE IF EXISTS campaign;
-DROP TABLE IF EXISTS customer;
-DROP TABLE IF EXISTS category;
+-- Keep existing tables and sales when setup runs again.
 
 -- ---------- Parent tables first ----------
 
-CREATE TABLE category (
+CREATE TABLE IF NOT EXISTS category (
   category_id   INT AUTO_INCREMENT PRIMARY KEY,
   category_name VARCHAR(50) NOT NULL,
   UNIQUE KEY uq_category_name (category_name)
 );
 
 -- The phone number IS the primary key, so orders can reference it
-CREATE TABLE customer (
+CREATE TABLE IF NOT EXISTS customer (
   customer_phone  VARCHAR(20)  NOT NULL,
   customer_name   VARCHAR(100) NOT NULL,
   customer_age    TINYINT UNSIGNED NULL,
@@ -30,7 +24,7 @@ CREATE TABLE customer (
 );
 
 -- The promocode IS the primary key, so orders can reference it
-CREATE TABLE campaign (
+CREATE TABLE IF NOT EXISTS campaign (
   promocode      VARCHAR(30)   NOT NULL,
   campaign_name  VARCHAR(100)  NOT NULL,
   channel        VARCHAR(30)   NOT NULL,  -- instagram, twitter, email, etc.
@@ -43,7 +37,7 @@ CREATE TABLE campaign (
   CONSTRAINT chk_campaign_budget CHECK (budget >= 0 AND discount_value >= 0)
 );
 
-CREATE TABLE product (
+CREATE TABLE IF NOT EXISTS product (
   product_id   INT AUTO_INCREMENT PRIMARY KEY,
   category_id  INT           NOT NULL,
   product_name VARCHAR(100)  NOT NULL,
@@ -56,7 +50,7 @@ CREATE TABLE product (
 
 -- ---------- Orders ----------
 -- customer_phone and promocode are NULLable: the prototype does not write them.
-CREATE TABLE orders (
+CREATE TABLE IF NOT EXISTS orders (
   order_id       INT AUTO_INCREMENT PRIMARY KEY,
   order_date     DATE NOT NULL DEFAULT (CURRENT_DATE),
   order_time     TIME NOT NULL DEFAULT (CURRENT_TIME),
@@ -80,7 +74,7 @@ CREATE TABLE orders (
   CONSTRAINT chk_orders_total    CHECK (total >= 0)
 );
 
-CREATE TABLE order_item (
+CREATE TABLE IF NOT EXISTS order_item (
   order_item_id INT AUTO_INCREMENT PRIMARY KEY,
   order_id      INT           NOT NULL,
   product_id    INT           NOT NULL,
