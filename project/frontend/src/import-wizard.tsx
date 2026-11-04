@@ -69,6 +69,14 @@ function dateValue(value: unknown): string {
   return date.toISOString().slice(0, 10)
 }
 
+function timeValue(value: unknown): string {
+  if (value instanceof Date && !Number.isNaN(value.getTime())) return value.toISOString().slice(11, 19)
+  if (typeof value === 'number' && value >= 0 && value < 1) {
+    return new Date(Math.round(value * 86_400) * 1000).toISOString().slice(11, 19)
+  }
+  return String(value ?? '').trim().replace(/^(\d):/, '0$1:') || '12:00:00'
+}
+
 export function ImportWizard({
   categories,
   products,
@@ -158,19 +166,19 @@ export function ImportWizard({
   function buildPayload(): ImportPayload {
     const usable = validRows.map((item) => item.row)
     const importedCategoryNames = [...new Set(usable.map((row) => String(row.category_name ?? '').trim()).filter(Boolean))]
-    const categoryNames = [...categories.map((item) => item.category_name), ...importedCategoryNames.filter((name) => !categories.some((item) => item.category_name.toLowerCase() === name.toLowerCase()))]
-    const nextCategoryId = Math.max(0, ...categories.map((item) => item.category_id)) + 1
     const categoryIdByName = new Map(categories.map((item) => [item.category_name.toLowerCase(), item.category_id]))
-    categoryNames.slice(categories.length).forEach((name, index) => categoryIdByName.set(name.toLowerCase(), nextCategoryId + index))
 
     return {
       categories: types.includes('categories') ? importedCategoryNames.map((category_name) => ({ category_name })) : [],
       products: types.includes('products') ? usable.map((row) => {
         const rawCategory = String(row.category_id ?? '').trim()
+        const numericCategory = Number(rawCategory)
+        const namedCategory = Number.isNaN(numericCategory)
         return {
           source_product_id: numberValue(row.source_product_id) || undefined,
           product_name: String(row.product_name).trim(),
-          category_id: Number.isFinite(Number(rawCategory)) ? Number(rawCategory) : (categoryIdByName.get(rawCategory.toLowerCase()) ?? 0),
+          category_id: namedCategory ? (categoryIdByName.get(rawCategory.toLowerCase()) ?? 0) : numericCategory,
+          category_name: namedCategory ? rawCategory : undefined,
           price: numberValue(row.price),
         }
       }) : [],
@@ -180,7 +188,7 @@ export function ImportWizard({
         return {
           source_order_id: numberValue(row.source_order_id) || undefined,
           order_date: orderDate,
-          order_time: String(row.order_time || '12:00:00'),
+          order_time: timeValue(row.order_time),
           day_of_week: String(row.day_of_week || date.toLocaleDateString('en-US', { weekday: 'long' })),
           customer_phone: null,
           promocode: null,

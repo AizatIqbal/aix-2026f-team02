@@ -20,7 +20,7 @@ def get_business_data_service() -> Iterator[BusinessDataService]:
     """Create a request-scoped manager and always dispose its connection pool."""
     try:
         database_manager = DatabaseManager()
-    except RuntimeError as exc:
+    except (RuntimeError, ValueError, SQLAlchemyError) as exc:
         raise HTTPException(
             status_code=503,
             detail="Database configuration is incomplete. Check backend/.env.",

@@ -49,6 +49,8 @@ class Filters:
             raise ValueError("weekdays must contain integers from 0 (Monday) to 6 (Sunday)")
         if not isinstance(self.start_time, time) or not isinstance(self.end_time, time):
             raise ValueError("start_time and end_time must be time values")
+        if self.start_time.utcoffset() is not None or self.end_time.utcoffset() is not None:
+            raise ValueError("Time filters must be local times without a timezone offset")
 
 
 def as_date(value: object) -> date:

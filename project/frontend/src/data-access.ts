@@ -67,7 +67,7 @@ export interface NewProductInput {
 
 export interface ImportPayload {
   categories: Omit<Category, 'category_id'>[]
-  products: (NewProductInput & { source_product_id?: number })[]
+  products: (NewProductInput & { source_product_id?: number; category_name?: string })[]
   orders: (Omit<Order, 'order_id'> & { source_order_id?: number })[]
   orderItems: Omit<OrderItem, 'order_item_id'>[]
 }
@@ -91,12 +91,70 @@ export interface PosDataSource {
   saveOrder(input: {
     total: number
     items: OrderLineInput[]
+    customer_phone?: string
   }): Promise<SavedOrder>
 }
 
-let dataSource: PosDataSource = createSeedDataSource()
+interface SalesTotals {
+  units: number
+  gross: string
+  discount: string
+  net: string
+  orders: number
+}
 
-/** Replace this adapter when the existing database client is connected. */
+export interface Statistics {
+  summary: SalesTotals & { average_order_value: string }
+  periods: (SalesTotals & { period: string })[]
+  products: (SalesTotals & { product_id: number; product_name: string })[]
+  by_hour: (SalesTotals & { hour: number })[]
+  by_weekday: (SalesTotals & { weekday: number })[]
+  by_category: (SalesTotals & { category_id: number })[]
+  warnings: string[]
+}
+
+const apiBase = (import.meta.env.VITE_API_BASE_URL ?? '').replace(/\/+$/, '')
+
+async function apiRequest<T>(path: string, options?: RequestInit): Promise<T> {
+  const response = await fetch(`${apiBase}/api/v1${path}`, options)
+  if (!response.ok) {
+    const body = await response.json().catch(() => null)
+    if (typeof body?.detail === 'string') throw new Error(body.detail)
+    if (Array.isArray(body?.detail)) {
+      throw new Error(body.detail.map((entry: { msg: string }) => entry.msg).join('. '))
+    }
+    throw new Error(`Request failed (${response.status}). Check the backend connection.`)
+  }
+  return response.json()
+}
+
+function post<T>(path: string, body: unknown): Promise<T> {
+  return apiRequest<T>(path, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify(body),
+  })
+}
+
+let dataSource: PosDataSource = {
+  getCategories: () => apiRequest('/categories'),
+  getCustomers: () => apiRequest('/customers'),
+  getCampaigns: () => apiRequest('/campaigns'),
+  getProducts: () => apiRequest('/products'),
+  getOrders: () => apiRequest('/orders'),
+  getOrderItems: () => apiRequest('/order-items'),
+  async addProduct({ image_url, ...product }) {
+    const saved = await post<Product>('/products', product)
+    return { ...saved, image_url }
+  },
+  importData: (input) => post('/imports', input),
+  saveOrder: ({ items, customer_phone }) => post('/orders', {
+    items: items.map(({ product_id, quantity }) => ({ product_id, quantity })),
+    customer_phone,
+  }),
+}
+
+/** Override the data source for local demos or tests. */
 export function configureDataSource(source: PosDataSource): void {
   dataSource = source
 }
@@ -125,10 +183,10 @@ export function getOrderItems(): Promise<OrderItem[]> {
   return dataSource.getOrderItems()
 }
 
-export function saveOrder(lines: OrderLineInput[]): Promise<SavedOrder> {
+export function saveOrder(lines: OrderLineInput[], customer_phone?: string): Promise<SavedOrder> {
   const total = lines.reduce((sum, line) => sum + line.quantity * line.price, 0)
 
-  return dataSource.saveOrder({ total, items: lines })
+  return dataSource.saveOrder({ total, items: lines, customer_phone })
 }
 
 export function addProduct(input: NewProductInput): Promise<Product> {
@@ -138,4 +196,7 @@ export function addProduct(input: NewProductInput): Promise<Product> {
 export function importData(input: ImportPayload): Promise<ImportResult> {
   return dataSource.importData(input)
 }
-import { createSeedDataSource } from './seed-data'
+
+export function getStatistics(query: URLSearchParams, signal: AbortSignal): Promise<Statistics> {
+  return apiRequest(`/statistics?${query}`, { signal })
+}
