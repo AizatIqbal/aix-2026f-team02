@@ -1,15 +1,21 @@
-﻿# Database
+# MySQL setup
 
-This folder contains database-related scripts and documentation.
+`management_schema_1.sql` defines the tables in `business_management`.
+Run it from the repository root in Windows Command Prompt.
 
-## What belongs here?
-- schema.sql: database table definitions
-- seed.sql: sample data for development
-- Database setup instructions
+```cmd
+"C:\Program Files\MySQL\MySQL Server 8.0\bin\mysql.exe" -u root -p < project\database\management_schema_1.sql
+```
 
-The database technology is still to be confirmed by the team.
+Setup creates missing tables and preserves existing records. Changes to the
+structure of existing tables require a migration.
 
-Python database connection code belongs in
-backend/app/db/, not in this folder.
+For an empty development database, `pointnull_mock_data.sql` adds sample data.
+Run the sample import once.
 
-Do not commit passwords, API keys, or sensitive business data.
+```cmd
+"C:\Program Files\MySQL\MySQL Server 8.0\bin\mysql.exe" -u root -p < project\database\pointnull_mock_data.sql
+```
+
+Use `project/backend/.env.example` to set up your local `project/backend/.env`
+with your MySQL connection settings. Keep your credentials in that local file.

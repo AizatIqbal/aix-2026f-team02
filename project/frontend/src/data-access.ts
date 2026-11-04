@@ -103,6 +103,24 @@ export interface AnalyticsExportRequest {
   }
 }
 
+interface SalesTotals {
+  units: number
+  gross: string
+  discount: string
+  net: string
+  orders: number
+}
+
+export interface Statistics {
+  summary: SalesTotals & { average_order_value: string }
+  periods: (SalesTotals & { period: string })[]
+  products: (SalesTotals & { product_id: number; product_name: string })[]
+  by_hour: (SalesTotals & { hour: number })[]
+  by_weekday: (SalesTotals & { weekday: number })[]
+  by_category: (SalesTotals & { category_id: number })[]
+  warnings: string[]
+}
+
 const API_BASE_URL = 'http://127.0.0.1:8000/api/v1'
 
 // --------------------------------------------------
@@ -231,6 +249,10 @@ export async function getCustomers(): Promise<Customer[]> {
 
 export async function getCampaigns(): Promise<Campaign[]> {
   return apiRequest<Campaign[]>('/campaigns')
+}
+
+export function getStatistics(query: URLSearchParams, signal: AbortSignal): Promise<Statistics> {
+  return apiRequest(`/statistics?${query}`, { signal })
 }
 
 export async function getOrders(): Promise<Order[]> {
