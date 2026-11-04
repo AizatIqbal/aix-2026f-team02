@@ -70,6 +70,23 @@ class CampaignCreate(BaseModel):
     discount_value: Decimal = Field(default=Decimal("0"), ge=0)
 
 
+class BulkImportCategory(BaseModel):
+    category_name: str = Field(min_length=1, max_length=50)
+
+
+class BulkImportProduct(BaseModel):
+    product_name: str = Field(min_length=1, max_length=100)
+    price: Decimal = Field(ge=0)
+    category_id: int | None = Field(default=None, gt=0)
+    category_name: str | None = Field(default=None, max_length=50)
+    source_product_id: int | None = Field(default=None, gt=0)
+
+
+class BulkImportRequest(BaseModel):
+    categories: list[BulkImportCategory] = Field(default_factory=list, max_length=5000)
+    products: list[BulkImportProduct] = Field(default_factory=list, max_length=5000)
+
+
 
 # HEALTH CHECKS
 
@@ -150,6 +167,170 @@ def create_category(category: CategoryCreate):
             status_code=409,
             detail="Category already exists",
         )
+    finally:
+        db.close()
+
+
+# BULK IMPORT (CATEGORIES + PRODUCTS)
+
+@app.post("/api/v1/import", tags=["import"], status_code=200)
+def bulk_import(payload: BulkImportRequest):
+    """Import categories and products in one transaction.
+
+    Category names are resolved by the database. Missing categories referenced
+    by products are created automatically. Existing categories and products
+    are skipped, so retrying the same file is safe.
+    """
+    if not payload.categories and not payload.products:
+        raise HTTPException(
+            status_code=422,
+            detail="The import file contains no categories or products",
+        )
+
+    db = DatabaseManager()
+    imported_categories = []
+    imported_products = []
+    skipped_categories = 0
+    skipped_products = 0
+    category_ids_by_name = {}
+
+    try:
+        with db.engine.begin() as connection:
+            # Import explicitly mapped categories first.
+            for item in payload.categories:
+                name = item.category_name.strip()
+                if not name:
+                    skipped_categories += 1
+                    continue
+
+                key = name.casefold()
+                if key in category_ids_by_name:
+                    skipped_categories += 1
+                    continue
+
+                existing = connection.execute(
+                    text("""
+                        SELECT category_id, category_name
+                        FROM category
+                        WHERE category_name = :name
+                        LIMIT 1
+                    """),
+                    {"name": name},
+                ).mappings().first()
+
+                if existing:
+                    category_ids_by_name[key] = existing["category_id"]
+                    skipped_categories += 1
+                    continue
+
+                result = connection.execute(
+                    text("INSERT INTO category (category_name) VALUES (:name)"),
+                    {"name": name},
+                )
+                category_id = int(result.lastrowid)
+                category = {
+                    "category_id": category_id,
+                    "category_name": name,
+                }
+                imported_categories.append(category)
+                category_ids_by_name[key] = category_id
+
+            # Resolve each product's category, creating a missing named
+            # category rather than fabricating AUTO_INCREMENT IDs in the UI.
+            for item in payload.products:
+                product_name = item.product_name.strip()
+                if not product_name:
+                    skipped_products += 1
+                    continue
+
+                category_id = item.category_id
+                category_name = (item.category_name or "").strip()
+
+                if category_name:
+                    key = category_name.casefold()
+                    category_id = category_ids_by_name.get(key)
+
+                    if category_id is None:
+                        existing = connection.execute(
+                            text("""
+                                SELECT category_id, category_name
+                                FROM category
+                                WHERE category_name = :name
+                                LIMIT 1
+                            """),
+                            {"name": category_name},
+                        ).mappings().first()
+
+                        if existing:
+                            category_id = int(existing["category_id"])
+                            category_ids_by_name[key] = category_id
+                        else:
+                            result = connection.execute(
+                                text("INSERT INTO category (category_name) VALUES (:name)"),
+                                {"name": category_name},
+                            )
+                            category_id = int(result.lastrowid)
+                            imported_categories.append({
+                                "category_id": category_id,
+                                "category_name": category_name,
+                            })
+                            category_ids_by_name[key] = category_id
+
+                if category_id is None:
+                    skipped_products += 1
+                    continue
+
+                category_exists = connection.execute(
+                    text("SELECT category_id FROM category WHERE category_id = :id"),
+                    {"id": category_id},
+                ).first()
+                if not category_exists:
+                    skipped_products += 1
+                    continue
+
+                duplicate = connection.execute(
+                    text("""
+                        SELECT product_id
+                        FROM product
+                        WHERE category_id = :category_id
+                          AND product_name = :product_name
+                        LIMIT 1
+                    """),
+                    {"category_id": category_id, "product_name": product_name},
+                ).first()
+                if duplicate:
+                    skipped_products += 1
+                    continue
+
+                result = connection.execute(
+                    text("""
+                        INSERT INTO product (category_id, product_name, price)
+                        VALUES (:category_id, :product_name, :price)
+                    """),
+                    {
+                        "category_id": category_id,
+                        "product_name": product_name,
+                        "price": str(item.price),
+                    },
+                )
+                product_id = int(result.lastrowid)
+                imported_products.append({
+                    "product_id": product_id,
+                    "category_id": int(category_id),
+                    "product_name": product_name,
+                    "price": item.price,
+                })
+
+        return {
+            "categories": imported_categories,
+            "products": imported_products,
+            "orders": [],
+            "orderItems": [],
+            "skipped": {
+                "categories": skipped_categories,
+                "products": skipped_products,
+            },
+        }
     finally:
         db.close()
 
