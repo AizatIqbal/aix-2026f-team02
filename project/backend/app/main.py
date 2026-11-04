@@ -9,6 +9,7 @@ from sqlalchemy.exc import IntegrityError
 from datetime import date
 
 from app.db.database_manager import DatabaseManager
+from app.import_routes import router as import_router
 from app.statistics_routes import router as statistics_router
 
 
@@ -19,12 +20,13 @@ app = FastAPI(
 
 
 # CORS
+frontend_origin = os.getenv("FRONTEND_ORIGIN", "").rstrip("/")
 app.add_middleware(
     CORSMiddleware,
     allow_origins=[
         "http://localhost:5173",
         "http://localhost:8443",
-    ],
+    ] + ([frontend_origin] if frontend_origin else []),
     allow_credentials=True,
     allow_methods=["*"],
     allow_headers=["*"],
@@ -50,7 +52,8 @@ class OrderItemCreate(BaseModel):
 
 class OrderCreate(BaseModel):
     items: list[OrderItemCreate] = Field(min_length=1)
-    discount: Decimal = Field(default=Decimal("0"), ge=0)
+    discount: Decimal = Field(default=Decimal("0"), ge=0, max_digits=10, decimal_places=2)
+    customer_phone: str | None = Field(default=None, min_length=1, max_length=20)
 
 
 class CustomerCreate(BaseModel):
@@ -433,20 +436,19 @@ def create_product(product: ProductCreate):
 
 # ORDERS
 
+ORDER_COLUMNS = """
+    order_id, order_date, CAST(order_time AS CHAR) AS order_time,
+    day_of_week, customer_phone, promocode, discount, total
+"""
+
 @app.get("/api/v1/orders", tags=["orders"])
 def get_orders():
     db = DatabaseManager()
 
     try:
         return db.fetch_all(
-            """
-            SELECT
-                order_id,
-                order_date,
-                order_time,
-                day_of_week,
-                discount,
-                total
+            f"""
+            SELECT {ORDER_COLUMNS}
             FROM orders
             ORDER BY order_id DESC
             """
@@ -461,14 +463,8 @@ def get_order(order_id: int):
 
     try:
         order = db.fetch_one(
-            """
-            SELECT
-                order_id,
-                order_date,
-                order_time,
-                day_of_week,
-                discount,
-                total
+            f"""
+            SELECT {ORDER_COLUMNS}
             FROM orders
             WHERE order_id = :order_id
             """,
@@ -484,6 +480,8 @@ def get_order(order_id: int):
         order["items"] = db.fetch_all(
             """
             SELECT
+                oi.order_item_id,
+                oi.order_id,
                 oi.product_id,
                 p.product_name,
                 oi.quantity,
@@ -503,6 +501,17 @@ def get_order(order_id: int):
         db.close()
 
 
+@app.get("/api/v1/order-items", tags=["orders"])
+def get_order_items():
+    db = DatabaseManager()
+    try:
+        return db.fetch_all(
+            "SELECT order_item_id, order_id, product_id, quantity, price FROM order_item ORDER BY order_item_id"
+        )
+    finally:
+        db.close()
+
+
 @app.post("/api/v1/orders", tags=["orders"], status_code=201)
 def create_order(order: OrderCreate):
     db = DatabaseManager()
@@ -510,6 +519,17 @@ def create_order(order: OrderCreate):
     try:
         # Use one transaction for the order and its items.
         with db.engine.begin() as connection:
+            customer_phone = None
+            if order.customer_phone is not None:
+                phone = order.customer_phone.strip()
+                if not phone:
+                    raise HTTPException(status_code=422, detail="Customer phone cannot be empty")
+                customer_phone = connection.execute(
+                    text("SELECT customer_phone FROM customer WHERE customer_phone = :phone"),
+                    {"phone": phone},
+                ).scalar_one_or_none()
+                if customer_phone is None:
+                    raise HTTPException(status_code=404, detail="Customer not found")
 
             order_items = []
             subtotal = Decimal("0")
@@ -553,16 +573,19 @@ def create_order(order: OrderCreate):
                 )
 
             total = subtotal - order.discount
+            if total > Decimal("99999999.99"):
+                raise HTTPException(status_code=422, detail="Order total exceeds the database limit")
 
             # Create the order.
             result = connection.execute(
                 text(
                     """
-                    INSERT INTO orders (discount, total)
-                    VALUES (:discount, :total)
+                    INSERT INTO orders (customer_phone, discount, total)
+                    VALUES (:customer_phone, :discount, :total)
                     """
                 ),
                 {
+                    "customer_phone": customer_phone,
                     "discount": order.discount,
                     "total": total,
                 },
@@ -572,7 +595,7 @@ def create_order(order: OrderCreate):
 
             # Create the order items.
             for item in order_items:
-                connection.execute(
+                inserted_item = connection.execute(
                     text(
                         """
                         INSERT INTO order_item (
@@ -596,6 +619,13 @@ def create_order(order: OrderCreate):
                         "price": item["price"],
                     },
                 )
+                item["order_item_id"] = inserted_item.lastrowid
+                item["order_id"] = order_id
+
+            saved_order = dict(connection.execute(
+                text(f"SELECT {ORDER_COLUMNS} FROM orders WHERE order_id = :order_id"),
+                {"order_id": order_id},
+            ).mappings().one())
 
         return {
             "message": "Order created successfully",
@@ -604,6 +634,8 @@ def create_order(order: OrderCreate):
             "discount": order.discount,
             "total": total,
             "items": order_items,
+            "order": saved_order,
+            "orderItems": order_items,
         }
 
     finally:
@@ -860,3 +892,4 @@ def create_campaign(campaign: CampaignCreate):
 
 # ANALYTICS AND RECOMMENDATIONS
 app.include_router(statistics_router)
+app.include_router(import_router)

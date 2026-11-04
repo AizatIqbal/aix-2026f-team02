@@ -1,15 +1,17 @@
-import { useEffect, useMemo, useState, type FormEvent } from 'react'
+import { useEffect, useState, type FormEvent } from 'react'
 import {
   addProduct,
   exportAnalytics,
   getCategories,
-  getOrderItems,
+  getCustomers,
   getOrders,
   getProducts,
+  getStatistics,
   saveOrder,
   type Category,
   type Order,
-  type OrderItem,
+  type Customer,
+  type Statistics,
   type Product,
   type ImportResult,
 } from './data-access'
@@ -23,7 +25,7 @@ interface AppData {
   categories: Category[]
   products: Product[]
   orders: Order[]
-  orderItems: OrderItem[]
+  customers: Customer[]
 }
 
 interface Filters {
@@ -34,7 +36,7 @@ interface Filters {
   categories: number[]
 }
 
-const EMPTY_DATA: AppData = { categories: [], products: [], orders: [], orderItems: [] }
+const EMPTY_DATA: AppData = { categories: [], products: [], orders: [], customers: [] }
 const DAYS = ['Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday', 'Sunday']
 const CURRENCY = new Intl.NumberFormat('ko-KR', {
   style: 'currency',
@@ -55,6 +57,7 @@ function App() {
   const [analyticsLoaded, setAnalyticsLoaded] = useState(false)
   const [selection, setSelection] = useState<Record<number, number>>({})
   const [category, setCategory] = useState<number | 'all'>('all')
+  const [customerPhone, setCustomerPhone] = useState('')
   const [clock, setClock] = useState(new Date())
   const [toast, setToast] = useState('')
   const [saving, setSaving] = useState(false)
@@ -161,13 +164,13 @@ function App() {
     setSaving(true)
     setError('')
     try {
-      const saved = await saveOrder(lines)
+      const saved = await saveOrder(lines, customerPhone || undefined)
       setData((current) => ({
         ...current,
         orders: [...current.orders, saved.order],
-        orderItems: [...current.orderItems, ...saved.orderItems],
       }))
       setSelection({})
+      setCustomerPhone('')
       setToast(`Order #${saved.order.order_id} saved`)
       setTab('analysis')
       window.setTimeout(() => setToast(''), 2800)
@@ -180,10 +183,10 @@ function App() {
 
   function mergeImported(result: ImportResult): void {
     setData((current) => ({
+      ...current,
       categories: [...current.categories, ...result.categories],
       products: [...current.products, ...result.products],
       orders: [...current.orders, ...result.orders],
-      orderItems: [...current.orderItems, ...result.orderItems],
     }))
   }
 
@@ -219,6 +222,9 @@ function App() {
           itemCount={selectedCount}
           total={selectedTotal}
           saving={saving}
+          customers={data.customers}
+          customerPhone={customerPhone}
+          onCustomerChange={setCustomerPhone}
           onNext={submitOrder}
         />
       )}
@@ -495,7 +501,15 @@ function AddProductModal({
   )
 }
 
-function SummaryBar({ itemCount, total, saving, onNext }: { itemCount: number; total: number; saving: boolean; onNext: () => void }) {
+function SummaryBar({ itemCount, total, saving, customers, customerPhone, onCustomerChange, onNext }: {
+  itemCount: number
+  total: number
+  saving: boolean
+  customers: Customer[]
+  customerPhone: string
+  onCustomerChange: (phone: string) => void
+  onNext: () => void
+}) {
   return (
     <div className="fixed inset-x-0 bottom-0 z-40 border-t border-line bg-white/95 px-5 py-3 shadow-bar backdrop-blur">
       <div className="mx-auto flex max-w-screen-2xl items-center justify-between gap-5">
@@ -506,7 +520,16 @@ function SummaryBar({ itemCount, total, saving, onNext }: { itemCount: number; t
             <div className="mt-0.5 truncate text-xs text-ink-faint">{itemCount === 0 ? 'No products added yet' : `${itemCount} ${itemCount === 1 ? 'item' : 'items'} ready for checkout`}</div>
           </div>
         </div>
-        <div className="flex items-center gap-5">
+        <div className="flex flex-wrap items-center justify-end gap-3 sm:gap-5">
+          {customers.length > 0 && (
+            <div className="flex items-center gap-2 text-xs">
+              <label htmlFor="sale-customer" className="font-semibold">Customer</label>
+              <select id="sale-customer" className="max-w-40 rounded-lg border border-line bg-white px-2 py-2" value={customerPhone} onChange={(event) => onCustomerChange(event.target.value)} disabled={saving}>
+                <option value="">Walk-in</option>
+                {customers.map((customer) => <option key={customer.customer_phone} value={customer.customer_phone}>{customer.customer_name}</option>)}
+              </select>
+            </div>
+          )}
           <div className="text-right"><div className="text-[10px] font-semibold uppercase tracking-wide text-ink-faint">Order total</div><div className="font-display text-2xl font-extrabold">{formatMoney(total)}</div></div>
           <Button variant="primary" disabled={itemCount === 0 || saving} onClick={onNext} className="min-w-36">
             <span className="flex items-center justify-center gap-2">{saving ? 'Completing…' : 'Complete sale'} <Icon name="arrow" /></span>
@@ -517,31 +540,30 @@ function SummaryBar({ itemCount, total, saving, onNext }: { itemCount: number; t
   )
 }
 
+function localDate(value: Date): string {
+  const month = String(value.getMonth() + 1).padStart(2, '0')
+  const day = String(value.getDate()).padStart(2, '0')
+  return `${value.getFullYear()}-${month}-${day}`
+}
+
 function Analysis({ data, loading }: { data: AppData; loading: boolean }) {
   const [filters, setFilters] = useState<Filters>({ preset: '30d', days: [], startTime: '00:00', endTime: '23:59', categories: [] })
   const [exportOpen, setExportOpen] = useState(false)
   const [exportStatus, setExportStatus] = useState<{ state: 'idle' | 'loading' | 'success' | 'error'; message?: string }>({ state: 'idle' })
   const productMap = useMemo(() => new Map(data.products.map((product) => [product.product_id, product])), [data.products])
 
-  const filteredOrders = useMemo(() => {
+  useEffect(() => {
+    if (loading) return
+    const controller = new AbortController()
     const now = new Date()
-    const start = new Date(now)
-    if (filters.preset === 'today') start.setHours(0, 0, 0, 0)
-    if (filters.preset === '7d') start.setDate(now.getDate() - 6)
-    if (filters.preset === '30d') start.setDate(now.getDate() - 29)
-    const allowedOrderIdsByCategory = new Set(
-      data.orderItems.filter((item) => {
-        const product = productMap.get(item.product_id)
-        return filters.categories.length === 0 || (product && filters.categories.includes(product.category_id))
-      }).map((item) => item.order_id),
-    )
-    return data.orders.filter((order) => {
-      const orderDate = new Date(`${order.order_date}T${order.order_time}`)
-      const dateMatches = filters.preset === 'all' || orderDate >= start
-      const dayMatches = filters.days.length === 0 || filters.days.includes(order.day_of_week)
-      const timeMatches = order.order_time.slice(0, 5) >= filters.startTime && order.order_time.slice(0, 5) <= filters.endTime
-      const categoryMatches = filters.categories.length === 0 || allowedOrderIdsByCategory.has(order.order_id)
-      return dateMatches && dayMatches && timeMatches && categoryMatches
+    const firstDay = new Date(now)
+    if (filters.preset === '7d') firstDay.setDate(now.getDate() - 6)
+    if (filters.preset === '30d') firstDay.setDate(now.getDate() - 29)
+    const orderDates = data.orders.map((order) => order.order_date).sort()
+    const query = new URLSearchParams({
+      start: filters.preset === 'all' ? (orderDates[0] ?? localDate(now)) : localDate(firstDay),
+      end: filters.preset === 'all' ? (orderDates.at(-1) ?? localDate(now)) : localDate(now),
+      group: 'day',
     })
   }, [data.orderItems, data.orders, filters, productMap])
 
@@ -638,16 +660,23 @@ function Analysis({ data, loading }: { data: AppData; loading: boolean }) {
         </div>
       </Surface>
       <div className="mb-5 grid grid-cols-2 gap-3 lg:grid-cols-5">
-        <Kpi label="Total revenue" value={formatMoney(revenue)} />
-        <Kpi label="Orders" value={String(filteredOrders.length)} />
-        <Kpi label="Average order value" value={formatMoney(filteredOrders.length ? revenue / filteredOrders.length : 0)} />
-        <Kpi label="Items sold" value={String(itemCount)} />
-        <Kpi label="Top product" value={topProductId ? productMap.get(topProductId)?.product_name ?? '—' : '—'} />
+        <Kpi label="Net revenue" value={formatMoney(Number(summary?.net ?? 0))} />
+        <Kpi label="Orders" value={String(summary?.orders ?? 0)} />
+        <Kpi label="Average order value" value={formatMoney(Number(summary?.average_order_value ?? 0))} />
+        <Kpi label="Items sold" value={String(summary?.units ?? 0)} />
+        <Kpi label="Top product" value={topProduct?.product_name ?? '—'} />
       </div>
-      {filteredOrders.length === 0 ? (
+      {reportError ? (
+        <EmptyState title="Could not load sales report" message={reportError} />
+      ) : reportLoading ? (
+        <LoadingAnalysis />
+      ) : !statistics || statistics.summary.orders === 0 ? (
         <EmptyState title="No sales match these filters" message="Adjust the filters or complete a new sale to see analytics." />
       ) : (
-        <ChartGrid orders={filteredOrders} items={filteredItems} products={data.products} categories={data.categories} />
+        <>
+          {statistics.warnings.map((warning) => <p key={warning} role="status" className="mb-3 text-sm text-ink-muted">{warning}</p>)}
+          <ChartGrid statistics={statistics} categories={data.categories} />
+        </>
       )}
     </section>
   )
@@ -661,19 +690,17 @@ function Kpi({ label, value }: { label: string; value: string }) {
   return <Surface className="p-5"><div className="text-xs font-semibold uppercase tracking-wide text-ink-faint">{label}</div><div className="mt-2 truncate font-display text-2xl font-bold" title={value}>{value}</div></Surface>
 }
 
-function ChartGrid({ orders, items, products, categories }: { orders: Order[]; items: OrderItem[]; products: Product[]; categories: Category[] }) {
-  const productMap = new Map(products.map((product) => [product.product_id, product]))
-  const byDate = groupValues(orders, (order) => order.order_date, (order) => order.total)
-  const byHour = groupValues(orders, (order) => order.order_time.slice(0, 2), (order) => order.total)
-  const byDay = DAYS.map((day) => ({ label: day.slice(0, 3), value: orders.filter((order) => order.day_of_week === day).reduce((sum, order) => sum + order.total, 0) }))
-  const byCategory = categories.map((category) => ({
-    label: category.category_name,
-    value: items.filter((item) => productMap.get(item.product_id)?.category_id === category.category_id).reduce((sum, item) => sum + item.quantity * item.price, 0),
-  })).filter((item) => item.value > 0)
-  const topProducts = products.map((product) => ({
-    label: product.product_name,
-    value: items.filter((item) => item.product_id === product.product_id).reduce((sum, item) => sum + item.quantity, 0),
-  })).filter((item) => item.value > 0).sort((a, b) => b.value - a.value).slice(0, 10)
+function ChartGrid({ statistics, categories }: { statistics: Statistics; categories: Category[] }) {
+  const categoryNames = new Map(categories.map((category) => [category.category_id, category.category_name]))
+  const byDate = statistics.periods.map((row) => ({ label: row.period, value: Number(row.net) }))
+  const byHour = statistics.by_hour.map((row) => ({ label: `${row.hour}:00`, value: Number(row.net) }))
+  const byDay = statistics.by_weekday.map((row) => ({ label: DAYS[row.weekday], value: Number(row.net) }))
+  const byCategory = statistics.by_category.map((row) => ({
+    label: categoryNames.get(row.category_id) ?? `Category ${row.category_id}`,
+    value: Number(row.net),
+  }))
+  const topProducts = statistics.products.filter((product) => product.units > 0).slice(0, 10)
+    .map((product) => ({ label: product.product_name, value: product.units }))
 
   return (
     <div className="grid gap-5 lg:grid-cols-2">
@@ -687,12 +714,6 @@ function ChartGrid({ orders, items, products, categories }: { orders: Order[]; i
 }
 
 interface ChartDatum { label: string; value: number }
-function groupValues<T>(values: T[], label: (item: T) => string, value: (item: T) => number): ChartDatum[] {
-  const grouped = new Map<string, number>()
-  values.forEach((item) => grouped.set(label(item), (grouped.get(label(item)) ?? 0) + value(item)))
-  return [...grouped.entries()].sort(([a], [b]) => a.localeCompare(b)).map(([itemLabel, itemValue]) => ({ label: itemLabel, value: itemValue }))
-}
-
 function LineChart({ title, data }: { title: string; data: ChartDatum[] }) {
   const max = Math.max(...data.map((item) => item.value), 1)
   const points = data.map((item, index) => `${data.length === 1 ? 50 : (index / (data.length - 1)) * 100},${90 - (item.value / max) * 72}`).join(' ')

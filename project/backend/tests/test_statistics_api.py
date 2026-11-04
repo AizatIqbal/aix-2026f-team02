@@ -66,6 +66,8 @@ def test_statistics_endpoint_accepts_repeatable_filters(service):
         "start=2026-11-01",
         "start=2026-11-01&end=2026-11-02&weekdays=7",
         "start=2026-11-01&end=2026-11-02&product_ids=0",
+        "start=2026-11-01&end=2026-11-02&start_time=00:00:00Z",
+        "start=2026-11-01&end=2026-11-02&end_time=17:00:00%2B09:00",
     ],
 )
 def test_invalid_statistics_query_is_rejected_without_running_service(service, query):
@@ -87,3 +89,13 @@ def test_original_health_route_still_exists():
         response = client.get("/api/v1/health")
     assert response.status_code == 200
     assert response.json() == {"status": "ok"}
+
+
+def test_order_rejects_sub_cent_discount():
+    with TestClient(app) as client:
+        response = client.post("/api/v1/orders", json={
+            "items": [{"product_id": 1, "quantity": 1}],
+            "discount": "0.005",
+        })
+    assert response.status_code == 422
+    assert response.json()["detail"][0]["loc"] == ["body", "discount"]

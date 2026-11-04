@@ -25,6 +25,12 @@ git clone <repo-url>
 
 Frontend server init
 #pnpm dev
+
+Backend server init
+#.\.venv\Scripts\python.exe -m uvicorn app.main:app --reload --reload-dir app
+
+Api Documentation
+# http://127.0.0.1:8000/docs#/
 # Stop the server via CTRL C
 ```
 필요한 환경변수 / Required environment variables: `.env.example` 참고

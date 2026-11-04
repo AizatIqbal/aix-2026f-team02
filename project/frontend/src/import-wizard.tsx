@@ -73,6 +73,14 @@ function dateValue(value: unknown): string {
   return date.toISOString().slice(0, 10)
 }
 
+function timeValue(value: unknown): string {
+  if (value instanceof Date && !Number.isNaN(value.getTime())) return value.toISOString().slice(11, 19)
+  if (typeof value === 'number' && value >= 0 && value < 1) {
+    return new Date(Math.round(value * 86_400) * 1000).toISOString().slice(11, 19)
+  }
+  return String(value ?? '').trim().replace(/^(\d):/, '0$1:') || '12:00:00'
+}
+
 export function ImportWizard({
   categories,
   products,
@@ -203,7 +211,7 @@ export function ImportWizard({
         return {
           source_order_id: numberValue(row.source_order_id) || undefined,
           order_date: orderDate,
-          order_time: String(row.order_time || '12:00:00'),
+          order_time: timeValue(row.order_time),
           day_of_week: String(row.day_of_week || date.toLocaleDateString('en-US', { weekday: 'long' })),
           customer_phone: null,
           promocode: null,
