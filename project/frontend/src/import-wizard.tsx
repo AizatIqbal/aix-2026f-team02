@@ -11,19 +11,19 @@ import { Button, Icon } from './ui'
 type DataType = 'categories' | 'products' | 'orders' | 'orderItems'
 type Stage = 'upload' | 'mapping' | 'preview' | 'confirm' | 'success'
 
-const DATA_TYPES: { value: DataType; label: string; description: string }[] = [
-  { value: 'categories', label: 'Categories', description: 'Menu groups and sections' },
-  { value: 'products', label: 'Products', description: 'Items, prices, and categories' },
-  { value: 'orders', label: 'Historical sales', description: 'Past transactions and totals' },
-  { value: 'orderItems', label: 'Order items', description: 'Products and quantities per order' },
+const DATA_TYPES: { value: DataType; label: string; description: string; available: boolean }[] = [
+  { value: 'categories', label: 'Categories', description: 'Import menu groups and sections', available: true },
+  { value: 'products', label: 'Products', description: 'Import items, prices, and categories', available: true },
+  { value: 'orders', label: 'Historical sales', description: 'Past transactions and totals', available: false },
+  { value: 'orderItems', label: 'Order items', description: 'Products and quantities per order', available: false },
 ]
 
 const FIELDS: Record<DataType, { value: string; label: string; required?: boolean }[]> = {
   categories: [{ value: 'category_name', label: 'Category name', required: true }],
   products: [
-    { value: 'source_product_id', label: 'Product ID' },
+    { value: 'source_product_id', label: 'Source Product ID' },
     { value: 'product_name', label: 'Product name', required: true },
-    { value: 'category_id', label: 'Category / Category ID', required: true },
+    { value: 'category_name', label: 'Category name (or ID)', required: true },
     { value: 'price', label: 'Price', required: true },
   ],
   orders: [
@@ -47,6 +47,10 @@ function normalize(value: string): string {
 
 function suggestField(column: string, available: { value: string; label: string }[]): string {
   const source = normalize(column)
+  const categoryField = available.find((field) => field.value === 'category_name')
+  if (categoryField && ['category', 'categoryid', 'categoryname', 'categorynameid'].includes(source)) {
+    return categoryField.value
+  }
   return available.find((field) => {
     const value = normalize(field.value)
     const label = normalize(field.label)
@@ -56,7 +60,7 @@ function suggestField(column: string, available: { value: string; label: string 
 
 function numberValue(value: unknown): number {
   if (typeof value === 'number') return value
-  return Number(String(value).replace(/[$,\s]/g, ''))
+  return Number(String(value).replace(/[₩$€£,\s]/g, ''))
 }
 
 function dateValue(value: unknown): string {
@@ -113,21 +117,43 @@ export function ImportWizard({
   }), [columns, mapping, rows])
   const requiredFields = useMemo(() => types.flatMap((type) => FIELDS[type].filter((field) => field.required).map((field) => field.value)), [types])
   const validations = useMemo(() => mappedRows.map((row, index) => {
-    const missing = requiredFields.filter((field) => row[field] === '' || row[field] === undefined || row[field] === null)
-    const invalidNumbers = ['price', 'total', 'quantity', 'item_price']
+    const missing = requiredFields.filter((field) => {
+      const value = row[field]
+      return value === undefined || value === null || String(value).trim() === ''
+    })
+    const invalidNumbers = ['price']
       .filter((field) => row[field] !== undefined && (!Number.isFinite(numberValue(row[field])) || numberValue(row[field]) < 0))
-    const productName = String(row.product_name ?? '').trim().toLowerCase()
-    const duplicate = Boolean(productName) && (
-      products.some((product) => product.product_name.toLowerCase() === productName) ||
-      mappedRows.slice(0, index).some((other) => String(other.product_name ?? '').trim().toLowerCase() === productName)
-    )
-    return { row, missing, invalidNumbers, duplicate, valid: missing.length === 0 && invalidNumbers.length === 0 && !duplicate }
-  }), [mappedRows, products, requiredFields])
+    const invalidText = [
+      ...(row.product_name !== undefined && String(row.product_name).trim().length > 100 ? ['product_name (max 100 characters)'] : []),
+      ...(row.category_name !== undefined && String(row.category_name).trim().length > 50 ? ['category_name (max 50 characters)'] : []),
+    ]
+
+    const name = String(row.product_name ?? '').trim().toLowerCase()
+    const categoryName = String(row.category_name ?? '').trim().toLowerCase()
+    const categoryId = /^\d+$/.test(categoryName) ? Number(categoryName) : null
+    const duplicate = types.includes('categories')
+      ? categories.some((item) => item.category_name.trim().toLowerCase() === String(row.category_name ?? '').trim().toLowerCase()) ||
+        mappedRows.slice(0, index).some((other) => String(other.category_name ?? '').trim().toLowerCase() === String(row.category_name ?? '').trim().toLowerCase())
+      : Boolean(name && categoryName) && (
+          products.some((product) => {
+            if (product.product_name.trim().toLowerCase() !== name) return false
+            if (categoryId !== null) return product.category_id === categoryId
+            return categories.some((category) => category.category_id === product.category_id && category.category_name.trim().toLowerCase() === categoryName)
+          }) ||
+          mappedRows.slice(0, index).some((other) =>
+            String(other.product_name ?? '').trim().toLowerCase() === name &&
+            String(other.category_name ?? '').trim().toLowerCase() === categoryName
+          )
+        )
+
+    return { row, missing, invalidNumbers, invalidText, duplicate, valid: missing.length === 0 && invalidNumbers.length === 0 && invalidText.length === 0 && !duplicate }
+  }), [categories, mappedRows, products, requiredFields, types])
   const validRows = validations.filter((item) => item.valid)
   const invalidRows = validations.filter((item) => !item.valid)
 
   function toggleType(type: DataType): void {
-    setTypes((current) => current.includes(type) ? current.filter((item) => item !== type) : [...current, type])
+    if (!DATA_TYPES.find((item) => item.value === type)?.available) return
+    setTypes((current) => current.includes(type) ? [] : [type])
   }
 
   async function loadFile(selected: File): Promise<void> {
@@ -166,19 +192,16 @@ export function ImportWizard({
   function buildPayload(): ImportPayload {
     const usable = validRows.map((item) => item.row)
     const importedCategoryNames = [...new Set(usable.map((row) => String(row.category_name ?? '').trim()).filter(Boolean))]
-    const categoryIdByName = new Map(categories.map((item) => [item.category_name.toLowerCase(), item.category_id]))
 
     return {
       categories: types.includes('categories') ? importedCategoryNames.map((category_name) => ({ category_name })) : [],
       products: types.includes('products') ? usable.map((row) => {
-        const rawCategory = String(row.category_id ?? '').trim()
-        const numericCategory = Number(rawCategory)
-        const namedCategory = Number.isNaN(numericCategory)
+        const rawCategory = String(row.category_name ?? '').trim()
+        const isCategoryId = /^\d+$/.test(rawCategory)
         return {
           source_product_id: numberValue(row.source_product_id) || undefined,
           product_name: String(row.product_name).trim(),
-          category_id: namedCategory ? (categoryIdByName.get(rawCategory.toLowerCase()) ?? 0) : numericCategory,
-          category_name: namedCategory ? rawCategory : undefined,
+          ...(isCategoryId ? { category_id: Number(rawCategory) } : { category_name: rawCategory }),
           price: numberValue(row.price),
         }
       }) : [],
@@ -241,15 +264,15 @@ export function ImportWizard({
           {stage === 'upload' && (
             <div>
               <h3 className="font-display text-lg font-bold">What would you like to import?</h3>
-              <p className="mt-1 text-sm text-ink-muted">Choose one or more record types contained in your spreadsheet.</p>
+              <p className="mt-1 text-sm text-ink-muted">Choose one record type. Product imports can create missing categories automatically from the category column.</p>
               <div className="mt-5 grid gap-3 sm:grid-cols-2">
-                {DATA_TYPES.map((item) => <button key={item.value} onClick={() => toggleType(item.value)} className={`rounded-2xl border p-4 text-left transition ${types.includes(item.value) ? 'border-accent bg-accent-soft' : 'border-line bg-white hover:border-accent/40'}`}><div className="flex items-center gap-3"><span className={`flex size-5 items-center justify-center rounded-md border ${types.includes(item.value) ? 'border-accent bg-accent text-white' : 'border-line'}`}>{types.includes(item.value) ? '✓' : ''}</span><div><strong className="text-sm">{item.label}</strong><p className="mt-0.5 text-xs text-ink-muted">{item.description}</p></div></div></button>)}
+                {DATA_TYPES.map((item) => <button key={item.value} disabled={!item.available} onClick={() => toggleType(item.value)} className={`rounded-2xl border p-4 text-left transition ${!item.available ? 'cursor-not-allowed border-line bg-surface-strong opacity-60' : types.includes(item.value) ? 'border-accent bg-accent-soft' : 'border-line bg-white hover:border-accent/40'}`}><div className="flex items-center gap-3"><span className={`flex size-5 items-center justify-center rounded-md border ${types.includes(item.value) ? 'border-accent bg-accent text-white' : 'border-line'}`}>{types.includes(item.value) ? '✓' : ''}</span><div><strong className="text-sm">{item.label}{!item.available ? ' · Coming later' : ''}</strong><p className="mt-0.5 text-xs text-ink-muted">{item.description}</p></div></div></button>)}
               </div>
               <div className={`mt-6 rounded-2xl border-2 border-dashed p-10 text-center transition ${dragging ? 'border-accent bg-accent-soft' : 'border-line bg-white'}`} onDragOver={(event) => { event.preventDefault(); setDragging(true) }} onDragLeave={() => setDragging(false)} onDrop={dropFile}>
                 <div className="mx-auto flex size-12 items-center justify-center rounded-2xl bg-accent-soft text-accent"><Icon name="arrow" className="size-6 -rotate-90" /></div>
                 <h3 className="mt-4 font-display font-bold">Drop your spreadsheet here</h3>
                 <p className="mt-1 text-sm text-ink-muted">CSV or Excel (.xlsx)</p>
-                <Button className="mt-5" onClick={() => inputRef.current?.click()} disabled={types.length === 0}>Browse files</Button>
+                <Button className="mt-5" onClick={() => inputRef.current?.click()} disabled={types.length !== 1}>Browse files</Button>
                 <input ref={inputRef} className="hidden" type="file" accept=".csv,.xlsx" onChange={(event) => { const selected = event.target.files?.[0]; if (selected) void loadFile(selected) }} />
               </div>
             </div>
@@ -269,7 +292,7 @@ export function ImportWizard({
               <div className="grid grid-cols-2 gap-3 sm:grid-cols-4"><Stat label="Rows detected" value={rows.length} /><Stat label="Valid" value={validRows.length} tone="good" /><Stat label="Invalid" value={invalidRows.length} tone={invalidRows.length ? 'bad' : undefined} /><Stat label="Duplicates" value={validations.filter((item) => item.duplicate).length} /></div>
               <h3 className="mt-7 font-display text-lg font-bold">Data preview</h3>
               <p className="mt-1 text-sm text-ink-muted">Invalid and duplicate rows will be skipped.</p>
-              <div className="mt-5 overflow-x-auto rounded-2xl border border-line bg-white"><table className="w-full min-w-[620px] text-left text-xs"><thead className="bg-surface-strong text-ink-muted"><tr><th className="p-3">Row</th>{availableFields.filter((field) => Object.values(mapping).includes(field.value)).slice(0, 5).map((field) => <th key={field.value} className="p-3">{field.label}</th>)}<th className="p-3">Status</th></tr></thead><tbody>{validations.slice(0, 8).map((item, index) => <tr key={index} className="border-t border-line"><td className="p-3">{index + 2}</td>{availableFields.filter((field) => Object.values(mapping).includes(field.value)).slice(0, 5).map((field) => <td key={field.value} className="max-w-40 truncate p-3">{String(item.row[field.value] ?? '—')}</td>)}<td className="p-3">{item.valid ? <span className="rounded-full bg-accent-soft px-2 py-1 font-semibold text-accent-strong">Valid</span> : <span className="rounded-full bg-danger-soft px-2 py-1 font-semibold text-danger">{item.duplicate ? 'Duplicate' : `Missing ${item.missing.join(', ') || item.invalidNumbers.join(', ')}`}</span>}</td></tr>)}</tbody></table></div>
+              <div className="mt-5 overflow-x-auto rounded-2xl border border-line bg-white"><table className="w-full min-w-[620px] text-left text-xs"><thead className="bg-surface-strong text-ink-muted"><tr><th className="p-3">Row</th>{availableFields.filter((field) => Object.values(mapping).includes(field.value)).slice(0, 5).map((field) => <th key={field.value} className="p-3">{field.label}</th>)}<th className="p-3">Status</th></tr></thead><tbody>{validations.slice(0, 8).map((item, index) => <tr key={index} className="border-t border-line"><td className="p-3">{index + 2}</td>{availableFields.filter((field) => Object.values(mapping).includes(field.value)).slice(0, 5).map((field) => <td key={field.value} className="max-w-40 truncate p-3">{String(item.row[field.value] ?? '—')}</td>)}<td className="p-3">{item.valid ? <span className="rounded-full bg-accent-soft px-2 py-1 font-semibold text-accent-strong">Valid</span> : <span className="rounded-full bg-danger-soft px-2 py-1 font-semibold text-danger">{item.duplicate ? 'Duplicate' : item.missing.length ? `Missing ${item.missing.join(', ')}` : item.invalidNumbers.length ? `Invalid ${item.invalidNumbers.join(', ')}` : `Too long ${item.invalidText.join(', ')}`}</span>}</td></tr>)}</tbody></table></div>
             </div>
           )}
           {stage === 'confirm' && (
@@ -279,7 +302,7 @@ export function ImportWizard({
                 <h3 className="mt-5 font-display text-xl font-bold">Ready to import</h3>
                 <p className="mt-1 text-sm text-ink-muted">Review the records that will be added to your PointNull workspace.</p>
                 <div className="mt-6 divide-y divide-line">{DATA_TYPES.map((item) => <div key={item.value} className="flex items-center justify-between py-3"><span className="text-sm text-ink-muted">{item.label}</span><strong>{types.includes(item.value) ? validRows.length : 0}</strong></div>)}</div>
-                <p className="mt-5 rounded-xl bg-surface-strong p-3 text-xs leading-5 text-ink-muted">PointNull will preserve product/category and order/order-item relationships where valid IDs are provided. Invalid references are skipped.</p>
+                <p className="mt-5 rounded-xl bg-surface-strong p-3 text-xs leading-5 text-ink-muted">Existing categories and products are skipped. For product imports, any category name not already in PointNull will be created automatically. Historical sales and order-item imports will be enabled separately.</p>
               </div>
             </div>
           )}
@@ -288,7 +311,8 @@ export function ImportWizard({
               <div className="flex size-16 items-center justify-center rounded-full bg-accent text-white"><Icon name="check" className="size-8" /></div>
               <h3 className="mt-6 font-display text-2xl font-bold">Import complete</h3>
               <p className="mt-2 max-w-md text-sm leading-6 text-ink-muted">Your records are now part of the same PointNull dataset used by Sell and Analysis.</p>
-              <div className="mt-6 flex gap-4 text-sm"><span><strong>{result?.products.length ?? 0}</strong> products</span><span><strong>{result?.orders.length ?? 0}</strong> orders</span><span><strong>{result?.orderItems.length ?? 0}</strong> items</span></div>
+              <div className="mt-6 flex flex-wrap justify-center gap-4 text-sm"><span><strong>{result?.categories.length ?? 0}</strong> categories added</span><span><strong>{result?.products.length ?? 0}</strong> products added</span></div>
+              {((result?.skipped?.categories ?? 0) + (result?.skipped?.products ?? 0)) > 0 && <p className="mt-3 text-xs text-ink-muted">{(result?.skipped?.categories ?? 0) + (result?.skipped?.products ?? 0)} duplicate or invalid records skipped.</p>}
               <Button variant="primary" className="mt-8 min-w-36" onClick={onClose}>Done</Button>
             </div>
           )}
@@ -296,7 +320,7 @@ export function ImportWizard({
         {stage !== 'upload' && stage !== 'success' && (
           <footer className="flex items-center justify-between border-t border-line bg-white px-6 py-4">
             <Button onClick={() => setStage(stage === 'mapping' ? 'upload' : stage === 'preview' ? 'mapping' : 'preview')}>Back</Button>
-            {stage === 'mapping' && <Button variant="primary" onClick={() => setStage('preview')} disabled={requiredFields.some((field) => !Object.values(mapping).includes(field))}>Preview data</Button>}
+            {stage === 'mapping' && <Button variant="primary" onClick={() => setStage('preview')} disabled={types.length !== 1 || requiredFields.some((field) => !Object.values(mapping).includes(field))}>Preview data</Button>}
             {stage === 'preview' && <Button variant="primary" onClick={() => setStage('confirm')} disabled={validRows.length === 0}>Continue</Button>}
             {stage === 'confirm' && <Button variant="primary" onClick={() => void confirmImport()} disabled={busy}>{busy ? 'Importing…' : 'Confirm import'}</Button>}
           </footer>

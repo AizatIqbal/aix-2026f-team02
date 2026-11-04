@@ -1,6 +1,7 @@
 import { useEffect, useState, type FormEvent } from 'react'
 import {
   addProduct,
+  exportAnalytics,
   getCategories,
   getCustomers,
   getOrders,
@@ -37,7 +38,11 @@ interface Filters {
 
 const EMPTY_DATA: AppData = { categories: [], products: [], orders: [], customers: [] }
 const DAYS = ['Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday', 'Sunday']
-const CURRENCY = new Intl.NumberFormat('en-US', { style: 'currency', currency: 'USD' })
+const CURRENCY = new Intl.NumberFormat('ko-KR', {
+  style: 'currency',
+  currency: 'KRW',
+  maximumFractionDigits: 0,
+})
 
 function formatMoney(value: number): string {
   return CURRENCY.format(value)
@@ -48,6 +53,8 @@ function App() {
   const [data, setData] = useState<AppData>(EMPTY_DATA)
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState('')
+  const [analysisLoading, setAnalysisLoading] = useState(false)
+  const [analyticsLoaded, setAnalyticsLoaded] = useState(false)
   const [selection, setSelection] = useState<Record<number, number>>({})
   const [category, setCategory] = useState<number | 'all'>('all')
   const [customerPhone, setCustomerPhone] = useState('')
@@ -63,13 +70,68 @@ function App() {
   }, [])
 
   useEffect(() => {
-    Promise.all([getCategories(), getProducts(), getOrders(), getCustomers()])
-      .then(([categories, products, orders, customers]) => {
-        setData({ categories, products, orders, customers })
-      })
-      .catch(() => setError('We could not load the database. Check the data connection and try again.'))
-      .finally(() => setLoading(false))
+    Promise.all([
+      getCategories(),
+      getProducts(),
+    ])
+        .then(([categories, products]) => {
+          setData((current) => ({
+            ...current,
+            categories,
+            products,
+          }))
+        })
+        .catch((caught) => {
+          setError(
+              caught instanceof Error
+                  ? caught.message
+                  : 'We could not load the database.',
+          )
+        })
+        .finally(() => setLoading(false))
   }, [])
+  useEffect(() => {
+    if (tab !== 'analysis' || analyticsLoaded) return
+
+    let cancelled = false
+
+    setAnalysisLoading(true)
+    setError('')
+
+    Promise.all([
+      getOrders(),
+      getOrderItems(),
+    ])
+        .then(([orders, orderItems]) => {
+          if (cancelled) return
+
+          setData((current) => ({
+            ...current,
+            orders,
+            orderItems,
+          }))
+
+          setAnalyticsLoaded(true)
+        })
+        .catch((caught) => {
+          if (cancelled) return
+
+          setError(
+              caught instanceof Error
+                  ? caught.message
+                  : 'We could not load sales data.',
+          )
+        })
+        .finally(() => {
+          if (!cancelled) {
+            setAnalysisLoading(false)
+          }
+        })
+
+    return () => {
+      cancelled = true
+    }
+  }, [tab, analyticsLoaded])
 
   const selectedCount = Object.values(selection).reduce((sum, quantity) => sum + quantity, 0)
   const selectedTotal = data.products.reduce(
@@ -149,7 +211,10 @@ function App() {
             onAddProduct={() => setProductModalOpen(true)}
           />
         ) : (
-          <Analysis data={data} loading={loading} />
+            <Analysis
+                data={data}
+                loading={loading || analysisLoading}
+            />
         )}
       </main>
       {tab === 'menu' && (
@@ -332,15 +397,27 @@ function Menu({
                   </div>
                 </CardButton>
                 {quantity > 0 && (
-                  <div className="absolute bottom-3 right-3 flex items-center gap-1 rounded-xl bg-ink p-1 text-white shadow-lg">
-                    <IconButton label={`Remove one ${product.product_name}`} className="size-9 min-h-0 border-0 bg-transparent text-white hover:bg-white/15" onClick={() => onQuantityChange(product.product_id, -1)}>
-                      <Icon name="minus" className="size-4" />
-                    </IconButton>
-                    <div className="min-w-7 text-center text-sm font-bold">{quantity}</div>
-                    <IconButton label={`Add one ${product.product_name}`} className="size-9 min-h-0 border-0 bg-transparent text-white hover:bg-white/15" onClick={() => onQuantityChange(product.product_id, 1)}>
-                      <Icon name="plus" className="size-4" />
-                    </IconButton>
-                  </div>
+                    <div className="absolute bottom-3 right-3 z-10 flex items-center gap-1 rounded-xl bg-ink p-1 text-white shadow-lg">
+                      <IconButton
+                          label={`Remove one ${product.product_name}`}
+                          className="size-9 min-h-0 rounded-lg border-0 !bg-transparent !text-white hover:!bg-white/15"
+                          onClick={() => onQuantityChange(product.product_id, -1)}
+                      >
+                        <Icon name="minus" className="size-4 shrink-0" />
+                      </IconButton>
+
+                      <div className="min-w-7 text-center text-sm font-bold tabular-nums">
+                        {quantity}
+                      </div>
+
+                      <IconButton
+                          label={`Add one ${product.product_name}`}
+                          className="size-9 min-h-0 rounded-lg border-0 !bg-transparent !text-white hover:!bg-white/15"
+                          onClick={() => onQuantityChange(product.product_id, 1)}
+                      >
+                        <Icon name="plus" className="size-4 shrink-0" />
+                      </IconButton>
+                    </div>
                 )}
               </Surface>
             )
@@ -414,7 +491,7 @@ function AddProductModal({
           <div className="space-y-4">
             <label className="block text-sm font-semibold">Product name <span className="text-danger">*</span><Input className="mt-2 w-full" value={name} onChange={(event) => setName(event.target.value)} placeholder="e.g. Flat White" autoFocus required /></label>
             <label className="block text-sm font-semibold">Category <span className="text-danger">*</span><select className="mt-2 min-h-11 w-full rounded-xl border border-line bg-white px-3 text-sm outline-none focus:border-accent focus:ring-2 focus:ring-accent/15" value={categoryId} onChange={(event) => setCategoryId(event.target.value)} required><option value="">Choose a category</option>{categories.map((item) => <option key={item.category_id} value={item.category_id}>{item.category_name}</option>)}</select></label>
-            <label className="block text-sm font-semibold">Price <span className="text-danger">*</span><div className="relative mt-2"><span className="absolute left-3 top-1/2 -translate-y-1/2 text-sm text-ink-faint">$</span><Input className="w-full pl-7" type="number" min="0.01" step="0.01" value={price} onChange={(event) => setPrice(event.target.value)} placeholder="0.00" required /></div></label>
+            <label className="block text-sm font-semibold">Price <span className="text-danger">*</span><div className="relative mt-2"><span className="absolute left-3 top-1/2 -translate-y-1/2 text-sm text-ink-faint">₩</span><Input className="w-full pl-7" type="number" min="1" step="1" value={price} onChange={(event) => setPrice(event.target.value)} placeholder="0" required /></div></label>
             <label className="block text-sm font-semibold">Product image <span className="font-normal text-ink-faint">(optional)</span><div className="mt-2 flex items-center gap-4 rounded-xl border border-dashed border-line p-3">{imageUrl ? <img className="size-16 rounded-xl object-cover" src={imageUrl} alt="Product preview" /> : <div className="flex size-16 items-center justify-center rounded-xl bg-product text-xs font-bold text-accent">IMAGE</div>}<div><input className="block max-w-full text-xs text-ink-muted file:mr-3 file:rounded-lg file:border-0 file:bg-accent-soft file:px-3 file:py-2 file:font-semibold file:text-accent-strong" type="file" accept="image/*" onChange={(event) => readImage(event.target.files?.[0])} /><p className="mt-2 text-[11px] text-ink-faint">PNG or JPG recommended</p></div></div></label>
           </div>
           <div className="mt-7 flex justify-end gap-3"><Button type="button" onClick={onClose}>Cancel</Button><Button variant="primary" type="submit" disabled={saving}>{saving ? 'Saving…' : 'Save product'}</Button></div>
@@ -471,9 +548,9 @@ function localDate(value: Date): string {
 
 function Analysis({ data, loading }: { data: AppData; loading: boolean }) {
   const [filters, setFilters] = useState<Filters>({ preset: '30d', days: [], startTime: '00:00', endTime: '23:59', categories: [] })
-  const [statistics, setStatistics] = useState<Statistics | null>(null)
-  const [reportLoading, setReportLoading] = useState(true)
-  const [reportError, setReportError] = useState('')
+  const [exportOpen, setExportOpen] = useState(false)
+  const [exportStatus, setExportStatus] = useState<{ state: 'idle' | 'loading' | 'success' | 'error'; message?: string }>({ state: 'idle' })
+  const productMap = useMemo(() => new Map(data.products.map((product) => [product.product_id, product])), [data.products])
 
   useEffect(() => {
     if (loading) return
@@ -488,23 +565,22 @@ function Analysis({ data, loading }: { data: AppData; loading: boolean }) {
       end: filters.preset === 'all' ? (orderDates.at(-1) ?? localDate(now)) : localDate(now),
       group: 'day',
     })
-    if (filters.startTime) query.set('start_time', `${filters.startTime}:00`)
-    if (filters.endTime) query.set('end_time', `${filters.endTime}:59`)
-    filters.days.forEach((day) => query.append('weekdays', String(DAYS.indexOf(day))))
-    filters.categories.forEach((id) => query.append('category_ids', String(id)))
+  }, [data.orderItems, data.orders, filters, productMap])
 
-    setReportLoading(true)
-    setReportError('')
-    setStatistics(null)
-    getStatistics(query, controller.signal)
-      .then((result) => { if (!controller.signal.aborted) setStatistics(result) })
-      .catch((error: Error) => { if (!controller.signal.aborted) setReportError(error.message) })
-      .finally(() => { if (!controller.signal.aborted) setReportLoading(false) })
-    return () => controller.abort()
-  }, [data.orders, filters, loading])
+  const orderIds = useMemo(() => new Set(filteredOrders.map((order) => order.order_id)), [filteredOrders])
+  const filteredItems = data.orderItems.filter((item) => {
+    const product = productMap.get(item.product_id)
+    return orderIds.has(item.order_id) && (filters.categories.length === 0 || Boolean(product && filters.categories.includes(product.category_id)))
+  })
 
-  const summary = statistics?.summary
-  const topProduct = statistics?.products.find((product) => product.units > 0)
+  const revenue = filteredOrders.reduce(
+      (sum, order) => sum + order.total,
+      0
+  )
+  const itemCount = filteredItems.reduce((sum, item) => sum + item.quantity, 0)
+  const quantities = new Map<number, number>()
+  filteredItems.forEach((item) => quantities.set(item.product_id, (quantities.get(item.product_id) ?? 0) + item.quantity))
+  const topProductId = [...quantities.entries()].sort((a, b) => b[1] - a[1])[0]?.[0]
 
   function toggleDay(day: string): void {
     setFilters((current) => ({ ...current, days: current.days.includes(day) ? current.days.filter((value) => value !== day) : [...current.days, day] }))
@@ -516,13 +592,24 @@ function Analysis({ data, loading }: { data: AppData; loading: boolean }) {
 
   const resetFilters = (): void => setFilters({ preset: '30d', days: [], startTime: '00:00', endTime: '23:59', categories: [] })
 
+  async function downloadReport(scope: 'current' | 'full'): Promise<void> {
+    setExportStatus({ state: 'loading', message: scope === 'current' ? 'Preparing current view…' : 'Preparing full report…' })
+    try {
+      const filename = await exportAnalytics({ scope, filters: scope === 'current' ? filters : undefined })
+      setExportOpen(false)
+      setExportStatus({ state: 'success', message: `${filename} downloaded` })
+      window.setTimeout(() => setExportStatus({ state: 'idle' }), 3500)
+    } catch (caught) {
+      setExportStatus({ state: 'error', message: caught instanceof Error ? caught.message : 'Export failed. Please try again.' })
+    }
+  }
+
   if (loading) return <LoadingAnalysis />
 
   return (
     <section>
       <div className="mb-6 flex flex-wrap items-end justify-between gap-4">
         <div><div className="font-display text-3xl font-bold tracking-tight">Analysis</div><div className="mt-1 text-sm text-ink-muted">A live view of sales performance.</div></div>
-        <Button disabled title="Not in this prototype" className="min-w-48">Extended analytics <Icon name="chevron" className="ml-2 inline size-4" /></Button>
       </div>
       <Surface className="mb-5 p-4">
         <div className="flex flex-wrap items-end gap-4">
@@ -543,7 +630,33 @@ function Analysis({ data, loading }: { data: AppData; loading: boolean }) {
           </FilterGroup>
           {data.categories.length > 0 && <FilterGroup label="Category"><div className="flex flex-wrap gap-1">{data.categories.map((item) => <Button key={item.category_id} variant="chip" onClick={() => toggleCategory(item.category_id)} className={`min-h-9 px-3 ${filters.categories.includes(item.category_id) ? 'border-accent bg-accent-soft text-accent-strong' : ''}`}>{item.category_name}</Button>)}</div></FilterGroup>}
           <Button variant="ghost" onClick={resetFilters}><span className="flex items-center gap-2"><Icon name="reset" /> Reset</span></Button>
-          <div className="ml-auto rounded-full bg-accent-soft px-3 py-2 text-sm font-semibold text-accent-strong">{summary?.orders ?? 0} matching orders</div>
+          <div className="ml-auto rounded-full bg-accent-soft px-3 py-2 text-sm font-semibold text-accent-strong">{filteredOrders.length} matching orders</div>
+          <div className="relative">
+            <Button
+              variant="secondary"
+              onClick={() => setExportOpen((current) => !current)}
+              aria-haspopup="menu"
+              aria-expanded={exportOpen}
+              disabled={exportStatus.state === 'loading'}
+            >
+              <span className="flex items-center gap-2"><Icon name="download" />{exportStatus.state === 'loading' ? 'Exporting…' : 'Export Excel'}<Icon name="chevron" className="size-4" /></span>
+            </Button>
+            {exportOpen && (
+              <div role="menu" className="absolute right-0 top-[calc(100%+0.5rem)] z-30 w-72 overflow-hidden rounded-2xl border border-line bg-white p-2 shadow-xl">
+                <button role="menuitem" className="w-full rounded-xl p-3 text-left hover:bg-surface-strong" onClick={() => void downloadReport('current')}>
+                  <span className="flex items-start gap-3"><span className="mt-0.5 flex size-9 shrink-0 items-center justify-center rounded-xl bg-accent-soft text-accent"><Icon name="download" /></span><span><strong className="block text-sm">Export Current View</strong><small className="mt-1 block leading-5 text-ink-muted">Uses the selected date range, days, times, and categories.</small></span></span>
+                </button>
+                <button role="menuitem" className="w-full rounded-xl p-3 text-left hover:bg-surface-strong" onClick={() => void downloadReport('full')}>
+                  <span className="flex items-start gap-3"><span className="mt-0.5 flex size-9 shrink-0 items-center justify-center rounded-xl bg-surface-strong text-ink-muted"><Icon name="chart" /></span><span><strong className="block text-sm">Export Full Report</strong><small className="mt-1 block leading-5 text-ink-muted">Downloads all available analytics without active filters.</small></span></span>
+                </button>
+              </div>
+            )}
+            {exportStatus.state !== 'idle' && exportStatus.state !== 'loading' && (
+              <div role="status" className={`absolute right-0 top-[calc(100%+0.5rem)] z-20 w-72 rounded-xl border px-3 py-2 text-xs font-semibold shadow-lg ${exportStatus.state === 'success' ? 'border-accent/20 bg-accent-soft text-accent-strong' : 'border-danger/20 bg-danger-soft text-danger'}`}>
+                {exportStatus.message}
+              </div>
+            )}
+          </div>
         </div>
       </Surface>
       <div className="mb-5 grid grid-cols-2 gap-3 lg:grid-cols-5">
