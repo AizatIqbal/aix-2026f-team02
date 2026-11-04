@@ -66,9 +66,17 @@ export interface NewProductInput {
   image_url?: string
 }
 
+export interface ImportProductInput {
+  product_name: string
+  price: number
+  category_id?: number
+  category_name?: string
+  source_product_id?: number
+}
+
 export interface ImportPayload {
   categories: Omit<Category, 'category_id'>[]
-  products: (NewProductInput & { source_product_id?: number })[]
+  products: ImportProductInput[]
   orders: (Omit<Order, 'order_id'> & { source_order_id?: number })[]
   orderItems: Omit<OrderItem, 'order_item_id'>[]
 }
@@ -78,6 +86,10 @@ export interface ImportResult {
   products: Product[]
   orders: Order[]
   orderItems: OrderItem[]
+  skipped?: {
+    categories: number
+    products: number
+  }
 }
 
 export interface AnalyticsExportRequest {
@@ -307,12 +319,17 @@ export async function saveOrder(
 // --------------------------------------------------
 
 export async function importData(
-    _input: ImportPayload,
+    input: ImportPayload,
 ): Promise<ImportResult> {
-  throw new Error(
-      'Bulk import is not currently supported by the backend API.',
-  )
+  return apiRequest<ImportResult>('/import', {
+    method: 'POST',
+    body: JSON.stringify({
+      categories: input.categories,
+      products: input.products,
+    }),
+  })
 }
+
 
 // --------------------------------------------------
 // ANALYTICS EXPORT
