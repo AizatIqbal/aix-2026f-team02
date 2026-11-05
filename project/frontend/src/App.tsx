@@ -60,6 +60,9 @@ function App() {
   const [saving, setSaving] = useState(false)
   const [productModalOpen, setProductModalOpen] = useState(false)
   const [importOpen, setImportOpen] = useState(false)
+  const [splashVisible, setSplashVisible] = useState(() => sessionStorage.getItem('pointnull-intro-seen') !== 'true')
+  const [splashLeaving, setSplashLeaving] = useState(false)
+  const [splashMinimumElapsed, setSplashMinimumElapsed] = useState(false)
 
   useEffect(() => {
     const timer = window.setInterval(() => setClock(new Date()), 1000)
@@ -87,6 +90,31 @@ function App() {
         })
         .finally(() => setLoading(false))
   }, [])
+  // Keep the splash screen visible for at least 2.2 seconds
+  useEffect(() => {
+    if (!splashVisible) return
+
+    const timer = window.setTimeout(() => {
+      setSplashMinimumElapsed(true)
+    }, 2200)
+
+    return () => window.clearTimeout(timer)
+  }, [splashVisible])
+
+// Hide the splash screen after the initial data has loaded
+  useEffect(() => {
+    if (!splashVisible || !splashMinimumElapsed || loading) return
+
+    setSplashLeaving(true)
+
+    const timer = window.setTimeout(() => {
+      sessionStorage.setItem('pointnull-intro-seen', 'true')
+      setSplashVisible(false)
+    }, 520)
+
+    return () => window.clearTimeout(timer)
+  }, [loading, splashMinimumElapsed, splashVisible])
+
   useEffect(() => {
     if (tab !== 'analysis' || analyticsLoaded) return
 
@@ -248,7 +276,47 @@ function App() {
           onImported={mergeImported}
         />
       )}
+      {splashVisible && <StartupSplash leaving={splashLeaving} />}
+
     </div>
+  )
+}
+
+function StartupSplash({ leaving }: { leaving: boolean }) {
+  return (
+      <div
+          className={`startup-splash ${leaving ? 'startup-splash-leaving' : ''}`}
+          role="status"
+          aria-live="polite"
+          aria-label="PointNull is loading"
+      >
+        <div className="splash-grid" aria-hidden="true" />
+        <div className="splash-orbit splash-orbit-outer" aria-hidden="true" />
+        <div className="splash-orbit splash-orbit-inner" aria-hidden="true" />
+
+        <div className="splash-center">
+          <div className="splash-mark-wrap">
+            <div className="splash-pulse" aria-hidden="true" />
+            <img
+                src="/favicon.svg"
+                alt=""
+                className="splash-mark"
+            />
+            <div className="splash-scan" aria-hidden="true" />
+          </div>
+
+          <div className="splash-wordmark">PointNull</div>
+          <div className="splash-message">Preparing your workspace</div>
+
+          <div className="splash-progress" aria-hidden="true">
+            <span />
+          </div>
+        </div>
+
+        <div className="splash-status">
+          <span /> SECURE DATA CONNECTION
+        </div>
+      </div>
   )
 }
 
@@ -437,6 +505,11 @@ function AddProductModal({
   const [imageUrl, setImageUrl] = useState('')
   const [error, setError] = useState('')
   const [saving, setSaving] = useState(false)
+  const [splashVisible, setSplashVisible] = useState(
+      () => sessionStorage.getItem('pointnull-intro-seen') !== 'true'
+  )
+  const [splashLeaving, setSplashLeaving] = useState(false)
+  const [splashMinimumElapsed, setSplashMinimumElapsed] = useState(false)
 
   function readImage(file?: File): void {
     if (!file) return
