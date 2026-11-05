@@ -61,10 +61,18 @@ class SQLAlchemyBusinessDataHandler:
                     ORDER BY customer_phone
                     """,
                 )
+                campaigns = _fetch_all(
+                    connection,
+                    """
+                    SELECT promocode, campaign_name, channel, start_date, end_date, budget
+                    FROM campaign
+                    ORDER BY campaign_name, promocode
+                    """,
+                )
                 orders = _fetch_all(
                     connection,
                     """
-                    SELECT order_id, customer_phone, order_date, order_time, discount, total
+                    SELECT order_id, customer_phone, promocode, order_date, order_time, discount, total
                     FROM orders
                     ORDER BY order_id
                     """,
@@ -118,6 +126,7 @@ class SQLAlchemyBusinessDataHandler:
         return {
             "products": products,
             "customers": customers,
+            "campaigns": campaigns,
             "orders": orders,
             "orderItems": order_items,
         }

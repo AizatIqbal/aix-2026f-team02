@@ -49,6 +49,8 @@ class Filters:
             raise ValueError("weekdays must contain integers from 0 (Monday) to 6 (Sunday)")
         if not isinstance(self.start_time, time) or not isinstance(self.end_time, time):
             raise ValueError("start_time and end_time must be time values")
+        if self.start_time.tzinfo is not None or self.end_time.tzinfo is not None:
+            raise ValueError("start_time and end_time must use local times without a timezone")
 
 
 def as_date(value: object) -> date:
@@ -172,6 +174,7 @@ def selected_rows(snapshot: dict, filters: Filters) -> tuple[list[dict], list[in
                     "discount": allocated_discount,
                     "net": gross - allocated_discount,
                     "customer": customers.get(order["customer_phone"]),
+                    "promocode": order.get("promocode"),
                 }
             )
 
@@ -231,6 +234,8 @@ def analyze(snapshot: dict, filters: Filters) -> dict:
     hours = {hour: blank() for hour in range(24)}
     weekdays = {weekday: blank() for weekday in range(7)}
     categories = {product["category_id"]: blank() for product in catalog}
+    campaigns = snapshot.get("campaigns", [])
+    campaign_totals = {campaign["promocode"]: blank() for campaign in campaigns}
     total = blank()
     identified_orders: set[int] = set()
     known_age_orders: set[int] = set()
@@ -255,7 +260,7 @@ def analyze(snapshot: dict, filters: Filters) -> dict:
             if gender != "Unknown":
                 known_gender_orders.add(row["order_id"])
 
-        targets = (
+        targets = [
             total,
             periods[period],
             product_periods[(row["product_id"], period)],
@@ -264,7 +269,9 @@ def analyze(snapshot: dict, filters: Filters) -> dict:
             hours[row["time"].hour],
             weekdays[row["date"].weekday()],
             categories[row["category_id"]],
-        )
+        ]
+        if row["promocode"] in campaign_totals:
+            targets.append(campaign_totals[row["promocode"]])
         for target in targets:
             target["units"] += row["quantity"]
             for field in ("gross", "discount", "net"):
@@ -346,6 +353,20 @@ def analyze(snapshot: dict, filters: Filters) -> dict:
         "by_category": [
             {"category_id": category_id, **result(values)}
             for category_id, values in sorted(categories.items())
+        ],
+        "by_campaign": [
+            {
+                **campaign,
+                "start_date": as_date(campaign["start_date"]).isoformat(),
+                "end_date": as_date(campaign["end_date"]).isoformat(),
+                "budget": amount(cents(campaign["budget"])),
+                **result(campaign_totals[campaign["promocode"]]),
+            }
+            for campaign in campaigns
+            if (
+                as_date(campaign["start_date"]) <= filters.end
+                and as_date(campaign["end_date"]) >= filters.start
+            ) or campaign_totals[campaign["promocode"]]["order_ids"]
         ],
         "demographics": [
             {

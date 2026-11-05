@@ -1,4 +1,4 @@
-import { useEffect, useState, type FormEvent, type PointerEvent } from 'react'
+import { useEffect, useMemo, useState, type FormEvent, type PointerEvent } from 'react'
 import {
   addProduct,
   exportAnalytics,
@@ -12,9 +12,11 @@ import {
   type Statistics,
   type Product,
   type ImportResult,
+  type StatisticsGroup,
 } from './data-access'
 import { ImportWizard } from './import-wizard'
 import { Button, CardButton, Icon, IconButton, Input, Surface } from './ui'
+import { MarketingAnalysis, SalesBreakdowns } from './analytics-details'
 
 type WorkingTab = 'menu' | 'analysis'
 type DatePreset = 'today' | '7d' | '30d' | 'all'
@@ -27,6 +29,7 @@ interface AppData {
 
 interface Filters {
   preset: DatePreset
+  group: StatisticsGroup
   days: string[]
   startTime: string
   endTime: string
@@ -34,6 +37,8 @@ interface Filters {
 }
 
 const EMPTY_DATA: AppData = { categories: [], products: [], orders: [] }
+const DEFAULT_FILTERS: Filters = { preset: '30d', group: 'day', days: [], startTime: '00:00', endTime: '23:59', categories: [] }
+const GROUP_LABELS: Record<StatisticsGroup, string> = { day: 'Daily', week: 'Weekly', month: 'Monthly', year: 'Yearly' }
 const DAYS = ['Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday', 'Sunday']
 const CURRENCY = new Intl.NumberFormat('ko-KR', {
   style: 'currency',
@@ -516,31 +521,38 @@ function localDate(value: Date): string {
   return `${value.getFullYear()}-${month}-${day}`
 }
 
+function statisticsQuery(filters: Filters, orders: Order[]): URLSearchParams {
+  const now = new Date()
+  const firstDay = new Date(now)
+  if (filters.preset === '7d') firstDay.setDate(now.getDate() - 6)
+  if (filters.preset === '30d') firstDay.setDate(now.getDate() - 29)
+  const orderDates = filters.preset === 'all' ? orders.map((order) => order.order_date).sort() : []
+  const query = new URLSearchParams({
+    start: orderDates[0] ?? localDate(firstDay),
+    end: orderDates.at(-1) ?? localDate(now),
+    group: filters.group,
+  })
+  if (filters.startTime) query.set('start_time', `${filters.startTime}:00`)
+  if (filters.endTime) query.set('end_time', `${filters.endTime}:59`)
+  filters.days.forEach((day) => query.append('weekdays', String(DAYS.indexOf(day))))
+  filters.categories.forEach((id) => query.append('category_ids', String(id)))
+  return query
+}
+
 function Analysis({ data, loading }: { data: AppData; loading: boolean }) {
-  const [filters, setFilters] = useState<Filters>({ preset: '30d', days: [], startTime: '00:00', endTime: '23:59', categories: [] })
+  const [filters, setFilters] = useState<Filters>(DEFAULT_FILTERS)
+  const [view, setView] = useState<'sales' | 'marketing'>('sales')
+  const [trendProductId, setTrendProductId] = useState(0)
   const [exportOpen, setExportOpen] = useState(false)
   const [exportStatus, setExportStatus] = useState<{ state: 'idle' | 'loading' | 'success' | 'error'; message?: string }>({ state: 'idle' })
   const [statistics, setStatistics] = useState<Statistics | null>(null)
   const [reportLoading, setReportLoading] = useState(true)
   const [reportError, setReportError] = useState('')
+  const query = useMemo(() => statisticsQuery(filters, data.orders), [filters, data.orders])
 
   useEffect(() => {
     if (loading) return
     const controller = new AbortController()
-    const now = new Date()
-    const firstDay = new Date(now)
-    if (filters.preset === '7d') firstDay.setDate(now.getDate() - 6)
-    if (filters.preset === '30d') firstDay.setDate(now.getDate() - 29)
-    const orderDates = data.orders.map((order) => order.order_date).sort()
-    const query = new URLSearchParams({
-      start: filters.preset === 'all' ? (orderDates[0] ?? localDate(now)) : localDate(firstDay),
-      end: filters.preset === 'all' ? (orderDates.at(-1) ?? localDate(now)) : localDate(now),
-      group: 'day',
-    })
-    if (filters.startTime) query.set('start_time', `${filters.startTime}:00`)
-    if (filters.endTime) query.set('end_time', `${filters.endTime}:59`)
-    filters.days.forEach((day) => query.append('weekdays', String(DAYS.indexOf(day))))
-    filters.categories.forEach((id) => query.append('category_ids', String(id)))
 
     setReportLoading(true)
     setReportError('')
@@ -550,7 +562,7 @@ function Analysis({ data, loading }: { data: AppData; loading: boolean }) {
       .catch((error: Error) => { if (!controller.signal.aborted) setReportError(error.message) })
       .finally(() => { if (!controller.signal.aborted) setReportLoading(false) })
     return () => controller.abort()
-  }, [data.orders, filters, loading])
+  }, [query, loading])
 
   const summary = statistics?.summary
   const topProduct = statistics?.products.find((product) => product.units > 0)
@@ -563,7 +575,7 @@ function Analysis({ data, loading }: { data: AppData; loading: boolean }) {
     setFilters((current) => ({ ...current, categories: current.categories.includes(categoryId) ? current.categories.filter((value) => value !== categoryId) : [...current.categories, categoryId] }))
   }
 
-  const resetFilters = (): void => setFilters({ preset: '30d', days: [], startTime: '00:00', endTime: '23:59', categories: [] })
+  const resetFilters = (): void => setFilters(DEFAULT_FILTERS)
 
   async function downloadReport(scope: 'current' | 'full'): Promise<void> {
     setExportStatus({ state: 'loading', message: scope === 'current' ? 'Preparing current view…' : 'Preparing full report…' })
@@ -582,7 +594,11 @@ function Analysis({ data, loading }: { data: AppData; loading: boolean }) {
   return (
     <section>
       <div className="mb-6 flex flex-wrap items-end justify-between gap-4">
-        <div><div className="font-display text-3xl font-bold tracking-tight">Analysis</div><div className="mt-1 text-sm text-ink-muted">A live view of sales performance.</div></div>
+        <div><div className="font-display text-3xl font-bold tracking-tight">Analysis</div><div className="mt-1 text-sm text-ink-muted">Explore sales, customers, and campaign performance.</div></div>
+        <div className="flex flex-wrap gap-2" role="group" aria-label="Analysis view">
+          <Button aria-pressed={view === 'sales'} variant={view === 'sales' ? 'primary' : 'secondary'} onClick={() => setView('sales')}>Sales analysis</Button>
+          <Button aria-pressed={view === 'marketing'} variant={view === 'marketing' ? 'primary' : 'secondary'} onClick={() => setView('marketing')}>Marketing analysis</Button>
+        </div>
       </div>
       <Surface className="mb-5 p-4">
         <div className="flex flex-wrap items-end gap-4">
@@ -595,6 +611,13 @@ function Analysis({ data, loading }: { data: AppData; loading: boolean }) {
               ))}
             </div>
           </FilterGroup>
+          {view === 'sales' && (
+            <FilterGroup label="Group by">
+              <select aria-label="Group by" className="min-h-11 rounded-xl border border-line bg-white px-3 text-sm" value={filters.group} onChange={(event) => setFilters((current) => ({ ...current, group: event.target.value as StatisticsGroup }))}>
+                {(Object.keys(GROUP_LABELS) as StatisticsGroup[]).map((group) => <option key={group} value={group}>{GROUP_LABELS[group]}</option>)}
+              </select>
+            </FilterGroup>
+          )}
           <FilterGroup label="Time of day">
             <div className="flex items-center gap-2"><Input type="time" value={filters.startTime} onChange={(event) => setFilters((current) => ({ ...current, startTime: event.target.value }))} /><span className="text-ink-faint">to</span><Input type="time" value={filters.endTime} onChange={(event) => setFilters((current) => ({ ...current, endTime: event.target.value }))} /></div>
           </FilterGroup>
@@ -604,7 +627,7 @@ function Analysis({ data, loading }: { data: AppData; loading: boolean }) {
           {data.categories.length > 0 && <FilterGroup label="Category"><div className="flex flex-wrap gap-1">{data.categories.map((item) => <Button key={item.category_id} variant="chip" onClick={() => toggleCategory(item.category_id)} className={`min-h-9 px-3 ${filters.categories.includes(item.category_id) ? 'border-accent bg-accent-soft text-accent-strong' : ''}`}>{item.category_name}</Button>)}</div></FilterGroup>}
           <Button variant="ghost" onClick={resetFilters}><span className="flex items-center gap-2"><Icon name="reset" /> Reset</span></Button>
           <div className="ml-auto rounded-full bg-accent-soft px-3 py-2 text-sm font-semibold text-accent-strong">{summary?.orders ?? 0} matching orders</div>
-          <div className="relative">
+          {view === 'sales' && <div className="relative">
             <Button
               variant="secondary"
               onClick={() => setExportOpen((current) => !current)}
@@ -629,26 +652,33 @@ function Analysis({ data, loading }: { data: AppData; loading: boolean }) {
                 {exportStatus.message}
               </div>
             )}
-          </div>
+          </div>}
         </div>
       </Surface>
-      <div className="mb-5 grid grid-cols-2 gap-3 lg:grid-cols-5">
+      {view === 'sales' && <div className="mb-5 grid grid-cols-2 gap-3 lg:grid-cols-5">
         <Kpi label="Net revenue" value={formatMoney(Number(summary?.net ?? 0))} />
         <Kpi label="Orders" value={String(summary?.orders ?? 0)} />
         <Kpi label="Average order value" value={formatMoney(Number(summary?.average_order_value ?? 0))} />
         <Kpi label="Items sold" value={String(summary?.units ?? 0)} />
         <Kpi label="Top product" value={topProduct?.product_name ?? '—'} />
-      </div>
+      </div>}
       {reportError ? (
         <EmptyState title="Could not load sales report" message={reportError} />
       ) : reportLoading ? (
         <LoadingAnalysis />
-      ) : !statistics || statistics.summary.orders === 0 ? (
-        <EmptyState title="No sales match these filters" message="Adjust the filters or complete a new sale to see analytics." />
-      ) : (
+      ) : statistics && (
         <>
           {statistics.warnings.map((warning) => <p key={warning} role="status" className="mb-3 text-sm text-ink-muted">{warning}</p>)}
-          <ChartGrid statistics={statistics} categories={data.categories} />
+          {view === 'marketing' ? (
+            <MarketingAnalysis statistics={statistics} query={query.toString()} />
+          ) : statistics.summary.orders === 0 ? (
+            <EmptyState title="No sales match these filters" message="Adjust the filters or complete a new sale to see analytics." />
+          ) : (
+            <>
+              <ChartGrid statistics={statistics} categories={data.categories} trendProductId={trendProductId} onSelectTrendProduct={setTrendProductId} />
+              <SalesBreakdowns statistics={statistics} />
+            </>
+          )}
         </>
       )}
     </section>
@@ -663,7 +693,13 @@ function Kpi({ label, value }: { label: string; value: string }) {
   return <Surface className="p-5"><div className="text-xs font-semibold uppercase tracking-wide text-ink-faint">{label}</div><div className="mt-2 truncate font-display text-2xl font-bold" title={value}>{value}</div></Surface>
 }
 
-function ChartGrid({ statistics, categories }: { statistics: Statistics; categories: Category[] }) {
+function ChartGrid({ statistics, categories, trendProductId, onSelectTrendProduct }: {
+  statistics: Statistics
+  categories: Category[]
+  trendProductId: number
+  onSelectTrendProduct: (id: number) => void
+}) {
+  const [barPeriod, setBarPeriod] = useState('')
   const categoryNames = new Map(categories.map((category) => [category.category_id, category.category_name]))
   const byDate = statistics.periods.map((row) => ({ label: row.period, value: Number(row.net) }))
   const byHour = statistics.by_hour.map((row) => ({ label: `${String(row.hour).padStart(2, '0')}:00`, value: Number(row.net) }))
@@ -672,18 +708,44 @@ function ChartGrid({ statistics, categories }: { statistics: Statistics; categor
     label: categoryNames.get(row.category_id) ?? `Category ${row.category_id}`,
     value: Number(row.net),
   }))
-  const topProducts = statistics.products.filter((product) => product.units > 0).slice(0, 10)
+  const periodIndex = statistics.periods.findIndex((point) => point.period === barPeriod)
+  const periodProducts = periodIndex < 0 ? statistics.products : statistics.product_series.map((product) => ({
+    ...product,
+    units: product.points[periodIndex]?.units ?? 0,
+  })).sort((a, b) => b.units - a.units || a.product_id - b.product_id)
+  const topProducts = periodProducts.filter((product) => product.units > 0).slice(0, 10)
     .map((product) => ({ label: product.product_name, value: product.units }))
+  const trendProduct = statistics.product_series.find((product) => product.product_id === trendProductId)
+  const unitsByPeriod = (trendProduct?.points ?? statistics.periods).map((row) => ({ label: row.period, value: row.units }))
 
   return (
     <div className="grid gap-5 lg:grid-cols-2">
-      {byDate.length > 1
-        ? <RevenueTrend data={byDate} />
-        : <BarChart title="Revenue over time" data={byDate} valueFormatter={formatMoney} />}
+      <PeriodChart title="Revenue over time" data={byDate} group={statistics.group} metric="net revenue" valueFormatter={(value) => EXACT_REVENUE.format(value)} />
       <BarChart title="Revenue by hour" data={byHour} valueFormatter={formatMoney} labelStep={4} />
       <BarChart title="Revenue by day of week" data={byDay} valueFormatter={formatMoney} />
       <BarChart title="Sales by category" data={byCategory} valueFormatter={formatMoney} />
-      <div className="lg:col-span-2"><BarChart title="Top 10 products by quantity" data={topProducts} valueFormatter={(value) => String(value)} horizontal /></div>
+      <div className="lg:col-span-2">
+        <label className="mb-2 flex flex-wrap items-center gap-2 text-sm font-semibold">
+          Period for product bars
+          <select className="min-h-10 max-w-full rounded-xl border border-line bg-white px-3" value={barPeriod} onChange={(event) => setBarPeriod(event.target.value)}>
+            <option value="">All selected dates</option>
+            {statistics.periods.map((point) => <option key={point.period} value={point.period}>{formatPeriod(point.period, statistics.group, true)}</option>)}
+          </select>
+        </label>
+        {topProducts.length > 0
+          ? <BarChart title="Top 10 products by quantity" data={topProducts} valueFormatter={(value) => String(value)} horizontal />
+          : <Surface className="p-5 text-sm text-ink-muted">No product sales in this period.</Surface>}
+      </div>
+      <div className="lg:col-span-2">
+        <label className="mb-2 flex flex-wrap items-center gap-2 text-sm font-semibold">
+          Product for units over time
+          <select className="min-h-10 max-w-full rounded-xl border border-line bg-white px-3" value={trendProduct?.product_id ?? 0} onChange={(event) => onSelectTrendProduct(Number(event.target.value))}>
+            <option value={0}>All matching products</option>
+            {statistics.products.map((product) => <option key={product.product_id} value={product.product_id}>{product.product_name}</option>)}
+          </select>
+        </label>
+        <PeriodChart title="Units sold over time" data={unitsByPeriod} group={statistics.group} metric="units sold" valueFormatter={(value) => value.toLocaleString('en')} />
+      </div>
     </div>
   )
 }
@@ -693,15 +755,39 @@ interface ChartDatum { label: string; value: number }
 const SHORT_CHART_DATE = new Intl.DateTimeFormat('en-US', { month: 'short', day: 'numeric', timeZone: 'UTC' })
 const CROSS_YEAR_CHART_DATE = new Intl.DateTimeFormat('en-US', { month: 'numeric', day: 'numeric', year: '2-digit', timeZone: 'UTC' })
 const FULL_CHART_DATE = new Intl.DateTimeFormat('en-US', { month: 'short', day: 'numeric', year: 'numeric', timeZone: 'UTC' })
-const DAILY_REVENUE = new Intl.NumberFormat('ko-KR', { style: 'currency', currency: 'KRW', maximumFractionDigits: 2 })
+const MONTH_CHART_DATE = new Intl.DateTimeFormat('en-US', { month: 'short', year: 'numeric', timeZone: 'UTC' })
+const EXACT_REVENUE = new Intl.NumberFormat('ko-KR', { style: 'currency', currency: 'KRW', maximumFractionDigits: 2 })
 
-function RevenueTrend({ data }: { data: ChartDatum[] }) {
+function formatPeriod(period: string, group: StatisticsGroup, full: boolean, spansYears = false): string {
+  if (group === 'year') return period
+  if (group === 'month') return MONTH_CHART_DATE.format(new Date(period + '-01'))
+  const formatter = full ? FULL_CHART_DATE : spansYears ? CROSS_YEAR_CHART_DATE : SHORT_CHART_DATE
+  const label = formatter.format(new Date(period))
+  return group === 'week' && full ? 'Week of ' + label : label
+}
+
+interface PeriodChartProps {
+  data: ChartDatum[]
+  group: StatisticsGroup
+  title: string
+  metric: string
+  valueFormatter: (value: number) => string
+}
+
+function PeriodChart(props: PeriodChartProps) {
+  if (props.data.length > 1) return <PeriodTrend {...props} />
+  const data = props.data.map((point) => ({ ...point, label: formatPeriod(point.label, props.group, true) }))
+  return <BarChart title={props.title} data={data} valueFormatter={props.valueFormatter} />
+}
+
+function PeriodTrend({ data, group, title, metric, valueFormatter }: PeriodChartProps) {
   const [inspectedIndex, setInspectedIndex] = useState<number | null>(null)
   const lastIndex = data.length - 1
   const activeIndex = Math.min(inspectedIndex ?? lastIndex, lastIndex)
   const active = data[activeIndex]
-  const activeDate = FULL_CHART_DATE.format(new Date(active.label))
-  const activeRevenue = DAILY_REVENUE.format(active.value)
+  const activeDate = formatPeriod(active.label, group, true)
+  const activeValue = valueFormatter(active.value)
+  const description = GROUP_LABELS[group] + ' ' + metric
   const peak = data.reduce((highest, day) => Math.max(highest, day.value), 0)
   const targetStep = Math.max(peak / 4, 1)
   const magnitude = 10 ** Math.floor(Math.log10(targetStep))
@@ -713,9 +799,8 @@ function RevenueTrend({ data }: { data: ChartDatum[] }) {
   const tickCount = Math.min(data.length, 5)
   const dateTicks = Array.from({ length: tickCount }, (_, index) => Math.round(index * lastIndex / (tickCount - 1)))
   const spansYears = data[0].label.slice(0, 4) !== data[lastIndex].label.slice(0, 4)
-  const dateFormat = spansYears ? CROSS_YEAR_CHART_DATE : SHORT_CHART_DATE
 
-  function inspectDay(event: PointerEvent<HTMLDivElement>) {
+  function inspectPeriod(event: PointerEvent<HTMLDivElement>) {
     const { left, width } = event.currentTarget.getBoundingClientRect()
     const index = Math.round((event.clientX - left) / width * lastIndex)
     setInspectedIndex(Math.max(0, Math.min(index, lastIndex)))
@@ -725,24 +810,24 @@ function RevenueTrend({ data }: { data: ChartDatum[] }) {
     <Surface className="min-w-0 p-5">
       <div className="mb-5 flex flex-wrap items-start justify-between gap-x-4 gap-y-2">
         <div>
-          <div className="font-display text-lg font-bold">Revenue over time</div>
-          <div className="text-xs text-ink-muted">Daily net revenue</div>
+          <div className="font-display text-lg font-bold">{title}</div>
+          <div className="text-xs text-ink-muted">{description}{group === 'week' ? ' · weeks start Monday' : ''}</div>
         </div>
         <div className="rounded-lg bg-accent-soft px-3 py-1.5 text-sm text-accent-strong">
           <time dateTime={active.label}>{activeDate}</time>
-          <strong className="ml-2">{activeRevenue}</strong>
+          <strong className="ml-2">{activeValue}</strong>
         </div>
       </div>
       <div className="grid grid-cols-[auto_minmax(0,1fr)] gap-x-2 pt-2">
         <div aria-hidden="true" className="flex h-44 flex-col items-end justify-between text-xs text-ink-muted">
           {ticks.map((tick) => (
-            <div key={tick} className="h-0"><span className="block -translate-y-1/2">{formatMoney(tick)}</span></div>
+            <div key={tick} className="h-0"><span className="block -translate-y-1/2">{valueFormatter(tick)}</span></div>
           ))}
         </div>
         <div
           className="relative h-44 touch-pan-y rounded-sm focus-within:ring-2 focus-within:ring-accent"
-          onPointerMove={inspectDay}
-          onPointerDown={inspectDay}
+          onPointerMove={inspectPeriod}
+          onPointerDown={inspectPeriod}
         >
           <svg aria-hidden="true" className="pointer-events-none absolute inset-0 h-full w-full overflow-visible" viewBox="0 0 100 100" preserveAspectRatio="none">
             <path d="M0 0V100H100 M0 0H100 M0 25H100 M0 50H100 M0 75H100" className="stroke-line" fill="none" vectorEffect="non-scaling-stroke" />
@@ -756,8 +841,8 @@ function RevenueTrend({ data }: { data: ChartDatum[] }) {
             min={0}
             max={lastIndex}
             value={activeIndex}
-            aria-label="Inspect daily net revenue"
-            aria-valuetext={`${activeDate}, ${activeRevenue}`}
+            aria-label={'Inspect ' + description.toLowerCase()}
+            aria-valuetext={`${activeDate}, ${activeValue}`}
             onChange={(event) => setInspectedIndex(event.currentTarget.valueAsNumber)}
           />
         </div>
@@ -767,13 +852,13 @@ function RevenueTrend({ data }: { data: ChartDatum[] }) {
             const mobileVisibility = tick % 2 === 1 && index !== lastIndex ? 'hidden sm:block' : ''
             return (
               <span key={data[index].label} className={`absolute whitespace-nowrap ${alignment} ${mobileVisibility}`} style={{ left: `${x(index)}%` }}>
-                {dateFormat.format(new Date(data[index].label))}
+                {formatPeriod(data[index].label, group, false, spansYears)}
               </span>
             )
           })}
         </div>
       </div>
-      <p className="mt-2 text-xs text-ink-muted">Hover or tap the chart to see a day’s revenue.</p>
+      <p className="mt-2 text-xs text-ink-muted">Hover or tap the chart to see the value for a period.</p>
     </Surface>
   )
 }
