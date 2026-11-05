@@ -103,6 +103,20 @@ export interface AnalyticsExportRequest {
   }
 }
 
+export interface Recommendations {
+  items: { product_id: number; product_name: string; supporting_customers: number }[]
+}
+
+export interface DiscountSuggestion {
+  minimum_margin: string
+  item: {
+    status: string
+    candidate_discount_percent: number | null
+    discounted_unit_price?: string
+    maximum_discount_amount_under_assumptions?: string
+  } | null
+}
+
 interface SalesTotals {
   units: number
   gross: string
@@ -111,13 +125,31 @@ interface SalesTotals {
   orders: number
 }
 
+export type StatisticsGroup = 'day' | 'week' | 'month' | 'year'
+type PeriodTotals = SalesTotals & { period: string }
+type ProductTotals = SalesTotals & { product_id: number; product_name: string }
+
 export interface Statistics {
-  summary: SalesTotals & { average_order_value: string }
-  periods: (SalesTotals & { period: string })[]
-  products: (SalesTotals & { product_id: number; product_name: string })[]
+  summary: SalesTotals & {
+    average_order_value: string
+    identified_orders: number
+    known_age_orders: number
+    known_gender_orders: number
+  }
+  group: StatisticsGroup
+  periods: PeriodTotals[]
+  product_series: (Pick<ProductTotals, 'product_id' | 'product_name'> & { points: PeriodTotals[] })[]
+  products: ProductTotals[]
+  demographics: (ProductTotals & { age_group: string; gender: string; unique_identified_customers: number })[]
   by_hour: (SalesTotals & { hour: number })[]
   by_weekday: (SalesTotals & { weekday: number })[]
   by_category: (SalesTotals & { category_id: number })[]
+  by_campaign: (SalesTotals & {
+    promocode: string
+    campaign_name: string
+    channel: string
+    budget: string
+  })[]
   warnings: string[]
 }
 
@@ -243,8 +275,8 @@ export async function getProducts(): Promise<Product[]> {
   return apiRequest<Product[]>('/products')
 }
 
-export async function getCustomers(): Promise<Customer[]> {
-  return apiRequest<Customer[]>('/customers')
+export async function getCustomers(signal?: AbortSignal): Promise<Customer[]> {
+  return apiRequest<Customer[]>('/customers', { signal })
 }
 
 export async function getCampaigns(): Promise<Campaign[]> {
@@ -253,6 +285,17 @@ export async function getCampaigns(): Promise<Campaign[]> {
 
 export function getStatistics(query: URLSearchParams, signal: AbortSignal): Promise<Statistics> {
   return apiRequest(`/statistics?${query}`, { signal })
+}
+
+export function getRecommendations(customerPhone: string, signal: AbortSignal): Promise<Recommendations> {
+  return apiRequest<Recommendations>(`/recommendations/${encodeURIComponent(customerPhone)}`, { signal })
+}
+
+export function evaluateDiscount(query: string, productId: number, unitCost: string): Promise<DiscountSuggestion> {
+  return apiRequest<DiscountSuggestion>(`/discount-suggestions?${query}`, {
+    method: 'POST',
+    body: JSON.stringify({ product_id: productId, unit_cost: unitCost }),
+  })
 }
 
 export async function getOrders(): Promise<Order[]> {

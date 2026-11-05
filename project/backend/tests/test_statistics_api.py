@@ -1,4 +1,5 @@
 from datetime import date
+from decimal import Decimal
 
 import pytest
 from fastapi.testclient import TestClient
@@ -21,6 +22,11 @@ class RecordingService:
 
     def get_recommendations(self, customer_phone):
         return {"customer_phone": customer_phone, "items": [], "status": "insufficient_overlap"}
+
+    def get_discount_suggestion(self, filters, product_id, unit_cost):
+        self.filters = filters
+        self.discount_input = (product_id, unit_cost)
+        return {"item": None, "minimum_margin": "0.30"}
 
 
 @pytest.fixture
@@ -66,6 +72,7 @@ def test_statistics_endpoint_accepts_repeatable_filters(service):
         "start=2026-11-01",
         "start=2026-11-01&end=2026-11-02&weekdays=7",
         "start=2026-11-01&end=2026-11-02&product_ids=0",
+        "start=2026-11-01&end=2026-11-02&start_time=10:00:00Z",
     ],
 )
 def test_invalid_statistics_query_is_rejected_without_running_service(service, query):
@@ -80,6 +87,18 @@ def test_recommendations_route_calls_service(service):
         response = client.get("/api/v1/recommendations/010-0000-0000")
     assert response.status_code == 200
     assert response.json()["status"] == "insufficient_overlap"
+
+
+def test_discount_route_reuses_filters_and_validates_unit_cost(service):
+    url = "/api/v1/discount-suggestions?start=2026-11-01&end=2026-11-02&category_ids=4"
+    with TestClient(app) as client:
+        invalid = client.post(url, json={"product_id": 8, "unit_cost": "-1"})
+        assert invalid.status_code == 422
+        assert service.filters is None
+        valid = client.post(url, json={"product_id": 8, "unit_cost": "123.45"})
+    assert valid.status_code == 200
+    assert service.discount_input == (8, Decimal("123.45"))
+    assert service.filters.category_ids == (4,)
 
 
 def test_original_health_route_still_exists():
