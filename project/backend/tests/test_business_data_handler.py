@@ -34,6 +34,16 @@ def make_engine_with_canonical_schema():
             )
         """))
         connection.execute(text("""
+            CREATE TABLE campaign (
+                promocode VARCHAR(30) PRIMARY KEY,
+                campaign_name VARCHAR(100) NOT NULL,
+                channel VARCHAR(30) NOT NULL,
+                start_date DATE NOT NULL,
+                end_date DATE NOT NULL,
+                budget NUMERIC(12, 2) NOT NULL
+            )
+        """))
+        connection.execute(text("""
             CREATE TABLE orders (
                 order_id INTEGER PRIMARY KEY,
                 order_date DATE NOT NULL,
@@ -56,10 +66,11 @@ def make_engine_with_canonical_schema():
         connection.execute(text("INSERT INTO category VALUES (1, 'Beverages')"))
         connection.execute(text("INSERT INTO product VALUES (1, 1, 'Coffee', 10.00)"))
         connection.execute(text("INSERT INTO customer VALUES ('010-0000-0000', 'Kim', 24, 'Female')"))
+        connection.execute(text("INSERT INTO campaign VALUES ('WELCOME', 'Welcome', 'email', '2026-11-01', '2026-11-30', 500)"))
         connection.execute(text("""
             INSERT INTO orders
                 (order_id, order_date, order_time, customer_phone, promocode, discount, total)
-            VALUES (1, '2026-11-01', '10:00:00', '010-0000-0000', NULL, 2.00, 18.00)
+            VALUES (1, '2026-11-01', '10:00:00', '010-0000-0000', 'WELCOME', 2.00, 18.00)
         """))
         connection.execute(text("""
             INSERT INTO order_item
@@ -78,6 +89,8 @@ def test_handler_reads_canonical_management_schema_names():
 
     assert data["products"][0]["product_name"] == "Coffee"
     assert data["customers"][0]["customer_phone"] == "010-0000-0000"
+    assert data["campaigns"][0]["campaign_name"] == "Welcome"
+    assert data["orders"][0]["promocode"] == "WELCOME"
     assert str(data["orders"][0]["discount"]) == "2.00"
     assert data["orderItems"][0]["quantity"] == 2
 

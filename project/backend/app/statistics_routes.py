@@ -2,9 +2,11 @@
 
 from collections.abc import Iterator
 from datetime import date, time
+from decimal import Decimal
 from typing import Literal
 
 from fastapi import APIRouter, Depends, HTTPException, Query
+from pydantic import BaseModel, Field, PositiveInt
 from sqlalchemy.exc import SQLAlchemyError
 
 from .analytics import Filters
@@ -32,8 +34,7 @@ def get_business_data_service() -> Iterator[BusinessDataService]:
         database_manager.close()
 
 
-@router.get("/statistics")
-def get_statistics(
+def get_report_filters(
     start: date,
     end: date,
     group: Literal["day", "week", "month", "year"] = "day",
@@ -42,15 +43,9 @@ def get_statistics(
     weekdays: list[int] | None = Query(default=None),
     start_time: time = time(0, 0),
     end_time: time = time(23, 59, 59),
-    service: BusinessDataService = Depends(get_business_data_service),
-) -> dict:
-    """Calculate statistics for an inclusive date range.
-
-    Repeated query parameters are supported, e.g. ?product_ids=1&product_ids=3.
-    Weekday numbering follows Python: Monday=0 through Sunday=6.
-    """
+) -> Filters:
     try:
-        filters = Filters(
+        return Filters(
             start=start,
             end=end,
             group=group,
@@ -63,6 +58,17 @@ def get_statistics(
     except ValueError as exc:
         raise HTTPException(status_code=422, detail=str(exc)) from exc
 
+
+@router.get("/statistics")
+def get_statistics(
+    filters: Filters = Depends(get_report_filters),
+    service: BusinessDataService = Depends(get_business_data_service),
+) -> dict:
+    """Calculate statistics for an inclusive date range.
+
+    Repeated query parameters are supported, e.g. ?product_ids=1&product_ids=3.
+    Weekday numbering follows Python: Monday=0 through Sunday=6.
+    """
     try:
         return service.get_statistics(filters)
     except SQLAlchemyError as exc:
@@ -94,3 +100,23 @@ def get_recommendations(
         ) from exc
     except ValueError as exc:
         raise HTTPException(status_code=409, detail="Cannot generate recommendations from the current records.") from exc
+
+
+class DiscountCost(BaseModel):
+    product_id: PositiveInt
+    unit_cost: Decimal = Field(ge=0, max_digits=10, decimal_places=2)
+
+
+@router.post("/discount-suggestions")
+def get_discount_suggestion(
+    cost: DiscountCost,
+    filters: Filters = Depends(get_report_filters),
+    service: BusinessDataService = Depends(get_business_data_service),
+) -> dict:
+    """Evaluate a trial discount with a supplied unit cost."""
+    try:
+        return service.get_discount_suggestion(filters, cost.product_id, cost.unit_cost)
+    except SQLAlchemyError as exc:
+        raise HTTPException(status_code=503, detail="The statistics database is unavailable.") from exc
+    except ValueError as exc:
+        raise HTTPException(status_code=409, detail="Cannot evaluate a discount from the current records.") from exc

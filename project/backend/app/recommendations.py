@@ -94,8 +94,7 @@ def discount_suggestions(
 ) -> dict:
     """Generate cautious discount experiment candidates using externally supplied unit costs.
 
-    Unit costs are not present in management_schema_1.sql, so this function is
-    intentionally not exposed as an API endpoint until a trusted cost source exists.
+    Unit costs are supplied for each calculation and are never saved.
     """
     if not Decimal("0") <= minimum_margin < Decimal("1"):
         raise ValueError("minimum_margin must be between zero (inclusive) and one (exclusive)")

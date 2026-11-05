@@ -1,16 +1,17 @@
 """Application service for sales analytics and product recommendations."""
 
+from decimal import Decimal
 from typing import Protocol
 
 from .analytics import Filters, analyze
-from .recommendations import recommend_products
+from .recommendations import discount_suggestions, recommend_products
 
 
 class BusinessDataHandler(Protocol):
     """Data access contract required by the business data service."""
 
     def get_analysis_records(self) -> dict:
-        """Return products, customers, orders and order items in normalized form."""
+        """Return products, customers, campaigns, orders and order items."""
         ...
 
 
@@ -27,3 +28,17 @@ class BusinessDataService:
         return recommend_products(
             self.data_handler.get_analysis_records(), customer_phone
         )
+
+    def get_discount_suggestion(
+        self, filters: Filters, product_id: int, unit_cost: Decimal
+    ) -> dict:
+        result = discount_suggestions(
+            self.data_handler.get_analysis_records(), filters, {product_id: unit_cost}
+        )
+        return {
+            "item": next(
+                (item for item in result["items"] if item["product_id"] == product_id),
+                None,
+            ),
+            "minimum_margin": result["minimum_margin"],
+        }
