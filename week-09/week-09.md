@@ -42,7 +42,7 @@
 | 10주차 | 막힘 진단 · 데모 시나리오 초안 | #5 analytics implementation (Sales), UI implementation (Homepage, Menu, Sales input, Sales analytics) | #5 Aizat |
 | 11주차 | **MVP 완료 · 중간 데모** | Build interface for business data input, integrate complete user flow | Syafiq, Qasim |
 | 12주차 | 핵심 경로 테스트 | #5 analytics implementation (Marketing), UI implementation (Marketing input, Marketing analytics) | #5 Aizat |
-| 13주차 | **배포 · 실행 패키지** |  |  |
+| 13주차 | **배포 · 실행 패키지** | Data metrics analysis and refinement | Aizat |
 
 > 일정이 맞지 않으면 기능을 줄입니다. 뺀 기능은 5주차 Won't 목록에 옮깁니다.
 > *If it doesn't fit, cut scope and move the feature to your Week 5 Won't list.*
