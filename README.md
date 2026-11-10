@@ -2,7 +2,7 @@
 
 > 한 줄 소개 — 누구의 어떤 문제를 해결하는가
 > One line — whose problem does this solve?
-> PointNull helps small restaurant and café owners manage their business operations and understand sales performance through a centralized web-based management and analytics system.
+PointNull helps small restaurant and café owners manage their business operations and understand sales performance through a centralized web-based management and analytics system.
 
 **배포 URL / Live URL:** (13주차에 작성 / add in Week 13)
 
@@ -47,7 +47,10 @@ Api Documentation
 ## 6. 팀 구성 / Team
 | 이름 Name | 담당 영역 Area | 주요 이슈 Issues |
 |---|---|---|
-|  |  |  |
+| Aizat | Analysis |  |
+| Syafiq | Backend |  |
+| Farhana | Frontend |  |
+| Qasim | QA Testing |  |
 
 ## 7. 라이선스 / License
 MIT — 선택 이유 / Why:
