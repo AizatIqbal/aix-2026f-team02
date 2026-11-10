@@ -2,6 +2,7 @@
 
 > 한 줄 소개 — 누구의 어떤 문제를 해결하는가
 > One line — whose problem does this solve?
+> PointNull helps small restaurant and café owners manage their business operations and understand sales performance through a centralized web-based management and analytics system.
 
 **배포 URL / Live URL:** (13주차에 작성 / add in Week 13)
 
@@ -13,9 +14,9 @@
 
 ## 2. 사용자 확인 / User Validation
 인터뷰 3명 요지 / Summary of three interviews:
-1.
-2.
-3.
+1. Interviewee 1: Identified difficulties in organizing daily sales records and managing business information efficiently.
+2. Interviewee 2: Expressed the need for better visibility into sales trends and product performance to support business decisions.
+3. Interviewee 3: Highlighted the importance of understanding customer purchasing patterns and evaluating marketing campaign effectiveness.
 
 ## 3. 실행 방법 / How to Run
 ```bash
