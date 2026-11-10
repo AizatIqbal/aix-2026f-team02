@@ -14,9 +14,9 @@
 
 ## 2. 사용자 확인 / User Validation
 인터뷰 3명 요지 / Summary of three interviews:
-1. Interviewee 1: Identified difficulties in organizing daily sales records and managing business information efficiently.
-2. Interviewee 2: Expressed the need for better visibility into sales trends and product performance to support business decisions.
-3. Interviewee 3: Highlighted the importance of understanding customer purchasing patterns and evaluating marketing campaign effectiveness.
+1. Identified difficulties in organizing daily sales records and managing business information efficiently.
+2. Expressed the need for better visibility into sales trends and product performance to support business decisions.
+3. Highlighted the importance of understanding customer purchasing patterns and evaluating marketing campaign effectiveness.
 
 ## 3. 실행 방법 / How to Run
 ```bash
