@@ -24,6 +24,9 @@ git clone <repo-url>
 # 설치 / install
 # 실행 / run
 
+Backend Dependencies Install
+.\.venv\Scripts\python.exe -m pip install -r requirements.txt   
+
 Frontend server init
 #pnpm dev
 Backend server init
