@@ -27,6 +27,14 @@ def make_engine():
                 FOREIGN KEY (category_id) REFERENCES category(category_id)
             )
         """))
+        connection.execute(text("""
+            CREATE TABLE customer (
+                customer_phone VARCHAR(20) PRIMARY KEY,
+                customer_name VARCHAR(100) NOT NULL,
+                customer_age INTEGER NULL,
+                customer_gender VARCHAR(20) NULL
+            )
+        """))
     return engine
 
 
@@ -122,3 +130,23 @@ def test_bulk_import_accepts_pointnull_food_template(monkeypatch):
     assert len(body["categories"]) == 5
     assert len(body["products"]) == 5
     assert body["skipped"] == {"categories": 0, "products": 0}
+
+
+def test_bulk_import_adds_customers_and_skips_duplicate_phone_numbers(monkeypatch):
+    engine = make_engine()
+    client = client_for(monkeypatch, engine)
+
+    response = client.post("/api/v1/import", json={
+        "customers": [
+            {"customer_name": "Kim Jiyoon", "customer_phone": "010-1234-5678", "customer_age": 29, "customer_gender": "Woman"},
+            {"customer_name": "Duplicate", "customer_phone": "01012345678"},
+            {"customer_name": "Lee Minho", "customer_phone": "010-9876-5432"},
+        ],
+    })
+
+    assert response.status_code == 200, response.text
+    body = response.json()
+    assert len(body["customers"]) == 2
+    assert body["skipped"]["customers"] == 1
+    with engine.connect() as connection:
+        assert connection.execute(text("SELECT COUNT(*) FROM customer")).scalar_one() == 2

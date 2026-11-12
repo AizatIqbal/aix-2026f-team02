@@ -1,5 +1,5 @@
-@import url('https://fonts.googleapis.com/css2?family=DM+Sans:wght@400;500;600;700&family=Manrope:wght@600;700;800&display=swap');
-@import 'tailwindcss';
+@import url("https://fonts.googleapis.com/css2?family=DM+Sans:wght@400;500;600;700&family=Manrope:wght@600;700;800&display=swap");
+@import "tailwindcss";
 
 @theme {
   --color-canvas: #f6f8f5;
@@ -15,8 +15,8 @@
   --color-accent-soft: #eaf2e5;
   --color-danger: #a34b3f;
   --color-danger-soft: #fbefec;
-  --font-sans: 'DM Sans', sans-serif;
-  --font-display: 'Manrope', sans-serif;
+  --font-sans: "DM Sans", sans-serif;
+  --font-display: "Manrope", sans-serif;
   --shadow-card: 0 1px 2px rgb(32 35 30 / 0.04);
   --shadow-bar: 0 -10px 30px rgb(32 35 30 / 0.07);
 }
@@ -27,12 +27,11 @@
     background: var(--color-canvas);
     font-family: var(--font-sans);
   }
-}
-@layer base {
-  body {
-    min-width: 20rem;
-    background: var(--color-canvas);
-    font-family: var(--font-sans);
+  button {
+    cursor: pointer;
+  }
+  button:disabled {
+    cursor: not-allowed;
   }
 }
 
@@ -46,7 +45,9 @@
   color: white;
   background: #18271d;
   opacity: 1;
-  transition: opacity 0.52s ease, visibility 0.52s ease;
+  transition:
+    opacity 0.52s ease,
+    visibility 0.52s ease;
 }
 
 .startup-splash-leaving {
@@ -59,8 +60,8 @@
   inset: -25%;
   opacity: 0.22;
   background-image:
-          linear-gradient(rgb(200 217 183 / 0.12) 1px, transparent 1px),
-          linear-gradient(90deg, rgb(200 217 183 / 0.12) 1px, transparent 1px);
+    linear-gradient(rgb(200 217 183 / 0.12) 1px, transparent 1px),
+    linear-gradient(90deg, rgb(200 217 183 / 0.12) 1px, transparent 1px);
   background-size: 44px 44px;
   mask-image: radial-gradient(circle, black 0%, transparent 68%);
   animation: splash-grid-drift 8s linear infinite;
@@ -79,7 +80,7 @@
   border-radius: 50%;
   background: #c8d9b7;
   box-shadow: 0 0 16px rgb(200 217 183 / 0.8);
-  content: '';
+  content: "";
 }
 
 .splash-orbit-outer {
@@ -124,7 +125,7 @@
   border: 1px solid rgb(200 217 183 / 0.18);
   border-radius: 30px;
   box-shadow: 0 30px 80px rgb(0 0 0 / 0.28);
-  animation: splash-mark-arrive 0.8s cubic-bezier(.2,.8,.2,1) both;
+  animation: splash-mark-arrive 0.8s cubic-bezier(0.2, 0.8, 0.2, 1) both;
 }
 
 .splash-mark {
@@ -211,33 +212,75 @@
 }
 
 @keyframes splash-mark-arrive {
-  from { opacity: 0; transform: scale(0.72) rotate(-8deg); }
-  to { opacity: 1; transform: scale(1) rotate(0); }
+  from {
+    opacity: 0;
+    transform: scale(0.72) rotate(-8deg);
+  }
+  to {
+    opacity: 1;
+    transform: scale(1) rotate(0);
+  }
 }
 
 @keyframes splash-copy-arrive {
-  from { opacity: 0; transform: translateY(10px); }
-  to { opacity: 1; transform: translateY(0); }
+  from {
+    opacity: 0;
+    transform: translateY(10px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
 }
 
-@keyframes splash-spin { to { transform: rotate(360deg); } }
-@keyframes splash-grid-drift { to { transform: translate3d(44px, 44px, 0); } }
+@keyframes splash-spin {
+  to {
+    transform: rotate(360deg);
+  }
+}
+@keyframes splash-grid-drift {
+  to {
+    transform: translate3d(44px, 44px, 0);
+  }
+}
 @keyframes splash-scan {
-  0% { transform: translateY(-40px); opacity: 0; }
-  20% { opacity: 1; }
-  80% { opacity: 1; }
-  100% { transform: translateY(140px); opacity: 0; }
+  0% {
+    transform: translateY(-40px);
+    opacity: 0;
+  }
+  20% {
+    opacity: 1;
+  }
+  80% {
+    opacity: 1;
+  }
+  100% {
+    transform: translateY(140px);
+    opacity: 0;
+  }
 }
 @keyframes splash-pulse {
-  from { opacity: 0.6; transform: scale(0.75); }
-  to { opacity: 0; transform: scale(1.4); }
+  from {
+    opacity: 0.6;
+    transform: scale(0.75);
+  }
+  to {
+    opacity: 0;
+    transform: scale(1.4);
+  }
 }
 @keyframes splash-progress {
-  from { transform: translateX(-110%); }
-  to { transform: translateX(330%); }
+  from {
+    transform: translateX(-110%);
+  }
+  to {
+    transform: translateX(330%);
+  }
 }
 @keyframes splash-status {
-  50% { opacity: 0.35; }
+  50% {
+    opacity: 0.35;
+  }
 }
 
 @media (prefers-reduced-motion: reduce) {
@@ -253,4 +296,3 @@
     animation: none;
   }
 }
-

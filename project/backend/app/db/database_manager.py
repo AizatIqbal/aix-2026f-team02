@@ -1,5 +1,6 @@
 
 import os
+from functools import lru_cache
 from pathlib import Path
 
 from dotenv import load_dotenv
@@ -12,11 +13,25 @@ BACKEND_DIR = Path(__file__).resolve().parents[2]
 load_dotenv(BACKEND_DIR / ".env")
 
 
+@lru_cache(maxsize=8)
+def _get_engine(database_url: URL):
+    """Create one reusable SQLAlchemy engine per database configuration."""
+    return create_engine(
+        database_url,
+        pool_pre_ping=True,
+        pool_size=5,
+        max_overflow=10,
+        pool_recycle=1800,
+        echo=False,
+    )
+
+
 class DatabaseManager:
-    """Manages database access for the application."""
+    """Manages database access through a shared, reusable connection pool."""
 
     def __init__(self):
-        self.connection = None
+        if not os.getenv("DB_PASSWORD"):
+            raise RuntimeError("DB_PASSWORD is missing from backend/.env")
 
         database_url = URL.create(
             drivername="mysql+pymysql",
@@ -27,15 +42,7 @@ class DatabaseManager:
             database=os.getenv("DB_NAME", "business_management"),
             query={"charset": "utf8mb4"},
         )
-
-        if not os.getenv("DB_PASSWORD"):
-            raise RuntimeError("DB_PASSWORD is missing from backend/.env")
-
-        self.engine = create_engine(
-            database_url,
-            pool_pre_ping=True,
-            echo=False,
-        )
+        self.engine = _get_engine(database_url)
 
     def connect(self):
         """Test the database connection."""
@@ -64,5 +71,10 @@ class DatabaseManager:
             return dict(row) if row else None
 
     def close(self):
-        """Dispose of the database connection pool."""
-        self.engine.dispose()
+        """Release request usage while keeping the shared pool warm.
+
+        Individual operations use context-managed SQLAlchemy connections, so
+        each connection is returned to the pool as soon as the query finishes.
+        Disposing the engine here would recreate the pool on every API request.
+        """
+        return None

@@ -1,446 +1,531 @@
-
 export interface Category {
-  category_id: number
-  category_name: string
+  category_id: number;
+  category_name: string;
 }
 
 export interface Customer {
-  customer_phone: string
-  customer_name: string
-  customer_age: number | null
-  customer_gender: string | null
+  customer_phone: string;
+  customer_name: string;
+  customer_age: number | null;
+  customer_gender: string | null;
+}
+
+export interface CustomerSummary extends Customer {
+  total_orders: number;
+  total_spent: number;
+  last_order_date: string | null;
 }
 
 export interface Campaign {
-  promocode: string
-  campaign_name: string
-  channel: string
-  start_date: string
-  end_date: string
-  budget: number
-  discount_value: number
+  promocode: string;
+  campaign_name: string;
+  channel: string;
+  start_date: string;
+  end_date: string;
+  budget: number;
+  discount_value: number;
 }
 
 export interface Product {
-  product_id: number
-  category_id: number
-  product_name: string
-  price: number
-  image_url?: string
+  product_id: number;
+  category_id: number;
+  category_name?: string;
+  product_name: string;
+  price: number;
+  image_url?: string | null;
+  active?: boolean;
 }
 
 export interface Order {
-  order_id: number
-  order_date: string
-  order_time: string
-  day_of_week: string
-  customer_phone: string | null
-  promocode: string | null
-  discount: number
-  total: number
+  order_id: number;
+  order_date: string;
+  order_time: string;
+  day_of_week: string;
+  customer_phone: string | null;
+  customer_name?: string | null;
+  promocode: string | null;
+  discount: number;
+  total: number;
+  item_count?: number;
+}
+
+export interface OrdersPageResponse {
+  items: Order[];
+  total: number;
+  summary: {
+    orders: number;
+    revenue: number;
+    average: number;
+    items: number;
+  };
 }
 
 export interface OrderItem {
-  order_item_id?: number
-  order_id: number
-  product_id: number
-  quantity: number
-  price: number
+  order_item_id?: number;
+  order_id: number;
+  product_id: number;
+  product_name?: string;
+  category_name?: string | null;
+  quantity: number;
+  price: number;
+  subtotal?: number;
 }
 
 export interface OrderLineInput {
-  product_id: number
-  quantity: number
-  price: number
+  product_id: number;
+  quantity: number;
+  /** Display-only price snapshot. The backend re-reads the authoritative price. */
+  price: number;
+}
+
+export interface CheckoutDetails {
+  customer_phone?: string | null;
+  promocode?: string | null;
 }
 
 export interface SavedOrder {
-  order: Order
-  orderItems: OrderItem[]
+  order: Order;
+  orderItems: OrderItem[];
+}
+
+export interface CampaignValidation {
+  valid: boolean;
+  code: string;
+  discount: number;
+  message: string;
 }
 
 export interface NewProductInput {
-  product_name: string
-  category_id: number
-  price: number
-  image_url?: string
+  product_name: string;
+  category_id: number;
+  price: number;
+  image_url?: string | null;
 }
 
 export interface ImportProductInput {
-  product_name: string
-  price: number
-  category_id?: number
-  category_name?: string
-  source_product_id?: number
+  product_name: string;
+  price: number;
+  category_id?: number;
+  category_name?: string;
+  source_product_id?: number;
+}
+
+export interface ImportCustomerInput {
+  customer_phone: string;
+  customer_name: string;
+  customer_age?: number | null;
+  customer_gender?: string | null;
 }
 
 export interface ImportPayload {
-  categories: Omit<Category, 'category_id'>[]
-  products: ImportProductInput[]
-  orders: (Omit<Order, 'order_id'> & { source_order_id?: number })[]
-  orderItems: Omit<OrderItem, 'order_item_id'>[]
+  categories: Omit<Category, "category_id">[];
+  products: ImportProductInput[];
+  customers: ImportCustomerInput[];
+  // Retained for type compatibility; historical imports are intentionally disabled.
+  orders: (Omit<Order, "order_id"> & { source_order_id?: number })[];
+  orderItems: Omit<OrderItem, "order_item_id">[];
 }
 
 export interface ImportResult {
-  categories: Category[]
-  products: Product[]
-  orders: Order[]
-  orderItems: OrderItem[]
+  categories: Category[];
+  products: Product[];
+  customers: Customer[];
+  orders: Order[];
+  orderItems: OrderItem[];
   skipped?: {
-    categories: number
-    products: number
-  }
+    categories: number;
+    products: number;
+    customers?: number;
+  };
 }
 
 export interface AnalyticsExportRequest {
-  scope: 'current' | 'full'
+  scope: "current" | "full";
   filters?: {
-    preset: string
-    days: string[]
-    startTime: string
-    endTime: string
-    categories: number[]
-  }
+    preset: string;
+    days: string[];
+    startTime: string;
+    endTime: string;
+    categories: number[];
+  };
 }
 
 export interface Recommendations {
-  items: { product_id: number; product_name: string; supporting_customers: number }[]
+  items: { product_id: number; product_name: string; supporting_customers: number }[];
 }
 
 export interface DiscountSuggestion {
-  minimum_margin: string
+  minimum_margin: string;
   item: {
-    status: string
-    candidate_discount_percent: number | null
-    discounted_unit_price?: string
-    maximum_discount_amount_under_assumptions?: string
-  } | null
+    status: string;
+    candidate_discount_percent: number | null;
+    discounted_unit_price?: string;
+    maximum_discount_amount_under_assumptions?: string;
+  } | null;
 }
 
 interface SalesTotals {
-  units: number
-  gross: string
-  discount: string
-  net: string
-  orders: number
+  units: number;
+  gross: string;
+  discount: string;
+  net: string;
+  orders: number;
 }
 
-export type StatisticsGroup = 'day' | 'week' | 'month' | 'year'
-type PeriodTotals = SalesTotals & { period: string }
-type ProductTotals = SalesTotals & { product_id: number; product_name: string }
+export type StatisticsGroup = "day" | "week" | "month" | "year";
+type PeriodTotals = SalesTotals & { period: string };
+type ProductTotals = SalesTotals & { product_id: number; product_name: string };
 
 export interface Statistics {
   summary: SalesTotals & {
-    average_order_value: string
-    identified_orders: number
-    known_age_orders: number
-    known_gender_orders: number
-  }
-  group: StatisticsGroup
-  periods: PeriodTotals[]
-  product_series: (Pick<ProductTotals, 'product_id' | 'product_name'> & { points: PeriodTotals[] })[]
-  products: ProductTotals[]
-  demographics: (ProductTotals & { age_group: string; gender: string; unique_identified_customers: number })[]
-  by_hour: (SalesTotals & { hour: number })[]
-  by_weekday: (SalesTotals & { weekday: number })[]
-  by_category: (SalesTotals & { category_id: number })[]
+    average_order_value: string;
+    identified_orders: number;
+    known_age_orders: number;
+    known_gender_orders: number;
+  };
+  group: StatisticsGroup;
+  periods: PeriodTotals[];
+  product_series: (Pick<ProductTotals, "product_id" | "product_name"> & { points: PeriodTotals[] })[];
+  products: ProductTotals[];
+  demographics: (ProductTotals & {
+    age_group: string;
+    gender: string;
+    unique_identified_customers: number;
+  })[];
+  by_hour: (SalesTotals & { hour: number })[];
+  by_weekday: (SalesTotals & { weekday: number })[];
+  by_category: (SalesTotals & { category_id: number })[];
   by_campaign: (SalesTotals & {
-    promocode: string
-    campaign_name: string
-    channel: string
-    budget: string
-  })[]
-  warnings: string[]
+    promocode: string;
+    campaign_name: string;
+    channel: string;
+    budget: string;
+  })[];
+  warnings: string[];
 }
 
-const API_BASE_URL = 'http://127.0.0.1:8000/api/v1'
+const API_BASE_URL = (import.meta.env.VITE_API_BASE_URL || "http://127.0.0.1:8000/api/v1").replace(/\/$/, "");
 
-// --------------------------------------------------
-// API HELPERS
-// --------------------------------------------------
+/** Convert a backend-relative upload path into a browser-loadable URL. */
+export function resolveAssetUrl(path: string | null | undefined): string | undefined {
+  if (!path) return undefined;
+  if (/^(https?:)?\/\//i.test(path) || path.startsWith("data:")) return path;
+  const apiOrigin = API_BASE_URL.replace(/\/api\/v1$/i, "");
+  return `${apiOrigin}${path.startsWith("/") ? "" : "/"}${path}`;
+}
 
-async function apiRequest<T>(
-    endpoint: string,
-    options: RequestInit = {},
-): Promise<T> {
-  const response = await fetch(`${API_BASE_URL}${endpoint}`, {
-    ...options,
-    headers: {
-      'Content-Type': 'application/json',
-      ...options.headers,
-    },
-  })
+async function apiRequest<T>(endpoint: string, options: RequestInit = {}): Promise<T> {
+  const headers = new Headers(options.headers);
+  if (options.body && !headers.has("Content-Type")) headers.set("Content-Type", "application/json");
+
+  let response: Response;
+  try {
+    response = await fetch(`${API_BASE_URL}${endpoint}`, { ...options, headers });
+  } catch {
+    throw new Error("Cannot reach the PointNull API. Check that the backend is running and the API URL is correct.");
+  }
 
   if (!response.ok) {
-    let message = `API request failed (${response.status})`
-
+    let message = `API request failed (${response.status})`;
     try {
-      const body = await response.json()
-      if (typeof body.detail === 'string') {
-        message = body.detail
-      } else if (Array.isArray(body.detail)) {
-        message = body.detail
-            .map((item: { msg?: string }) => item.msg ?? 'Invalid request')
-            .join(', ')
+      const body = await response.json() as { detail?: unknown };
+      if (typeof body.detail === "string") message = body.detail;
+      else if (Array.isArray(body.detail)) {
+        message = body.detail.map((item: { msg?: string }) => item.msg ?? "Invalid request").join(", ");
       }
     } catch {
-      // Use the fallback error message.
+      // Keep the HTTP fallback message when the response is not JSON.
     }
-
-    throw new Error(message)
+    throw new Error(message);
   }
 
-  return response.json() as Promise<T>
+  if (response.status === 204) return undefined as T;
+  return response.json() as Promise<T>;
 }
 
-// Backend returns order_time as seconds from midnight,
-// for example 45000 = 12:30:00.
 function normalizeOrderTime(value: string | number): string {
-  if (typeof value === 'string' && value.includes(':')) {
-    return value
-  }
-
-  const totalSeconds = Math.floor(Number(value))
-
-  if (!Number.isFinite(totalSeconds) || totalSeconds < 0) {
-    return '00:00:00'
-  }
-
-  const hours = Math.floor(totalSeconds / 3600)
-  const minutes = Math.floor((totalSeconds % 3600) / 60)
-  const seconds = totalSeconds % 60
-
-  return [
-    hours,
-    minutes,
-    seconds,
-  ].map((part) => String(part).padStart(2, '0')).join(':')
+  if (typeof value === "string" && value.includes(":")) return value;
+  const totalSeconds = Math.floor(Number(value));
+  if (!Number.isFinite(totalSeconds) || totalSeconds < 0) return "00:00:00";
+  const hours = Math.floor(totalSeconds / 3600);
+  const minutes = Math.floor((totalSeconds % 3600) / 60);
+  const seconds = totalSeconds % 60;
+  return [hours, minutes, seconds].map((part) => String(part).padStart(2, "0")).join(":");
 }
 
 interface BackendOrder {
-  order_id: number
-  order_date: string
-  order_time: string | number
-  day_of_week: string
-  discount: number
-  total: number
+  order_id: number;
+  order_date: string;
+  order_time: string | number;
+  day_of_week: string;
+  customer_phone?: string | null;
+  customer_name?: string | null;
+  promocode?: string | null;
+  discount: number;
+  total: number;
+  item_count?: number;
 }
 
 interface BackendOrderItem {
-  product_id: number
-  product_name: string
-  quantity: number
-  price: number
-  subtotal: number
+  order_item_id?: number;
+  product_id: number;
+  product_name: string;
+  category_name?: string | null;
+  quantity: number;
+  price: number;
+  subtotal?: number;
 }
 
 interface BackendOrderDetail extends BackendOrder {
-  items: BackendOrderItem[]
+  items: BackendOrderItem[];
+}
+
+function normalizeProduct(product: Product & { active?: boolean | number }): Product {
+  return {
+    ...product,
+    price: Number(product.price),
+    active: product.active === undefined ? true : Boolean(product.active),
+    image_url: product.image_url ?? null,
+  };
 }
 
 function normalizeOrder(order: BackendOrder): Order {
   return {
     order_id: order.order_id,
-    order_date: order.order_date,
+    order_date: String(order.order_date),
     order_time: normalizeOrderTime(order.order_time),
     day_of_week: order.day_of_week,
-    customer_phone: null,
-    promocode: null,
+    customer_phone: order.customer_phone ?? null,
+    customer_name: order.customer_name ?? null,
+    promocode: order.promocode ?? null,
     discount: Number(order.discount),
     total: Number(order.total),
-  }
+    item_count: order.item_count === undefined ? undefined : Number(order.item_count),
+  };
 }
 
-function normalizeOrderItems(
-    orderId: number,
-    items: BackendOrderItem[],
-): OrderItem[] {
+function normalizeOrderItems(orderId: number, items: BackendOrderItem[]): OrderItem[] {
   return items.map((item) => ({
+    order_item_id: item.order_item_id,
     order_id: orderId,
     product_id: item.product_id,
+    product_name: item.product_name,
+    category_name: item.category_name ?? null,
     quantity: Number(item.quantity),
     price: Number(item.price),
-  }))
+    subtotal: item.subtotal === undefined ? undefined : Number(item.subtotal),
+  }));
 }
 
-// --------------------------------------------------
-// API DATA SOURCE
-// --------------------------------------------------
-
-export async function getCategories(): Promise<Category[]> {
-  return apiRequest<Category[]>('/categories')
+export function getCategories(): Promise<Category[]> {
+  return apiRequest<Category[]>("/categories");
 }
 
 export async function getProducts(): Promise<Product[]> {
-  return apiRequest<Product[]>('/products')
+  const records = await apiRequest<(Product & { active?: boolean | number })[]>("/products");
+  return records.map(normalizeProduct);
 }
 
-export async function getCustomers(signal?: AbortSignal): Promise<Customer[]> {
-  return apiRequest<Customer[]>('/customers', { signal })
+export function getCustomers(signal?: AbortSignal): Promise<Customer[]> {
+  return apiRequest<Customer[]>("/customers", { signal });
 }
 
-export async function getCampaigns(): Promise<Campaign[]> {
-  return apiRequest<Campaign[]>('/campaigns')
+export function getCustomerSummaries(signal?: AbortSignal): Promise<CustomerSummary[]> {
+  return apiRequest<CustomerSummary[]>("/customers/summary", { signal });
+}
+
+export async function getCustomerOrders(phone: string, limit = 8, signal?: AbortSignal): Promise<Order[]> {
+  const records = await apiRequest<BackendOrder[]>(
+    `/customers/${encodeURIComponent(phone)}/orders?limit=${limit}`,
+    { signal },
+  );
+  return records.map(normalizeOrder);
+}
+
+export function getCampaigns(): Promise<Campaign[]> {
+  return apiRequest<Campaign[]>("/campaigns");
 }
 
 export function getStatistics(query: URLSearchParams, signal: AbortSignal): Promise<Statistics> {
-  return apiRequest(`/statistics?${query}`, { signal })
+  return apiRequest<Statistics>(`/statistics?${query.toString()}`, { signal });
 }
 
-export function getRecommendations(customerPhone: string, signal: AbortSignal): Promise<Recommendations> {
-  return apiRequest<Recommendations>(`/recommendations/${encodeURIComponent(customerPhone)}`, { signal })
+export function getRecommendations(customerPhone: string, signal?: AbortSignal): Promise<Recommendations> {
+  return apiRequest<Recommendations>(`/recommendations/${encodeURIComponent(customerPhone)}`, { signal });
 }
 
 export function evaluateDiscount(query: string, productId: number, unitCost: string): Promise<DiscountSuggestion> {
   return apiRequest<DiscountSuggestion>(`/discount-suggestions?${query}`, {
-    method: 'POST',
+    method: "POST",
     body: JSON.stringify({ product_id: productId, unit_cost: unitCost }),
-  })
+  });
 }
 
 export async function getOrders(): Promise<Order[]> {
-  const orders = await apiRequest<BackendOrder[]>('/orders')
+  const records = await apiRequest<BackendOrder[]>("/orders");
+  return records.map(normalizeOrder);
+}
 
-  return orders.map(normalizeOrder)
+export async function getOrdersPage(query: URLSearchParams, signal?: AbortSignal): Promise<OrdersPageResponse> {
+  const result = await apiRequest<{
+    items: BackendOrder[];
+    total: number;
+    summary: OrdersPageResponse["summary"];
+  }>(`/orders/page?${query.toString()}`, { signal });
+  return { ...result, items: result.items.map(normalizeOrder) };
+}
+
+export async function getOrderDetail(orderId: number, signal?: AbortSignal): Promise<{ order: Order; items: OrderItem[] }> {
+  const detail = await apiRequest<BackendOrderDetail>(`/orders/${orderId}`, { signal });
+  return {
+    order: normalizeOrder(detail),
+    items: normalizeOrderItems(detail.order_id, detail.items ?? []),
+  };
 }
 
 export async function getOrderItems(): Promise<OrderItem[]> {
-  const orders = await apiRequest<BackendOrder[]>('/orders')
-
-  const details = await Promise.all(
-      orders.map((order) =>
-          apiRequest<BackendOrderDetail>(`/orders/${order.order_id}`),
-      ),
-  )
-
-  return details.flatMap((detail) =>
-      normalizeOrderItems(detail.order_id, detail.items),
-  )
+  return apiRequest<OrderItem[]>("/order-items");
 }
 
-// --------------------------------------------------
-// PRODUCT CREATION
-// --------------------------------------------------
+export async function uploadProductImage(file: File): Promise<{ image_url: string }> {
+  const formData = new FormData();
+  formData.append("file", file);
 
-export async function addProduct(
-    input: NewProductInput,
-): Promise<Product> {
-  const product = await apiRequest<Product>('/products', {
-    method: 'POST',
-    body: JSON.stringify({
-      product_name: input.product_name,
-      category_id: input.category_id,
-      price: input.price,
-    }),
-  })
-
-  return product
-}
-
-// --------------------------------------------------
-// ORDER CREATION
-// --------------------------------------------------
-
-export async function saveOrder(
-    lines: OrderLineInput[],
-): Promise<SavedOrder> {
-  if (lines.length === 0) {
-    throw new Error('An order must contain at least one item.')
+  let response: Response;
+  try {
+    // Do not set Content-Type manually; the browser adds the multipart boundary.
+    response = await fetch(`${API_BASE_URL}/products/images`, {
+      method: "POST",
+      body: formData,
+    });
+  } catch {
+    throw new Error("Cannot reach the PointNull API. Check that the backend is running.");
   }
 
-  const result = await apiRequest<{
-    order_id: number
-    subtotal: number
-    discount: number
-    total: number
-    items: BackendOrderItem[]
-  }>('/orders', {
-    method: 'POST',
+  if (!response.ok) {
+    let message = `Image upload failed (${response.status})`;
+    try {
+      const body = await response.json() as { detail?: unknown };
+      if (typeof body.detail === "string") message = body.detail;
+    } catch {
+      // Keep the HTTP fallback message when the response is not JSON.
+    }
+    throw new Error(message);
+  }
+
+  const result = await response.json() as { image_url?: string };
+  if (!result.image_url) throw new Error("The server did not return an image URL.");
+  return { image_url: result.image_url };
+}
+
+export async function addProduct(input: NewProductInput): Promise<Product> {
+  const product = await apiRequest<Product & { active?: boolean | number }>("/products", {
+    method: "POST",
+    body: JSON.stringify(input),
+  });
+  return normalizeProduct(product);
+}
+
+export async function updateProduct(productId: number, input: NewProductInput): Promise<Product> {
+  const product = await apiRequest<Product & { active?: boolean | number }>(`/products/${productId}`, {
+    method: "PUT",
+    body: JSON.stringify(input),
+  });
+  return normalizeProduct(product);
+}
+
+export async function setProductActive(productId: number, active: boolean): Promise<Product> {
+  const product = await apiRequest<Product & { active?: boolean | number }>(`/products/${productId}/active`, {
+    method: "PATCH",
+    body: JSON.stringify({ active }),
+  });
+  return normalizeProduct(product);
+}
+
+export function addCustomer(input: Customer): Promise<Customer> {
+  return apiRequest<Customer>("/customers", {
+    method: "POST",
+    body: JSON.stringify(input),
+  });
+}
+
+export function updateCustomer(originalPhone: string, input: Customer): Promise<Customer> {
+  return apiRequest<Customer>(`/customers/${encodeURIComponent(originalPhone)}`, {
+    method: "PUT",
+    body: JSON.stringify(input),
+  });
+}
+
+export async function deleteCustomer(phone: string): Promise<void> {
+  await apiRequest<void>(`/customers/${encodeURIComponent(phone)}`, { method: "DELETE" });
+}
+
+export function validateCampaign(code: string, subtotal: number): Promise<CampaignValidation> {
+  return apiRequest<CampaignValidation>("/campaigns/validate", {
+    method: "POST",
+    body: JSON.stringify({ promocode: code.trim().toUpperCase(), subtotal }),
+  });
+}
+
+export async function saveOrder(lines: OrderLineInput[], details: CheckoutDetails = {}): Promise<SavedOrder> {
+  if (!lines.length) throw new Error("An order must contain at least one item.");
+  const created = await apiRequest<{ order_id: number }>("/orders", {
+    method: "POST",
     body: JSON.stringify({
-      items: lines.map((line) => ({
-        product_id: line.product_id,
-        quantity: line.quantity,
-      })),
-      discount: 0,
+      items: lines.map(({ product_id, quantity }) => ({ product_id, quantity })),
+      customer_phone: details.customer_phone ?? null,
+      promocode: details.promocode ?? null,
     }),
-  })
-
-  // Retrieve the complete order after creation.
-  const detail = await apiRequest<BackendOrderDetail>(
-      `/orders/${result.order_id}`,
-  )
-
+  });
+  const detail = await apiRequest<BackendOrderDetail>(`/orders/${created.order_id}`);
   return {
     order: normalizeOrder(detail),
-    orderItems: normalizeOrderItems(
-        detail.order_id,
-        detail.items,
-    ),
-  }
+    orderItems: normalizeOrderItems(detail.order_id, detail.items ?? []),
+  };
 }
 
-// --------------------------------------------------
-// BULK IMPORT
-// --------------------------------------------------
-
-export async function importData(
-    input: ImportPayload,
-): Promise<ImportResult> {
-  return apiRequest<ImportResult>('/import', {
-    method: 'POST',
+export async function importData(input: ImportPayload): Promise<ImportResult> {
+  return apiRequest<ImportResult>("/import", {
+    method: "POST",
     body: JSON.stringify({
       categories: input.categories,
       products: input.products,
+      customers: input.customers,
     }),
-  })
+  });
 }
 
-
-// --------------------------------------------------
-// ANALYTICS EXPORT
-// Existing implementation preserved; not part of this
-// backend integration task.
-// --------------------------------------------------
-
-export async function exportAnalytics(
-    request: AnalyticsExportRequest,
-): Promise<string> {
-  const response = await fetch('/api/analytics/export', {
-    method: 'POST',
-    headers: { 'Content-Type': 'application/json' },
+export async function exportAnalytics(request: AnalyticsExportRequest): Promise<string> {
+  const response = await fetch("/api/analytics/export", {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
     body: JSON.stringify(request),
-  })
-
+  });
   if (!response.ok) {
-    let message = 'The Excel report could not be generated.'
-
+    let message = "The Excel report could not be generated.";
     try {
-      const body = await response.json() as { detail?: string }
-      if (body.detail) message = body.detail
+      const body = await response.json() as { detail?: string };
+      if (body.detail) message = body.detail;
     } catch {
-      // Keep the user-friendly fallback.
+      // Keep the fallback.
     }
-
-    throw new Error(message)
+    throw new Error(message);
   }
-
-  const blob = await response.blob()
-  const disposition = response.headers.get('content-disposition') ?? ''
-  const encodedName = disposition.match(/filename\*=UTF-8''([^;]+)/i)?.[1]
-  const plainName = disposition.match(/filename="?([^";]+)"?/i)?.[1]
-  const date = new Date().toISOString().slice(0, 10)
+  const blob = await response.blob();
+  const disposition = response.headers.get("content-disposition") ?? "";
+  const encodedName = disposition.match(/filename\*=UTF-8''([^;]+)/i)?.[1];
+  const plainName = disposition.match(/filename="?([^";]+)"?/i)?.[1];
+  const date = new Date().toISOString().slice(0, 10);
   const filename = encodedName
-      ? decodeURIComponent(encodedName)
-      : plainName ?? `PointNull_Analytics_${date}.xlsx`
-
-  const url = URL.createObjectURL(blob)
-  const link = document.createElement('a')
-  link.href = url
-  link.download = filename
-  document.body.appendChild(link)
-  link.click()
-  link.remove()
-  URL.revokeObjectURL(url)
-
-  return filename
+    ? decodeURIComponent(encodedName)
+    : plainName ?? `PointNull_Analytics_${date}.xlsx`;
+  const url = URL.createObjectURL(blob);
+  const link = document.createElement("a");
+  link.href = url;
+  link.download = filename;
+  document.body.appendChild(link);
+  link.click();
+  link.remove();
+  URL.revokeObjectURL(url);
+  return filename;
 }
