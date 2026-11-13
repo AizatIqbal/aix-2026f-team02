@@ -380,7 +380,7 @@ function StartupSplash({ leaving }: { leaving: boolean }) {
       <div className="splash-center">
         <div className="splash-mark-wrap">
           <div className="splash-pulse" aria-hidden="true" />
-          <img src="/pointnull-mark.svg" alt="" className="splash-mark" />
+          <img src="/favicon.svg" alt="" className="splash-mark" />
           <div className="splash-scan" aria-hidden="true" />
         </div>
 
@@ -414,7 +414,7 @@ function Header({
     <header className="sticky top-0 z-40 border-b border-line bg-white/95 backdrop-blur">
       <div className="mx-auto flex min-h-18 max-w-screen-2xl items-center gap-2 px-3 sm:px-5 lg:gap-6 lg:px-8">
         <div className="flex shrink-0 items-center gap-3">
-          <img src="/pointnull-mark.svg" alt="PointNull" className="size-10 rounded-xl" />
+          <img src="/favicon.svg" alt="PointNull" className="size-10 rounded-xl" />
           <div className="hidden sm:block">
             <div className="font-display text-lg font-bold leading-tight">PointNull</div>
             <div className="text-xs font-medium text-ink-faint">Sales workspace</div>

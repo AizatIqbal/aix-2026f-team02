@@ -519,11 +519,19 @@ export function CustomersPage() {
                           ]
                   );
 
-                  setDetail((current) =>
-                      current?.customer_phone === originalPhone
-                          ? { ...current, ...customer }
-                          : current
-                  );
+                  setDetail((current) => {
+                    if (!current || current.customer_phone !== originalPhone) {
+                      return current;
+                    }
+
+                    return {
+                      ...current,
+                      customer_phone: customer.customer_phone,
+                      customer_name: customer.customer_name,
+                      customer_age: customer.customer_age,
+                      customer_gender: customer.customer_gender,
+                    };
+                  });
 
                   setForm(null);
                   showNotice(
