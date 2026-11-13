@@ -1,33 +1,33 @@
-import type { ButtonHTMLAttributes, HTMLAttributes, InputHTMLAttributes, ReactNode } from 'react'
+import type { ButtonHTMLAttributes, HTMLAttributes, InputHTMLAttributes, ReactNode } from "react";
 
-type ButtonVariant = 'primary' | 'secondary' | 'ghost' | 'chip'
+type ButtonVariant = "primary" | "secondary" | "ghost" | "chip";
 
 interface ButtonProps extends ButtonHTMLAttributes<HTMLButtonElement> {
-  variant?: ButtonVariant
+  variant?: ButtonVariant;
 }
 
-export function Button({ className = '', variant = 'secondary', ...props }: ButtonProps) {
+export function Button({ className = "", variant = "secondary", ...props }: ButtonProps) {
   const variants: Record<ButtonVariant, string> = {
-    primary: 'bg-accent text-white shadow-sm hover:bg-accent-strong',
-    secondary: 'border border-line bg-white text-ink shadow-sm hover:bg-surface-strong',
-    ghost: 'text-ink-muted hover:bg-surface-strong hover:text-ink',
-    chip: 'border border-line bg-white text-ink-muted hover:border-accent/40 hover:text-ink',
-  }
+    primary: "bg-accent text-white shadow-sm hover:bg-accent-strong",
+    secondary: "border border-line bg-white text-ink shadow-sm hover:bg-surface-strong",
+    ghost: "text-ink-muted hover:bg-surface-strong hover:text-ink",
+    chip: "border border-line bg-white text-ink-muted hover:border-accent/40 hover:text-ink",
+  };
 
   return (
     <button
       className={`min-h-11 rounded-xl px-4 text-sm font-semibold transition-colors focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-accent disabled:cursor-not-allowed disabled:opacity-45 ${variants[variant]} ${className}`}
       {...props}
     />
-  )
+  );
 }
 
 interface IconButtonProps extends ButtonHTMLAttributes<HTMLButtonElement> {
-  label: string
-  children: ReactNode
+  label: string;
+  children: ReactNode;
 }
 
-export function IconButton({ label, className = '', children, ...props }: IconButtonProps) {
+export function IconButton({ label, className = "", children, ...props }: IconButtonProps) {
   return (
     <button
       aria-label={label}
@@ -36,62 +36,145 @@ export function IconButton({ label, className = '', children, ...props }: IconBu
     >
       {children}
     </button>
-  )
+  );
 }
 
-export function CardButton({ className = '', ...props }: ButtonHTMLAttributes<HTMLButtonElement>) {
+export function CardButton({ className = "", ...props }: ButtonHTMLAttributes<HTMLButtonElement>) {
   return (
     <button
       className={`block w-full text-left focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-accent ${className}`}
       {...props}
     />
-  )
+  );
 }
 
-export function Input({ className = '', ...props }: InputHTMLAttributes<HTMLInputElement>) {
+export function Input({ className = "", ...props }: InputHTMLAttributes<HTMLInputElement>) {
   return (
     <input
       className={`min-h-11 rounded-xl border border-line bg-white px-3 text-sm text-ink outline-none transition focus:border-accent focus:ring-2 focus:ring-accent/15 ${className}`}
       {...props}
     />
-  )
+  );
 }
 
 interface SurfaceProps extends HTMLAttributes<HTMLDivElement> {
-  children: ReactNode
+  children: ReactNode;
 }
 
-export function Surface({ className = '', children, ...props }: SurfaceProps) {
+export function Surface({ className = "", children, ...props }: SurfaceProps) {
   return (
     <div className={`rounded-2xl border border-line bg-white shadow-card ${className}`} {...props}>
       {children}
     </div>
-  )
+  );
 }
 
 export function Icon({
   name,
-  className = 'size-5',
+  className = "size-5",
 }: {
-  name: 'grid' | 'chart' | 'clock' | 'minus' | 'plus' | 'arrow' | 'reset' | 'check' | 'chevron' | 'download'
-  className?: string
+  name:
+    | "grid"
+    | "chart"
+    | "clock"
+    | "minus"
+    | "plus"
+    | "arrow"
+    | "reset"
+    | "check"
+    | "chevron"
+    | "download"
+    | "search"
+    | "users"
+    | "trash";
+  className?: string;
 }) {
   const paths: Record<string, ReactNode> = {
-    grid: <><rect x="3" y="3" width="7" height="7" rx="2" /><rect x="14" y="3" width="7" height="7" rx="2" /><rect x="3" y="14" width="7" height="7" rx="2" /><rect x="14" y="14" width="7" height="7" rx="2" /></>,
-    chart: <><path d="M4 19V9" /><path d="M10 19V5" /><path d="M16 19v-7" /><path d="M22 19H2" /></>,
-    clock: <><circle cx="12" cy="12" r="9" /><path d="M12 7v5l3 2" /></>,
+    grid: (
+      <>
+        <rect x="3" y="3" width="7" height="7" rx="2" />
+        <rect x="14" y="3" width="7" height="7" rx="2" />
+        <rect x="3" y="14" width="7" height="7" rx="2" />
+        <rect x="14" y="14" width="7" height="7" rx="2" />
+      </>
+    ),
+    chart: (
+      <>
+        <path d="M4 19V9" />
+        <path d="M10 19V5" />
+        <path d="M16 19v-7" />
+        <path d="M22 19H2" />
+      </>
+    ),
+    clock: (
+      <>
+        <circle cx="12" cy="12" r="9" />
+        <path d="M12 7v5l3 2" />
+      </>
+    ),
     minus: <path d="M5 12h14" />,
-    plus: <><path d="M12 5v14" /><path d="M5 12h14" /></>,
-    arrow: <><path d="M5 12h14" /><path d="m14 7 5 5-5 5" /></>,
-    reset: <><path d="M4 4v6h6" /><path d="M5.5 15a8 8 0 1 0 1-8.5L4 10" /></>,
+    plus: (
+      <>
+        <path d="M12 5v14" />
+        <path d="M5 12h14" />
+      </>
+    ),
+    arrow: (
+      <>
+        <path d="M5 12h14" />
+        <path d="m14 7 5 5-5 5" />
+      </>
+    ),
+    reset: (
+      <>
+        <path d="M4 4v6h6" />
+        <path d="M5.5 15a8 8 0 1 0 1-8.5L4 10" />
+      </>
+    ),
     check: <path d="m5 12 4 4L19 6" />,
     chevron: <path d="m8 10 4 4 4-4" />,
-    download: <><path d="M4 3h10l4 4v5" /><path d="M14 3v5h5" /><path d="M5 13v7h14v-7" /><path d="M9 13h6M9 17h6" /><path d="M12 6v7m0 0 3-3m-3 3-3-3" /></>,
-  }
+    search: (
+      <>
+        <circle cx="11" cy="11" r="7" />
+        <path d="m20 20-4-4" />
+      </>
+    ),
+    users: (
+      <>
+        <path d="M16 21v-2a4 4 0 0 0-4-4H6a4 4 0 0 0-4 4v2" />
+        <circle cx="9" cy="7" r="4" />
+        <path d="M22 21v-2a4 4 0 0 0-3-3.87M16 3.13a4 4 0 0 1 0 7.75" />
+      </>
+    ),
+    trash: (
+      <>
+        <path d="M3 6h18M8 6V4h8v2M19 6l-1 15H6L5 6" />
+        <path d="M10 11v5M14 11v5" />
+      </>
+    ),
+    download: (
+      <>
+        <path d="M4 3h10l4 4v5" />
+        <path d="M14 3v5h5" />
+        <path d="M5 13v7h14v-7" />
+        <path d="M9 13h6M9 17h6" />
+        <path d="M12 6v7m0 0 3-3m-3 3-3-3" />
+      </>
+    ),
+  };
 
   return (
-    <svg aria-hidden="true" className={className} fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round">
+    <svg
+      aria-hidden="true"
+      className={className}
+      fill="none"
+      viewBox="0 0 24 24"
+      stroke="currentColor"
+      strokeWidth="1.8"
+      strokeLinecap="round"
+      strokeLinejoin="round"
+    >
       {paths[name]}
     </svg>
-  )
+  );
 }

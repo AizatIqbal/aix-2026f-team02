@@ -5,3 +5,4 @@ httpx
 sqlalchemy
 pymysql
 python-dotenv
+python-multipart
