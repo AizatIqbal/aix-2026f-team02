@@ -1,4 +1,8 @@
-﻿fastapi
+fastapi
 uvicorn[standard]
 pytest
-httpx2
+httpx
+sqlalchemy
+pymysql
+python-dotenv
+python-multipart

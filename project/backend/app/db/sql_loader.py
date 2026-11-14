@@ -1,6 +1,4 @@
-
 from pathlib import Path
-
 
 class SQLLoader:
     """Loads SQL scripts from the project's database directory."""

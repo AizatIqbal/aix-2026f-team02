@@ -2,6 +2,7 @@
 
 > 한 줄 소개 — 누구의 어떤 문제를 해결하는가
 > One line — whose problem does this solve?
+PointNull helps small restaurant and café owners manage their business operations and understand sales performance through a centralized web-based management and analytics system.
 
 **배포 URL / Live URL:** (13주차에 작성 / add in Week 13)
 
@@ -13,9 +14,9 @@
 
 ## 2. 사용자 확인 / User Validation
 인터뷰 3명 요지 / Summary of three interviews:
-1.
-2.
-3.
+1. Identified difficulties in organizing daily sales records and managing business information efficiently.
+2. Expressed the need for better visibility into sales trends and product performance to support business decisions.
+3. Highlighted the importance of understanding customer purchasing patterns and evaluating marketing campaign effectiveness.
 
 ## 3. 실행 방법 / How to Run
 ```bash
@@ -23,8 +24,16 @@ git clone <repo-url>
 # 설치 / install
 # 실행 / run
 
+Backend Dependencies Install
+.\.venv\Scripts\python.exe -m pip install -r requirements.txt   
+
 Frontend server init
 #pnpm dev
+Backend server init
+#.\.venv\Scripts\python.exe -m uvicorn app.main:app --reload --reload-dir app
+
+Api Documentation
+# http://127.0.0.1:8000/docs#/
 # Stop the server via CTRL C
 ```
 필요한 환경변수 / Required environment variables: `.env.example` 참고
@@ -41,7 +50,10 @@ Frontend server init
 ## 6. 팀 구성 / Team
 | 이름 Name | 담당 영역 Area | 주요 이슈 Issues |
 |---|---|---|
-|  |  |  |
+| Aizat | Analysis |  |
+| Syafiq | Backend |  |
+| Farhana | Frontend |  |
+| Qasim | QA Testing |  |
 
 ## 7. 라이선스 / License
 MIT — 선택 이유 / Why:
