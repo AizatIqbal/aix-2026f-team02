@@ -1,10 +1,18 @@
-import { useEffect, useMemo, useState, type ChangeEvent, type FormEvent, type PointerEvent } from "react";
+import {
+  lazy,
+  Suspense,
+  useEffect,
+  useMemo,
+  useState,
+  type ChangeEvent,
+  type FormEvent,
+  type PointerEvent,
+} from "react";
 import {
   addProduct,
   exportAnalytics,
   getCategories,
   getStatistics,
-  getOrders,
   getProducts,
   setProductActive,
   updateProduct,
@@ -17,12 +25,30 @@ import {
   type ImportResult,
   type StatisticsGroup,
 } from "./data-access";
-import { ImportWizard } from "./import-wizard";
 import { Button, CardButton, Icon, IconButton, Input, Surface } from "./ui";
-import { MarketingAnalysis, SalesBreakdowns } from "./analytics-details";
-import { CustomersPage } from "./customers-page";
-import { OrdersPage } from "./orders-page";
-import { CheckoutModal } from "./checkout-modal";
+import { LazySection } from "./lazy-section";
+
+// Code for these screens is downloaded the first time each one is opened,
+// so the menu (the first screen) starts with a much smaller bundle.
+const loadAnalyticsDetails = () => import("./analytics-details");
+const MarketingAnalysis = lazy(() =>
+  loadAnalyticsDetails().then((module) => ({ default: module.MarketingAnalysis })),
+);
+const SalesBreakdowns = lazy(() =>
+  loadAnalyticsDetails().then((module) => ({ default: module.SalesBreakdowns })),
+);
+const CustomersPage = lazy(() =>
+  import("./customers-page").then((module) => ({ default: module.CustomersPage })),
+);
+const OrdersPage = lazy(() =>
+  import("./orders-page").then((module) => ({ default: module.OrdersPage })),
+);
+const ImportWizard = lazy(() =>
+  import("./import-wizard").then((module) => ({ default: module.ImportWizard })),
+);
+const CheckoutModal = lazy(() =>
+  import("./checkout-modal").then((module) => ({ default: module.CheckoutModal })),
+);
 
 type WorkingTab = "menu" | "analysis" | "customers" | "orders";
 type DatePreset = "today" | "7d" | "30d" | "all";
@@ -73,8 +99,6 @@ function App() {
   const [data, setData] = useState<AppData>(EMPTY_DATA);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
-  const [analysisLoading, setAnalysisLoading] = useState(false);
-  const [analyticsLoaded, setAnalyticsLoaded] = useState(false);
   const [selection, setSelection] = useState<Record<number, number>>({});
   const [category, setCategory] = useState<number | "all">("all");
   const [clock, setClock] = useState(new Date());
@@ -134,41 +158,6 @@ function App() {
 
     return () => window.clearTimeout(timer);
   }, [loading, splashMinimumElapsed, splashVisible]);
-
-  useEffect(() => {
-    if (tab !== "analysis" || analyticsLoaded) return;
-
-    let cancelled = false;
-
-    setAnalysisLoading(true);
-    setError("");
-
-    getOrders()
-      .then((orders) => {
-        if (cancelled) return;
-
-        setData((current) => ({
-          ...current,
-          orders,
-        }));
-
-        setAnalyticsLoaded(true);
-      })
-      .catch((caught) => {
-        if (cancelled) return;
-
-        setError(caught instanceof Error ? caught.message : "We could not load sales data.");
-      })
-      .finally(() => {
-        if (!cancelled) {
-          setAnalysisLoading(false);
-        }
-      });
-
-    return () => {
-      cancelled = true;
-    };
-  }, [tab, analyticsLoaded]);
 
   const selectedCount = Object.values(selection).reduce((sum, quantity) => sum + quantity, 0);
   const selectedTotal = data.products.reduce(
@@ -247,11 +236,15 @@ function App() {
             }}
           />
         ) : tab === "analysis" ? (
-          <Analysis data={data} loading={loading || analysisLoading} />
+          <Analysis data={data} loading={loading} />
         ) : tab === "customers" ? (
-          <CustomersPage />
+          <Suspense fallback={<LoadingGrid />}>
+            <CustomersPage />
+          </Suspense>
         ) : (
-          <OrdersPage />
+          <Suspense fallback={<LoadingGrid />}>
+            <OrdersPage />
+          </Suspense>
         )}
       </main>
       {tab === "menu" && !managementMode && (
@@ -333,32 +326,35 @@ function App() {
         />
       )}
       {importOpen && (
-        <ImportWizard
-          categories={data.categories}
-          products={data.products}
-          onClose={() => setImportOpen(false)}
-          onImported={mergeImported}
-        />
+        <Suspense fallback={null}>
+          <ImportWizard
+            categories={data.categories}
+            products={data.products}
+            onClose={() => setImportOpen(false)}
+            onImported={mergeImported}
+          />
+        </Suspense>
       )}
       {checkoutOpen && (
-        <CheckoutModal
-          products={data.products}
-          selection={selection}
-          onClose={() => setCheckoutOpen(false)}
-          onSaved={(saved) => {
-            setData((current) => ({
-              ...current,
-              orders: [...current.orders, saved.order],
-            }));
-            setSelection({});
-            setAnalyticsLoaded(false);
-          }}
-          onDone={(saved) => {
-            setCheckoutOpen(false);
-            setToast(`Order #${saved.order.order_id} completed`);
-            window.setTimeout(() => setToast(""), 2800);
-          }}
-        />
+        <Suspense fallback={null}>
+          <CheckoutModal
+            products={data.products}
+            selection={selection}
+            onClose={() => setCheckoutOpen(false)}
+            onSaved={(saved) => {
+              setData((current) => ({
+                ...current,
+                orders: [...current.orders, saved.order],
+              }));
+              setSelection({});
+            }}
+            onDone={(saved) => {
+              setCheckoutOpen(false);
+              setToast(`Order #${saved.order.order_id} completed`);
+              window.setTimeout(() => setToast(""), 2800);
+            }}
+          />
+        </Suspense>
       )}
       {splashVisible && <StartupSplash leaving={splashLeaving} />}
     </div>
@@ -1039,17 +1035,18 @@ function localDate(value: Date): string {
   return `${value.getFullYear()}-${month}-${day}`;
 }
 
-function statisticsQuery(filters: Filters, orders: Order[]): URLSearchParams {
-  const now = new Date();
-  const firstDay = new Date(now);
-  if (filters.preset === "7d") firstDay.setDate(now.getDate() - 6);
-  if (filters.preset === "30d") firstDay.setDate(now.getDate() - 29);
-  const orderDates = filters.preset === "all" ? orders.map((order) => order.order_date).sort() : [];
-  const query = new URLSearchParams({
-    start: orderDates[0] ?? localDate(firstDay),
-    end: orderDates.at(-1) ?? localDate(now),
-    group: filters.group,
-  });
+function statisticsQuery(filters: Filters): URLSearchParams {
+  const query = new URLSearchParams({ group: filters.group });
+  // "All dates" sends no range: the API then reports on every recorded sale,
+  // so the browser no longer downloads the whole order history to find it.
+  if (filters.preset !== "all") {
+    const now = new Date();
+    const firstDay = new Date(now);
+    if (filters.preset === "7d") firstDay.setDate(now.getDate() - 6);
+    if (filters.preset === "30d") firstDay.setDate(now.getDate() - 29);
+    query.set("start", localDate(firstDay));
+    query.set("end", localDate(now));
+  }
   if (filters.startTime) query.set("start_time", `${filters.startTime}:00`);
   if (filters.endTime) query.set("end_time", `${filters.endTime}:59`);
   filters.days.forEach((day) => query.append("weekdays", String(DAYS.indexOf(day))));
@@ -1069,7 +1066,7 @@ function Analysis({ data, loading }: { data: AppData; loading: boolean }) {
   const [statistics, setStatistics] = useState<Statistics | null>(null);
   const [reportLoading, setReportLoading] = useState(true);
   const [reportError, setReportError] = useState("");
-  const query = useMemo(() => statisticsQuery(filters, data.orders), [filters, data.orders]);
+  const query = useMemo(() => statisticsQuery(filters), [filters]);
 
   useEffect(() => {
     if (loading) return;
@@ -1077,7 +1074,6 @@ function Analysis({ data, loading }: { data: AppData; loading: boolean }) {
 
     setReportLoading(true);
     setReportError("");
-    setStatistics(null);
     getStatistics(query, controller.signal)
       .then((result) => {
         if (!controller.signal.aborted) setStatistics(result);
@@ -1090,6 +1086,10 @@ function Analysis({ data, loading }: { data: AppData; loading: boolean }) {
       });
     return () => controller.abort();
   }, [query, loading]);
+
+  useEffect(() => {
+    void loadAnalyticsDetails();
+  }, []);
 
   const summary = statistics?.summary;
   const topProduct = statistics?.products.find((product) => product.units > 0);
@@ -1120,9 +1120,14 @@ function Analysis({ data, loading }: { data: AppData; loading: boolean }) {
       message: scope === "current" ? "Preparing current view…" : "Preparing full report…",
     });
     try {
+      const current = scope === "current";
       const filename = await exportAnalytics({
         scope,
-        filters: scope === "current" ? filters : undefined,
+        // The full report covers every sale: no dates and no filters.
+        query: current ? query : new URLSearchParams({ group: filters.group }),
+        statistics: current && !reportLoading ? (statistics ?? undefined) : undefined,
+        categories: data.categories,
+        filters: current ? filters : undefined,
       });
       setExportOpen(false);
       setExportStatus({ state: "success", message: `${filename} downloaded` });
@@ -1339,36 +1344,46 @@ function Analysis({ data, loading }: { data: AppData; loading: boolean }) {
       )}
       {reportError ? (
         <EmptyState title="Could not load sales report" message={reportError} />
-      ) : reportLoading ? (
+      ) : !statistics ? (
         <LoadingAnalysis />
       ) : (
-        statistics && (
-          <>
-            {statistics.warnings.map((warning) => (
-              <p key={warning} role="status" className="mb-3 text-sm text-ink-muted">
-                {warning}
-              </p>
-            ))}
-            {view === "marketing" ? (
+        // While a new report loads, the previous one stays on screen, dimmed.
+        <div
+          aria-busy={reportLoading}
+          className={`transition-opacity ${reportLoading ? "pointer-events-none opacity-60" : ""}`}
+        >
+          {statistics.warnings.map((warning) => (
+            <p key={warning} role="status" className="mb-3 text-sm text-ink-muted">
+              {warning}
+            </p>
+          ))}
+          {view === "marketing" ? (
+            <Suspense fallback={<LoadingAnalysis />}>
               <MarketingAnalysis statistics={statistics} query={query.toString()} />
-            ) : statistics.summary.orders === 0 ? (
-              <EmptyState
-                title="No sales match these filters"
-                message="Adjust the filters or complete a new sale to see analytics."
+            </Suspense>
+          ) : statistics.summary.orders === 0 ? (
+            <EmptyState
+              title="No sales match these filters"
+              message="Adjust the filters or complete a new sale to see analytics."
+            />
+          ) : (
+            <>
+              <ChartGrid
+                statistics={statistics}
+                categories={data.categories}
+                trendProductId={trendProductId}
+                onSelectTrendProduct={setTrendProductId}
               />
-            ) : (
-              <>
-                <ChartGrid
-                  statistics={statistics}
-                  categories={data.categories}
-                  trendProductId={trendProductId}
-                  onSelectTrendProduct={setTrendProductId}
-                />
-                <SalesBreakdowns statistics={statistics} />
-              </>
-            )}
-          </>
-        )
+              <LazySection minHeight={700} className="mt-5">
+                <Suspense
+                  fallback={<div className="h-[700px] animate-pulse rounded-2xl bg-surface-strong" />}
+                >
+                  <SalesBreakdowns statistics={statistics} />
+                </Suspense>
+              </LazySection>
+            </>
+          )}
+        </div>
       )}
     </section>
   );
@@ -1458,7 +1473,7 @@ function ChartGrid({
       <BarChart title="Revenue by hour" data={byHour} valueFormatter={formatMoney} labelStep={4} />
       <BarChart title="Revenue by day of week" data={byDay} valueFormatter={formatMoney} />
       <BarChart title="Sales by category" data={byCategory} valueFormatter={formatMoney} />
-      <div className="lg:col-span-2">
+      <LazySection minHeight={446} className="lg:col-span-2">
         <label className="mb-2 flex flex-wrap items-center gap-2 text-sm font-semibold">
           Period for product bars
           <select
@@ -1484,8 +1499,8 @@ function ChartGrid({
         ) : (
           <Surface className="p-5 text-sm text-ink-muted">No product sales in this period.</Surface>
         )}
-      </div>
-      <div className="lg:col-span-2">
+      </LazySection>
+      <LazySection minHeight={386} className="lg:col-span-2">
         <label className="mb-2 flex flex-wrap items-center gap-2 text-sm font-semibold">
           Product for units over time
           <select
@@ -1508,7 +1523,7 @@ function ChartGrid({
           metric="units sold"
           valueFormatter={(value) => value.toLocaleString("en")}
         />
-      </div>
+      </LazySection>
     </div>
   );
 }

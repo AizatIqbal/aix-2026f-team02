@@ -58,9 +58,10 @@ export function SalesBreakdowns({ statistics }: { statistics: Statistics }) {
   const [leastFirst, setLeastFirst] = useState(false);
   const [productId, setProductId] = useState(0);
   const products = statistics.products;
-  const ranked = leastFirst
-    ? [...products].sort((a, b) => a.units - b.units || a.product_id - b.product_id)
-    : products;
+  // Rank 1 is always the best seller, whichever way the list is sorted.
+  const ranked = products.map((product, index) => ({ ...product, rank: index + 1 }));
+  if (leastFirst) ranked.reverse();
+  const mostUnits = Math.max(1, ...products.map((product) => product.units));
   const chosenProduct = products.find((product) => product.product_id === productId) ?? products[0];
   const demographics = statistics.demographics.filter(
     (row) => row.product_id === chosenProduct?.product_id,
@@ -68,7 +69,7 @@ export function SalesBreakdowns({ statistics }: { statistics: Statistics }) {
   const summary = statistics.summary;
 
   return (
-    <div className="mt-5 grid gap-5 lg:grid-cols-2">
+    <div className="grid gap-5 lg:grid-cols-2">
       <Surface className="min-w-0 p-5">
         <h2 className="font-display text-lg font-bold">Product rankings</h2>
         <p className={descriptionClass}>
@@ -86,17 +87,49 @@ export function SalesBreakdowns({ statistics }: { statistics: Statistics }) {
             <option value="least">Least sold first</option>
           </select>
         </label>
-        <ReportTable
-          headings={["Product", "Units", "Net revenue"]}
-          rows={ranked.map((product) => ({
-            key: product.product_id,
-            cells: [
-              product.product_name,
-              count.format(product.units),
-              money.format(Number(product.net)),
-            ],
-          }))}
-        />
+        <p className="mt-3 text-xs font-semibold text-ink-muted">
+          {count.format(ranked.length)} products · scroll for the full list
+        </p>
+        <div
+          role="region"
+          aria-label="Product rankings"
+          tabIndex={0}
+          className="mt-2 max-h-[26rem] overflow-y-auto overscroll-contain rounded-xl border border-line focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-accent"
+        >
+          <div className="sticky top-0 z-10 flex items-center gap-3 border-b border-line bg-white px-3 py-2 text-xs font-semibold text-ink-muted">
+            <span className="w-8 text-center">Rank</span>
+            <span className="min-w-0 flex-1">Product</span>
+            <span className="text-right">Units · Net revenue</span>
+          </div>
+          <ol className="divide-y divide-line">
+            {ranked.map((product) => (
+              <li key={product.product_id} className="flex items-center gap-3 px-3 py-2.5 text-sm">
+                <span
+                  className={`flex size-8 shrink-0 items-center justify-center rounded-full text-xs font-bold tabular-nums ${
+                    product.rank <= 3 && product.units > 0
+                      ? "bg-accent text-white"
+                      : "bg-surface-strong text-ink-muted"
+                  }`}
+                >
+                  {product.rank}
+                </span>
+                <div className="min-w-0 flex-1">
+                  <div className="truncate font-semibold">{product.product_name}</div>
+                  <div className="mt-1.5 h-1.5 overflow-hidden rounded-full bg-surface-strong">
+                    <div
+                      className="h-full rounded-full bg-accent"
+                      style={{ width: `${(100 * product.units) / mostUnits}%` }}
+                    />
+                  </div>
+                </div>
+                <div className="shrink-0 text-right tabular-nums">
+                  <div className="font-semibold">{count.format(product.units)}</div>
+                  <div className="text-xs text-ink-muted">{money.format(Number(product.net))}</div>
+                </div>
+              </li>
+            ))}
+          </ol>
+        </div>
       </Surface>
       <Surface className="min-w-0 p-5">
         <h2 className="font-display text-lg font-bold">Product sales by demographic</h2>
@@ -318,10 +351,11 @@ function DiscountPanel({ products, query }: { products: Statistics["products"]; 
 
   return (
     <Surface className="min-w-0 p-5">
-      <h2 className="font-display text-lg font-bold">Discount trial calculator</h2>
+      <h2 className="font-display text-lg font-bold">Discount calculator</h2>
       <p className={descriptionClass}>
-        Check whether a 5% trial discount meets the margin target for a product among the lowest
-        sellers under the current filters. The unit cost is used for this calculation.
+        Suggests a discount percentage from how the product is selling under the current filters:
+        the further it sells below the typical product, the larger the discount. Add the unit cost
+        to also keep the suggestion inside the margin target; it is not saved.
       </p>
       <form className="mt-3 grid gap-3" onSubmit={submit}>
         <label className="block text-sm font-semibold">
@@ -346,7 +380,7 @@ function DiscountPanel({ products, query }: { products: Statistics["products"]; 
           </select>
         </label>
         <label className="block text-sm font-semibold">
-          Unit cost (₩)
+          Unit cost (₩), optional
           <Input
             className="block w-full"
             type="number"
@@ -354,7 +388,7 @@ function DiscountPanel({ products, query }: { products: Statistics["products"]; 
             step="0.01"
             max="99999999.99"
             value={unitCost}
-            required
+            placeholder="Leave empty to skip the margin check"
             disabled={pending}
             onChange={(event) => {
               setUnitCost(event.target.value);
@@ -363,8 +397,8 @@ function DiscountPanel({ products, query }: { products: Statistics["products"]; 
             }}
           />
         </label>
-        <Button type="submit" variant="primary" disabled={pending || !productId || unitCost === ""}>
-          {pending ? "Calculating…" : "Check trial discount"}
+        <Button type="submit" variant="primary" disabled={pending || !productId}>
+          {pending ? "Calculating…" : "Suggest a discount"}
         </Button>
       </form>
       {error && (
@@ -372,41 +406,85 @@ function DiscountPanel({ products, query }: { products: Statistics["products"]; 
           {error}
         </p>
       )}
-      {result && (
-        <p role="status" className={descriptionClass}>
-          {describeDiscount(result)}
-        </p>
-      )}
+      {result && <DiscountResult result={result} />}
     </Surface>
   );
 }
 
-function describeDiscount(result: DiscountSuggestion): string {
+function DiscountResult({ result }: { result: DiscountSuggestion }) {
   const item = result.item;
   const margin = Math.round(Number(result.minimum_margin) * 100) + "%";
-  if (!item) return "This product is outside the lowest-selling group under these filters.";
-  if (item.status === "insufficient_sales_history")
-    return "Select a period with recorded sales to check a trial discount.";
-  if (item.status === "zero_price")
-    return "Set a positive selling price before evaluating a discount.";
-  if (item.status === "trial_candidate") {
-    return (
-      "A " +
-      item.candidate_discount_percent +
-      "% trial gives a unit price of " +
-      money.format(Number(item.discounted_unit_price)) +
-      " and keeps at least a " +
-      margin +
-      " gross margin under the supplied cost."
+  const wanted = item?.performance_discount_percent ?? 0;
+  const standing = item?.performance;
+  const suggested = item?.status === "trial_candidate";
+
+  let headline = "No discount suggested";
+  const lines: string[] = [];
+
+  if (!item) {
+    lines.push("This product is not part of the current filters.");
+  } else if (item.status === "insufficient_sales_history") {
+    lines.push("Select a period with recorded sales to get a suggestion.");
+  } else if (item.status === "no_comparison") {
+    lines.push("There are no other products in this selection to compare sales against.");
+  } else if (item.status === "zero_price") {
+    lines.push("Set a positive selling price before evaluating a discount.");
+  } else if (suggested) {
+    headline = `${item.candidate_discount_percent}% off`;
+    lines.push(
+      `New unit price ${money.format(Number(item.discounted_unit_price))}, ` +
+        `${money.format(Number(item.candidate_discount_amount))} less per unit.`,
+    );
+    if (item.margin_checked === false) {
+      lines.push(
+        `Based on sales only. Enter the unit cost to check that this keeps at least a ` +
+          `${margin} gross margin.`,
+      );
+    }
+    if (item.limited_by === "margin") {
+      lines.push(
+        `Sales alone point to ${wanted}%. It is lowered so the price keeps at least a ` +
+          `${margin} gross margin at this unit cost.`,
+      );
+    }
+    if (item.required_unit_sales_multiplier) {
+      lines.push(
+        `To earn the same gross profit, unit sales need to reach about ` +
+          `${item.required_unit_sales_multiplier.toFixed(2)}× today's.`,
+      );
+    }
+  } else if (item.status === "selling_well") {
+    lines.push("This product sells as well as or better than the typical product.");
+  } else {
+    headline = "No discount fits the margin";
+    lines.push(
+      `Sales point to ${wanted}%, but at this unit cost even a 1% discount would fall ` +
+        `below the ${margin} gross margin target.`,
     );
   }
-  const maximum = item.maximum_discount_amount_under_assumptions;
+
   return (
-    "A 5% discount would fall below the " +
-    margin +
-    " margin target at this unit cost." +
-    (maximum
-      ? " The calculated discount cap is " + money.format(Number(maximum)) + " per unit."
-      : "")
+    <div
+      role="status"
+      className={`mt-4 rounded-xl border p-4 ${
+        suggested ? "border-accent/20 bg-accent-soft" : "border-line bg-surface-strong"
+      }`}
+    >
+      <div className="text-xs font-semibold uppercase tracking-wide text-ink-muted">
+        Suggested discount
+      </div>
+      <div className="mt-1 font-display text-2xl font-bold tabular-nums">{headline}</div>
+      {standing && standing.percent_of_typical !== null && (
+        <p className="mt-2 text-sm">
+          Sold {count.format(standing.units)} units, {standing.percent_of_typical}% of the typical
+          product ({count.format(standing.typical_units)}). Rank {standing.rank} of {standing.of}.
+        </p>
+      )}
+      {lines.map((line) => (
+        <p key={line} className="mt-1 text-sm text-ink-muted">
+          {line}
+        </p>
+      ))}
+    </div>
   );
 }
