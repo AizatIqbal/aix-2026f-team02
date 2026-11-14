@@ -39,11 +39,12 @@ Api Documentation
 필요한 환경변수 / Required environment variables: `.env.example` 참고
 
 ## 4. 아키텍처 / Architecture
-![architecture](docs/architecture.png)
-
-- 표현 계층 / Presentation:
-- 로직 계층 / Logic:
-- 데이터 계층 / Data:
+![System Architecture](ArchitectureDiagram.PNG)
+- 표현 계층 / Presentation:Showing to users the sales pages to input new order or existing data
+  and analysis pages give charts showing marketing or sales performance and recommendation percentage
+  for discount.
+- 로직 계층 / Logic:Analysing data given by users.Handling valid data only to be retrieved.
+- 데이터 계층 / Data:Retrieve and saves data.
 
 ## 5. 기술 스택과 선택 이유 / Tech Stack and Rationale
 
