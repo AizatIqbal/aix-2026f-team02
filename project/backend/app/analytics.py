@@ -86,83 +86,112 @@ def money_row(row: dict) -> dict:
     }
 
 
-def allocate_discount(lines: list[dict], discount: int) -> list[int]:
-    """Allocate order-level discount proportionally using largest remainder.
-
-    The allocated line discounts always sum to the order discount in cents.
-    Ties are resolved by order_item_id for deterministic output.
-    """
-    gross = [cents(item["price"]) * item["quantity"] for item in lines]
+def _allocate(gross: list[int], item_ids: list, discount: int) -> list[int]:
+    """Largest-remainder split of ``discount`` over lines with ``gross`` cents."""
     subtotal = sum(gross)
     if discount < 0 or discount > subtotal:
         raise ValueError("Order discount must be between zero and its gross subtotal")
-    if subtotal == 0:
-        return [0] * len(lines)
+    if subtotal == 0 or discount == 0:
+        return [0] * len(gross)
 
     shares = [discount * line_gross // subtotal for line_gross in gross]
     remaining = discount - sum(shares)
     ranking = sorted(
-        range(len(lines)),
-        key=lambda index: (
-            -(discount * gross[index] % subtotal),
-            lines[index]["order_item_id"],
-        ),
+        range(len(gross)),
+        key=lambda index: (-(discount * gross[index] % subtotal), item_ids[index]),
     )
     for index in ranking[:remaining]:
         shares[index] += 1
     return shares
 
 
+def allocate_discount(lines: list[dict], discount: int) -> list[int]:
+    """Allocate order-level discount proportionally using largest remainder.
+
+    The allocated line discounts always sum to the order discount in cents.
+    Ties are resolved by order_item_id for deterministic output.
+    """
+    return _allocate(
+        [cents(item["price"]) * item["quantity"] for item in lines],
+        [item["order_item_id"] for item in lines],
+        discount,
+    )
+
+
 def selected_rows(snapshot: dict, filters: Filters) -> tuple[list[dict], list[int]]:
+    """Return one row per selected order item, grouped order by order.
+
+    Rows of the same order are contiguous; ``analyze`` relies on that to count
+    distinct orders without building a set per bucket.
+    """
     products = {product["product_id"]: product for product in snapshot["products"]}
     customers = {customer["customer_phone"]: customer for customer in snapshot["customers"]}
-    items_by_order: dict[int, list[dict]] = defaultdict(list)
+    product_filter = frozenset(filters.product_ids)
+    category_filter = frozenset(filters.category_ids)
+    weekday_filter = frozenset(filters.weekdays)
+    start, end = filters.start, filters.end
+    start_time, end_time = filters.start_time, filters.end_time
+    overnight = start_time > end_time
+
+    # Prices and discounts repeat heavily, so convert each distinct value once.
+    cents_cache: dict = {}
+
+    def to_cents(value) -> int:
+        try:
+            return cents_cache[value]
+        except KeyError:
+            result = cents_cache[value] = cents(value)
+            return result
+
+    # Pass 1: pick the orders, so items of other orders are never touched.
+    selected: dict = {}
+    for order in snapshot["orders"]:
+        order_date = as_date(order["order_date"])
+        if not start <= order_date <= end:
+            continue
+        if weekday_filter and order_date.weekday() not in weekday_filter:
+            continue
+        order_time = as_time(order["order_time"])
+        in_time_window = (
+            (order_time >= start_time or order_time <= end_time)
+            if overnight
+            else start_time <= order_time <= end_time
+        )
+        if not in_time_window:
+            continue
+        selected[order["order_id"]] = (order, order_date, order_time, [])
+
+    # Pass 2: attach items to their selected order.
     for item in snapshot["orderItems"]:
-        items_by_order[item["order_id"]].append(item)
+        entry = selected.get(item["order_id"])
+        if entry is not None:
+            entry[3].append(item)
 
     rows: list[dict] = []
     inconsistencies: list[int] = []
 
-    for order in snapshot["orders"]:
-        order_date = as_date(order["order_date"])
-        order_time = as_time(order["order_time"])
-        if not filters.start <= order_date <= filters.end:
-            continue
-        if filters.weekdays and order_date.weekday() not in filters.weekdays:
-            continue
-
-        start_time, end_time = filters.start_time, filters.end_time
-        in_time_window = (
-            start_time <= order_time <= end_time
-            if start_time <= end_time
-            else order_time >= start_time or order_time <= end_time
+    for order_id, (order, order_date, order_time, items) in selected.items():
+        if len(items) > 1:
+            items.sort(key=lambda item: item["order_item_id"])
+        gross = [to_cents(item["price"]) * item["quantity"] for item in items]
+        discount_cents = to_cents(order["discount"])
+        allocations = _allocate(
+            gross, [item["order_item_id"] for item in items], discount_cents
         )
-        if not in_time_window:
-            continue
+        if sum(gross) - discount_cents != to_cents(order["total"]):
+            inconsistencies.append(order_id)
 
-        items = sorted(
-            items_by_order[order["order_id"]],
-            key=lambda item: item["order_item_id"],
-        )
-        discount_cents = cents(order["discount"])
-        allocations = allocate_discount(items, discount_cents)
-        calculated_total = (
-            sum(cents(item["price"]) * item["quantity"] for item in items)
-            - discount_cents
-        )
-        if calculated_total != cents(order["total"]):
-            inconsistencies.append(order["order_id"])
-
-        for item, allocated_discount in zip(items, allocations):
+        customer = customers.get(order["customer_phone"])
+        promocode = order.get("promocode")
+        for item, line_gross, allocated_discount in zip(items, gross, allocations):
             product = products.get(item["product_id"])
             if product is None:
                 raise ValueError("An order item references a missing product")
-            if filters.product_ids and product["product_id"] not in filters.product_ids:
+            if product_filter and product["product_id"] not in product_filter:
                 continue
-            if filters.category_ids and product["category_id"] not in filters.category_ids:
+            if category_filter and product["category_id"] not in category_filter:
                 continue
 
-            gross = cents(item["price"]) * item["quantity"]
             rows.append(
                 {
                     **item,
@@ -170,15 +199,18 @@ def selected_rows(snapshot: dict, filters: Filters) -> tuple[list[dict], list[in
                     "category_id": product["category_id"],
                     "date": order_date,
                     "time": order_time,
-                    "gross": gross,
+                    "gross": line_gross,
                     "discount": allocated_discount,
-                    "net": gross - allocated_discount,
-                    "customer": customers.get(order["customer_phone"]),
-                    "promocode": order.get("promocode"),
+                    "net": line_gross - allocated_discount,
+                    "customer": customer,
+                    "promocode": promocode,
                 }
             )
 
     return rows, inconsistencies
+
+
+AGE_GROUPS = ("Under 18", "18-24", "25-34", "35-44", "45-54", "55-64", "65+")
 
 
 def age_group(customer: dict | None) -> str:
@@ -220,8 +252,13 @@ def analyze(snapshot: dict, filters: Filters) -> dict:
             "Too many product-period combinations; select fewer products or a coarser grouping"
         )
 
-    def blank() -> dict:
-        return {"units": 0, "gross": 0, "discount": 0, "net": 0, "order_ids": set()}
+    # One bucket = [units, gross, discount, net, orders, last order counted].
+    # Rows arrive order by order, so "last order counted" gives an exact
+    # distinct-order count without keeping a set of order ids per bucket.
+    UNITS, GROSS, DISCOUNT, NET, ORDERS, LAST = range(6)
+
+    def blank() -> list:
+        return [0, 0, 0, 0, 0, None]
 
     periods = {key: blank() for key in period_keys}
     product_periods = {
@@ -230,36 +267,53 @@ def analyze(snapshot: dict, filters: Filters) -> dict:
         for key in period_keys
     }
     product_totals = {product["product_id"]: blank() for product in catalog}
-    demographics: dict[tuple, dict] = {}
+    demographics: dict[tuple, list] = {}
+    demographic_customers: dict[tuple, set] = {}
     hours = {hour: blank() for hour in range(24)}
     weekdays = {weekday: blank() for weekday in range(7)}
     categories = {product["category_id"]: blank() for product in catalog}
     campaigns = snapshot.get("campaigns", [])
     campaign_totals = {campaign["promocode"]: blank() for campaign in campaigns}
     total = blank()
-    identified_orders: set[int] = set()
-    known_age_orders: set[int] = set()
-    known_gender_orders: set[int] = set()
+    # Customer groups: totals per age group, per gender and per (age, gender).
+    # A group holds [bucket, customer phones, units per product].
+    age_totals: dict[str, list] = {}
+    gender_totals: dict[str, list] = {}
+    age_gender_totals: dict[tuple, list] = {}
+    identified_customers: set = set()
+    identified_orders = known_age_orders = known_gender_orders = 0
+    last_identified = last_known_age = last_known_gender = None
+    period_of: dict[date, str] = {}
+    group = filters.group
 
     for row in rows:
-        period = bucket(row["date"], filters.group)
+        order_id = row["order_id"]
+        day = row["date"]
+        period = period_of.get(day)
+        if period is None:
+            period = period_of[day] = bucket(day, group)
         customer = row["customer"]
         gender = (
             (customer.get("customer_gender") or "").strip() if customer else ""
         ) or "Unknown"
         demographic_key = (row["product_id"], age_group(customer), gender)
-        demographic = demographics.setdefault(
-            demographic_key,
-            {**blank(), "customer_ids": set()},
-        )
+        demographic = demographics.get(demographic_key)
+        if demographic is None:
+            demographic = demographics[demographic_key] = blank()
+            demographic_customers[demographic_key] = set()
         if customer:
-            demographic["customer_ids"].add(customer["customer_phone"])
-            identified_orders.add(row["order_id"])
-            if customer.get("customer_age") is not None:
-                known_age_orders.add(row["order_id"])
-            if gender != "Unknown":
-                known_gender_orders.add(row["order_id"])
+            demographic_customers[demographic_key].add(customer["customer_phone"])
+            if last_identified != order_id:
+                identified_orders += 1
+                last_identified = order_id
+            if customer.get("customer_age") is not None and last_known_age != order_id:
+                known_age_orders += 1
+                last_known_age = order_id
+            if gender != "Unknown" and last_known_gender != order_id:
+                known_gender_orders += 1
+                last_known_gender = order_id
 
+        units, gross, discount, net = row["quantity"], row["gross"], row["discount"], row["net"]
         targets = [
             total,
             periods[period],
@@ -267,51 +321,86 @@ def analyze(snapshot: dict, filters: Filters) -> dict:
             product_totals[row["product_id"]],
             demographic,
             hours[row["time"].hour],
-            weekdays[row["date"].weekday()],
+            weekdays[day.weekday()],
             categories[row["category_id"]],
         ]
-        if row["promocode"] in campaign_totals:
-            targets.append(campaign_totals[row["promocode"]])
+        campaign_total = campaign_totals.get(row["promocode"])
+        if campaign_total is not None:
+            targets.append(campaign_total)
+        if customer:
+            phone = customer["customer_phone"]
+            identified_customers.add(phone)
+            age = demographic_key[1]
+            memberships = []
+            if age != "Unknown":
+                memberships.append((age_totals, age))
+            if gender != "Unknown":
+                memberships.append((gender_totals, gender))
+            if age != "Unknown" and gender != "Unknown":
+                memberships.append((age_gender_totals, (age, gender)))
+            for groups, key in memberships:
+                entry = groups.get(key)
+                if entry is None:
+                    entry = groups[key] = [blank(), set(), defaultdict(int)]
+                entry[1].add(phone)
+                entry[2][row["product_id"]] += units
+                targets.append(entry[0])
         for target in targets:
-            target["units"] += row["quantity"]
-            for field in ("gross", "discount", "net"):
-                target[field] += row[field]
-            target["order_ids"].add(row["order_id"])
+            target[UNITS] += units
+            target[GROSS] += gross
+            target[DISCOUNT] += discount
+            target[NET] += net
+            if target[LAST] != order_id:
+                target[ORDERS] += 1
+                target[LAST] = order_id
 
-    def result(values: dict) -> dict:
-        return money_row(
-            {
-                **{key: values[key] for key in ("units", "gross", "discount", "net")},
-                "orders": len(values["order_ids"]),
-            }
-        )
+    def result(values: list) -> dict:
+        return {
+            "units": values[UNITS],
+            "gross": amount(values[GROSS]),
+            "discount": amount(values[DISCOUNT]),
+            "net": amount(values[NET]),
+            "orders": values[ORDERS],
+        }
 
     names = {product["product_id"]: product["product_name"] for product in catalog}
+
+    def group_result(entry: list) -> dict:
+        values, phones, product_units = entry
+        favourites = sorted(product_units.items(), key=lambda item: (-item[1], item[0]))[:3]
+        return {
+            "customers": len(phones),
+            **result(values),
+            "top_products": [
+                {"product_id": product_id, "product_name": names[product_id], "units": sold}
+                for product_id, sold in favourites
+            ],
+        }
     summary = result(total)
+    order_count = total[ORDERS]
     summary["average_order_value"] = (
         amount(
             int(
-                (Decimal(total["net"]) / len(total["order_ids"])).quantize(
+                (Decimal(total[NET]) / order_count).quantize(
                     Decimal("1"), rounding=ROUND_HALF_UP
                 )
             )
         )
-        if total["order_ids"]
+        if order_count
         else "0.00"
     )
-    summary["identified_orders"] = len(identified_orders)
-    summary["known_age_orders"] = len(known_age_orders)
-    summary["known_gender_orders"] = len(known_gender_orders)
+    summary["identified_orders"] = identified_orders
+    summary["known_age_orders"] = known_age_orders
+    summary["known_gender_orders"] = known_gender_orders
     summary["demographic_coverage_percent"] = (
-        round(100 * len(identified_orders) / len(total["order_ids"]), 2)
-        if total["order_ids"]
-        else 0
+        round(100 * identified_orders / order_count, 2) if order_count else 0
     )
 
     product_results = [
         {
             "product_id": product["product_id"],
             "product_name": product["product_name"],
+            "category_id": product["category_id"],
             **result(product_totals[product["product_id"]]),
         }
         for product in catalog
@@ -366,7 +455,7 @@ def analyze(snapshot: dict, filters: Filters) -> dict:
             if (
                 as_date(campaign["start_date"]) <= filters.end
                 and as_date(campaign["end_date"]) >= filters.start
-            ) or campaign_totals[campaign["promocode"]]["order_ids"]
+            ) or campaign_totals[campaign["promocode"]][ORDERS]
         ],
         "demographics": [
             {
@@ -374,11 +463,31 @@ def analyze(snapshot: dict, filters: Filters) -> dict:
                 "product_name": names[key[0]],
                 "age_group": key[1],
                 "gender": key[2],
-                "unique_identified_customers": len(values["customer_ids"]),
+                "unique_identified_customers": len(demographic_customers[key]),
                 **result(values),
             }
             for key, values in sorted(demographics.items())
         ],
+        # Only orders linked to a customer whose age (or gender) is on file.
+        "customer_groups": {
+            "customers": len(identified_customers),
+            "orders": identified_orders,
+            "age_groups": [
+                {"age_group": age, **group_result(age_totals[age])}
+                for age in AGE_GROUPS
+                if age in age_totals
+            ],
+            "genders": [
+                {"gender": gender, **group_result(entry)}
+                for gender, entry in sorted(gender_totals.items())
+            ],
+            "age_gender": [
+                {"age_group": age, "gender": gender, **group_result(age_gender_totals[(age, gender)])}
+                for age in AGE_GROUPS
+                for gender in sorted(gender_totals)
+                if (age, gender) in age_gender_totals
+            ],
+        },
         "warnings": (
             [
                 f"{len(inconsistencies)} order totals disagree with item subtotals minus discounts; "
