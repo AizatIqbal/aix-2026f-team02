@@ -19,7 +19,7 @@ router = APIRouter(prefix="/api/v1", tags=["analytics"])
 
 
 def get_business_data_service() -> Iterator[BusinessDataService]:
-    """Create a request-scoped manager and always dispose its connection pool."""
+    """Create a request-scoped service on the shared connection pool."""
     try:
         database_manager = DatabaseManager()
     except RuntimeError as exc:
@@ -35,15 +35,32 @@ def get_business_data_service() -> Iterator[BusinessDataService]:
 
 
 def get_report_filters(
-    start: date,
-    end: date,
+    start: date | None = None,
+    end: date | None = None,
     group: Literal["day", "week", "month", "year"] = "day",
     product_ids: list[int] | None = Query(default=None),
     category_ids: list[int] | None = Query(default=None),
     weekdays: list[int] | None = Query(default=None),
     start_time: time = time(0, 0),
     end_time: time = time(23, 59, 59),
+    service: BusinessDataService = Depends(get_business_data_service),
 ) -> Filters:
+    """Build report filters. Omit both start and end to cover every sale on record."""
+    if (start is None) != (end is None):
+        raise HTTPException(
+            status_code=422,
+            detail="Send both start and end, or neither for all recorded sales",
+        )
+    if start is None:
+        try:
+            sales_range = service.get_sales_date_range()
+        except SQLAlchemyError as exc:
+            raise HTTPException(
+                status_code=503,
+                detail="The statistics database is unavailable. Check the database connection settings.",
+            ) from exc
+        start, end = sales_range or (date.today(), date.today())
+
     try:
         return Filters(
             start=start,
@@ -66,6 +83,8 @@ def get_statistics(
 ) -> dict:
     """Calculate statistics for an inclusive date range.
 
+    Omit start and end to report on all recorded sales; the response's
+    "start" and "end" say which dates were used.
     Repeated query parameters are supported, e.g. ?product_ids=1&product_ids=3.
     Weekday numbering follows Python: Monday=0 through Sunday=6.
     """
@@ -104,7 +123,8 @@ def get_recommendations(
 
 class DiscountCost(BaseModel):
     product_id: PositiveInt
-    unit_cost: Decimal = Field(ge=0, max_digits=10, decimal_places=2)
+    # Optional: without it the suggestion comes from sales performance alone.
+    unit_cost: Decimal | None = Field(default=None, ge=0, max_digits=10, decimal_places=2)
 
 
 @router.post("/discount-suggestions")
@@ -113,7 +133,7 @@ def get_discount_suggestion(
     filters: Filters = Depends(get_report_filters),
     service: BusinessDataService = Depends(get_business_data_service),
 ) -> dict:
-    """Evaluate a trial discount with a supplied unit cost."""
+    """Suggest a discount from sales performance; a unit cost adds a margin check."""
     try:
         return service.get_discount_suggestion(filters, cost.product_id, cost.unit_cost)
     except SQLAlchemyError as exc:

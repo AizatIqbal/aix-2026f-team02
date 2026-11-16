@@ -141,8 +141,13 @@ export interface ImportResult {
 
 export interface AnalyticsExportRequest {
   scope: "current" | "full";
+  /** Statistics query to export: the on-screen one, or only a grouping for the full report. */
+  query: URLSearchParams;
+  /** Report already on screen for this query; saves fetching it again. */
+  statistics?: Statistics;
+  categories: Category[];
+  /** Screen filters, listed on the Summary sheet of a current-view export. */
   filters?: {
-    preset: string;
     days: string[];
     startTime: string;
     endTime: string;
@@ -155,12 +160,34 @@ export interface Recommendations {
 }
 
 export interface DiscountSuggestion {
+  /** Margin every suggestion must keep, as a fraction ("0.30"). */
   minimum_margin: string;
+  /** Largest discount the calculator will ever suggest, as a fraction ("0.20"). */
+  maximum_discount_fraction?: string;
+  method?: string;
+  /** null when the product is not part of the current filters. */
   item: {
     status: string;
+    /** The suggestion: performance-based, then lowered to protect the margin. */
     candidate_discount_percent: number | null;
+    /** What sales performance alone asks for, before the margin check. */
+    performance_discount_percent?: number;
+    limited_by?: "performance" | "margin" | null;
+    /** false when no unit cost was given, so the margin was not verified. */
+    margin_checked?: boolean;
+    maximum_discount_percent?: number;
+    candidate_discount_amount?: string;
     discounted_unit_price?: string;
     maximum_discount_amount_under_assumptions?: string;
+    required_unit_sales_multiplier?: number | null;
+    performance?: {
+      rank: number;
+      of: number;
+      units: number;
+      typical_units: number;
+      /** 100 = sells as much as the typical product in the selection. */
+      percent_of_typical: number | null;
+    };
   } | null;
 }
 
@@ -174,7 +201,13 @@ interface SalesTotals {
 
 export type StatisticsGroup = "day" | "week" | "month" | "year";
 type PeriodTotals = SalesTotals & { period: string };
-type ProductTotals = SalesTotals & { product_id: number; product_name: string };
+type ProductTotals = SalesTotals & { product_id: number; product_name: string; category_id?: number };
+
+/** Sales of one customer group (an age group, a gender, or both). */
+export type CustomerGroupTotals = SalesTotals & {
+  customers: number;
+  top_products: { product_id: number; product_name: string; units: number }[];
+};
 
 export interface Statistics {
   summary: SalesTotals & {
@@ -184,6 +217,9 @@ export interface Statistics {
     known_gender_orders: number;
   };
   group: StatisticsGroup;
+  /** Inclusive date range the report covers (YYYY-MM-DD). */
+  start?: string;
+  end?: string;
   periods: PeriodTotals[];
   product_series: (Pick<ProductTotals, "product_id" | "product_name"> & { points: PeriodTotals[] })[];
   products: ProductTotals[];
@@ -201,7 +237,16 @@ export interface Statistics {
     channel: string;
     budget: string;
   })[];
+  /** Orders linked to a customer whose age or gender is on file. */
+  customer_groups?: {
+    customers: number;
+    orders: number;
+    age_groups: (CustomerGroupTotals & { age_group: string })[];
+    genders: (CustomerGroupTotals & { gender: string })[];
+    age_gender: (CustomerGroupTotals & { age_group: string; gender: string })[];
+  };
   warnings: string[];
+  definitions?: Record<string, string>;
 }
 
 const API_BASE_URL = (import.meta.env.VITE_API_BASE_URL || "http://127.0.0.1:8000/api/v1").replace(/\/$/, "");
@@ -346,7 +391,7 @@ export function getCampaigns(): Promise<Campaign[]> {
   return apiRequest<Campaign[]>("/campaigns");
 }
 
-export function getStatistics(query: URLSearchParams, signal: AbortSignal): Promise<Statistics> {
+export function getStatistics(query: URLSearchParams, signal?: AbortSignal): Promise<Statistics> {
   return apiRequest<Statistics>(`/statistics?${query.toString()}`, { signal });
 }
 
@@ -354,10 +399,12 @@ export function getRecommendations(customerPhone: string, signal?: AbortSignal):
   return apiRequest<Recommendations>(`/recommendations/${encodeURIComponent(customerPhone)}`, { signal });
 }
 
-export function evaluateDiscount(query: string, productId: number, unitCost: string): Promise<DiscountSuggestion> {
+/** unitCost is optional: leave it empty to get a suggestion from sales alone. */
+export function evaluateDiscount(query: string, productId: number, unitCost = ""): Promise<DiscountSuggestion> {
+  const cost = unitCost.trim();
   return apiRequest<DiscountSuggestion>(`/discount-suggestions?${query}`, {
     method: "POST",
-    body: JSON.stringify({ product_id: productId, unit_cost: unitCost }),
+    body: JSON.stringify(cost ? { product_id: productId, unit_cost: cost } : { product_id: productId }),
   });
 }
 
@@ -495,37 +542,17 @@ export async function importData(input: ImportPayload): Promise<ImportResult> {
   });
 }
 
+/** Download the Analysis report as an Excel file and return its filename. */
 export async function exportAnalytics(request: AnalyticsExportRequest): Promise<string> {
-  const response = await fetch("/api/analytics/export", {
-    method: "POST",
-    headers: { "Content-Type": "application/json" },
-    body: JSON.stringify(request),
-  });
-  if (!response.ok) {
-    let message = "The Excel report could not be generated.";
-    try {
-      const body = await response.json() as { detail?: string };
-      if (body.detail) message = body.detail;
-    } catch {
-      // Keep the fallback.
-    }
-    throw new Error(message);
+  const statistics = request.statistics ?? (await getStatistics(request.query));
+  if (statistics.summary.orders === 0) {
+    throw new Error("There are no sales to export for this selection.");
   }
-  const blob = await response.blob();
-  const disposition = response.headers.get("content-disposition") ?? "";
-  const encodedName = disposition.match(/filename\*=UTF-8''([^;]+)/i)?.[1];
-  const plainName = disposition.match(/filename="?([^";]+)"?/i)?.[1];
-  const date = new Date().toISOString().slice(0, 10);
-  const filename = encodedName
-    ? decodeURIComponent(encodedName)
-    : plainName ?? `PointNull_Analytics_${date}.xlsx`;
-  const url = URL.createObjectURL(blob);
-  const link = document.createElement("a");
-  link.href = url;
-  link.download = filename;
-  document.body.appendChild(link);
-  link.click();
-  link.remove();
-  URL.revokeObjectURL(url);
-  return filename;
+  // The Excel code is only downloaded when someone actually exports.
+  const { downloadAnalyticsReport } = await import("./analytics-export");
+  return downloadAnalyticsReport(statistics, {
+    scope: request.scope,
+    categories: request.categories,
+    filters: request.filters,
+  });
 }

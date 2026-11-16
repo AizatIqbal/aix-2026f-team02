@@ -432,7 +432,7 @@ function ModalFrame({
       }}
     >
       <section
-        className="flex max-h-[calc(100vh-2rem)] min-h-[640px] w-full max-w-5xl flex-col overflow-hidden rounded-2xl bg-white shadow-2xl"
+        className="flex max-h-[calc(100vh-2rem)] min-h-0 w-full max-w-5xl flex-col overflow-hidden rounded-2xl bg-white shadow-2xl"
         role="dialog"
         aria-modal="true"
         aria-labelledby="checkout-title"
