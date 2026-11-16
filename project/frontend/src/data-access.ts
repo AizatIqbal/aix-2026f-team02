@@ -1,3 +1,4 @@
+
 export interface Category {
   category_id: number;
   category_name: string;
@@ -389,6 +390,20 @@ export async function getCustomerOrders(phone: string, limit = 8, signal?: Abort
 
 export function getCampaigns(): Promise<Campaign[]> {
   return apiRequest<Campaign[]>("/campaigns");
+}
+
+export function addCampaign(campaign: Campaign): Promise<Campaign> {
+  return apiRequest<Campaign>("/campaigns", {
+    method: "POST",
+    body: JSON.stringify(campaign),
+  });
+}
+
+export function updateCampaign(promocode: string, campaign: Campaign): Promise<Campaign> {
+  return apiRequest<Campaign>(`/campaigns/${encodeURIComponent(promocode)}`, {
+    method: "PUT",
+    body: JSON.stringify(campaign),
+  });
 }
 
 export function getStatistics(query: URLSearchParams, signal?: AbortSignal): Promise<Statistics> {

@@ -1238,6 +1238,31 @@ def get_campaign(promocode: str):
         db.close()
 
 
+@app.put("/api/v1/campaigns/{promocode}", tags=["campaigns"])
+def update_campaign(promocode: str, campaign: CampaignCreate):
+    if campaign.promocode.strip().upper() != promocode.strip().upper():
+        raise HTTPException(status_code=422, detail="Promocode cannot be changed")
+    if campaign.end_date < campaign.start_date:
+        raise HTTPException(status_code=422, detail="End date cannot be earlier than start date")
+    db = DatabaseManager()
+    try:
+        existing = db.fetch_one("SELECT promocode FROM campaign WHERE promocode = :code", {"code": promocode})
+        if not existing:
+            raise HTTPException(status_code=404, detail="Campaign not found")
+        db.execute_query("""
+            UPDATE campaign SET campaign_name=:name, channel=:channel, start_date=:start_date,
+                end_date=:end_date, budget=:budget, discount_value=:discount_value
+            WHERE promocode=:promocode
+        """, {"name": campaign.campaign_name.strip(), "channel": campaign.channel.strip(),
+              "start_date": campaign.start_date, "end_date": campaign.end_date,
+              "budget": campaign.budget, "discount_value": campaign.discount_value,
+              "promocode": promocode})
+        return db.fetch_one("""SELECT promocode, campaign_name, channel, start_date, end_date,
+            budget, discount_value FROM campaign WHERE promocode=:promocode""", {"promocode": promocode})
+    finally:
+        db.close()
+
+
 @app.post("/api/v1/campaigns/validate", tags=["campaigns"])
 def validate_campaign(request: CampaignValidationRequest):
     code = request.promocode.strip().upper()

@@ -12,12 +12,14 @@ import {
   addProduct,
   exportAnalytics,
   getCategories,
+  getCampaigns,
   getStatistics,
   getProducts,
   setProductActive,
   updateProduct,
   uploadProductImage,
   resolveAssetUrl,
+  type Campaign,
   type Category,
   type Order,
   type Statistics,
@@ -37,6 +39,9 @@ const MarketingAnalysis = lazy(() =>
 const SalesBreakdowns = lazy(() =>
   loadAnalyticsDetails().then((module) => ({ default: module.SalesBreakdowns })),
 );
+const MarketingCampaigns = lazy(() =>
+  import("./marketing-campaigns").then((module) => ({ default: module.MarketingCampaigns })),
+);
 const CustomersPage = lazy(() =>
   import("./customers-page").then((module) => ({ default: module.CustomersPage })),
 );
@@ -50,7 +55,7 @@ const CheckoutModal = lazy(() =>
   import("./checkout-modal").then((module) => ({ default: module.CheckoutModal })),
 );
 
-type WorkingTab = "menu" | "analysis" | "customers" | "orders";
+type WorkingTab = "menu" | "analysis" | "marketing" | "customers" | "orders";
 type DatePreset = "today" | "7d" | "30d" | "all";
 
 interface AppData {
@@ -66,6 +71,7 @@ interface Filters {
   startTime: string;
   endTime: string;
   categories: number[];
+  promocode: string;
 }
 
 const EMPTY_DATA: AppData = { categories: [], products: [], orders: [] };
@@ -76,6 +82,7 @@ const DEFAULT_FILTERS: Filters = {
   startTime: "00:00",
   endTime: "23:59",
   categories: [],
+  promocode: "",
 };
 const GROUP_LABELS: Record<StatisticsGroup, string> = {
   day: "Daily",
@@ -237,6 +244,8 @@ function App() {
           />
         ) : tab === "analysis" ? (
           <Analysis data={data} loading={loading} />
+        ) : tab === "marketing" ? (
+          <Suspense fallback={<LoadingGrid />}><MarketingCampaigns onOpenAnalysis={() => setTab("analysis")} /></Suspense>
         ) : tab === "customers" ? (
           <Suspense fallback={<LoadingGrid />}>
             <CustomersPage />
@@ -437,6 +446,9 @@ function Header({
             <span className="flex items-center gap-2">
               <Icon name="chart" /> Analysis
             </span>
+          </Button>
+          <Button variant="ghost" onClick={() => onTabChange("marketing")} className={tab === "marketing" ? "bg-accent-soft text-accent-strong" : ""}>
+            <span className="flex items-center gap-2"><Icon name="megaphone" /> Marketing</span>
           </Button>
           <Button
             variant="ghost"
@@ -1051,6 +1063,7 @@ function statisticsQuery(filters: Filters): URLSearchParams {
   if (filters.endTime) query.set("end_time", `${filters.endTime}:59`);
   filters.days.forEach((day) => query.append("weekdays", String(DAYS.indexOf(day))));
   filters.categories.forEach((id) => query.append("category_ids", String(id)));
+  if (filters.promocode) query.set("promocode", filters.promocode);
   return query;
 }
 
@@ -1064,6 +1077,7 @@ function Analysis({ data, loading }: { data: AppData; loading: boolean }) {
     message?: string;
   }>({ state: "idle" });
   const [statistics, setStatistics] = useState<Statistics | null>(null);
+  const [campaignOptions, setCampaignOptions] = useState<Campaign[]>([]);
   const [reportLoading, setReportLoading] = useState(true);
   const [reportError, setReportError] = useState("");
   const query = useMemo(() => statisticsQuery(filters), [filters]);
@@ -1089,6 +1103,7 @@ function Analysis({ data, loading }: { data: AppData; loading: boolean }) {
 
   useEffect(() => {
     void loadAnalyticsDetails();
+    getCampaigns().then(setCampaignOptions).catch(() => setCampaignOptions([]));
   }, []);
 
   const summary = statistics?.summary;
@@ -1184,6 +1199,26 @@ function Analysis({ data, loading }: { data: AppData; loading: boolean }) {
               ))}
             </div>
           </FilterGroup>
+          {view === "sales" && (
+            <FilterGroup label="Campaign used">
+              <select
+                aria-label="Filter sales by campaign used"
+                className="min-h-11 min-w-48 rounded-xl border border-line bg-white px-3 text-sm"
+                value={filters.promocode}
+                onChange={(event) =>
+                  setFilters((current) => ({ ...current, promocode: event.target.value }))
+                }
+              >
+                <option value="">All campaigns</option>
+                <option value="__none__">No campaign code</option>
+                {campaignOptions.map((campaign) => (
+                  <option key={campaign.promocode} value={campaign.promocode}>
+                    {campaign.campaign_name} ({campaign.promocode})
+                  </option>
+                ))}
+              </select>
+            </FilterGroup>
+          )}
           {view === "sales" && (
             <FilterGroup label="Group by">
               <select

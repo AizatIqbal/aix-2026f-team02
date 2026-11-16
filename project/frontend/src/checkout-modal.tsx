@@ -1,9 +1,11 @@
 import { useEffect, useMemo, useState, type FormEvent } from "react";
 import {
   addCustomer,
+  getCampaigns,
   getCustomerSummaries,
   saveOrder,
   validateCampaign,
+  type Campaign,
   type CampaignValidation,
   type Customer,
   type CustomerSummary,
@@ -56,6 +58,7 @@ export function CheckoutModal({
   const [selectedCustomer, setSelectedCustomer] = useState<Customer | null>(null);
   const [registering, setRegistering] = useState(false);
   const [campaignCode, setCampaignCode] = useState("");
+  const [availableCampaigns, setAvailableCampaigns] = useState<Campaign[]>([]);
   const [campaign, setCampaign] = useState<CampaignValidation | null>(null);
   const [campaignError, setCampaignError] = useState("");
   const [validatingCampaign, setValidatingCampaign] = useState(false);
@@ -66,6 +69,16 @@ export function CheckoutModal({
   const subtotal = lines.reduce((sum, line) => sum + line.price * line.quantity, 0);
   const discount = campaign?.valid ? campaign.discount : 0;
   const finalTotal = subtotal - discount;
+
+  useEffect(() => {
+    getCampaigns()
+      .then((records) => {
+        const now = new Date();
+        const today = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, "0")}-${String(now.getDate()).padStart(2, "0")}`;
+        setAvailableCampaigns(records.filter((item) => item.start_date.slice(0, 10) <= today && item.end_date.slice(0, 10) >= today));
+      })
+      .catch(() => setAvailableCampaigns([]));
+  }, []);
 
   useEffect(() => {
     getCustomerSummaries()
@@ -316,28 +329,47 @@ export function CheckoutModal({
               </div>
             ) : (
               <>
-                <div className="mt-4 flex gap-2">
-                  <Input
-                    className="min-w-0 flex-1 uppercase"
+                <div className="mt-4 grid gap-2">
+                  <select
+                    aria-label="Choose a currently running campaign"
+                    className="min-h-11 w-full rounded-xl border border-line bg-white px-3 text-sm"
                     value={campaignCode}
+                    disabled={validatingCampaign}
                     onChange={(event) => {
-                      setCampaignCode(event.target.value.toUpperCase());
+                      setCampaignCode(event.target.value);
                       setCampaignError("");
                     }}
-                    placeholder="e.g. WELCOME10"
-                    disabled={validatingCampaign}
-                  />
-                  <Button
-                    variant="secondary"
-                    disabled={!campaignCode.trim() || validatingCampaign}
-                    onClick={() => void applyCampaign()}
                   >
-                    {validatingCampaign ? "Checking…" : "Apply"}
-                  </Button>
+                    <option value="">Choose a running campaign code…</option>
+                    {availableCampaigns.map((item) => (
+                      <option key={item.promocode} value={item.promocode}>
+                        {item.promocode} — {item.campaign_name}
+                      </option>
+                    ))}
+                  </select>
+                  <div className="flex gap-2">
+                    <Input
+                      className="min-w-0 flex-1 uppercase"
+                      value={campaignCode}
+                      onChange={(event) => {
+                        setCampaignCode(event.target.value.toUpperCase());
+                        setCampaignError("");
+                      }}
+                      placeholder="Or enter a code manually"
+                      disabled={validatingCampaign}
+                    />
+                    <Button
+                      variant="secondary"
+                      disabled={!campaignCode.trim() || validatingCampaign}
+                      onClick={() => void applyCampaign()}
+                    >
+                      {validatingCampaign ? "Checking…" : "Apply"}
+                    </Button>
+                  </div>
+                  {campaignError && (
+                    <p className="mt-2 text-xs font-medium leading-5 text-danger">{campaignError}</p>
+                  )}
                 </div>
-                {campaignError && (
-                  <p className="mt-2 text-xs font-medium leading-5 text-danger">{campaignError}</p>
-                )}
               </>
             )}
           </Surface>

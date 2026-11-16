@@ -86,6 +86,7 @@ export function Icon({
     | "download"
     | "search"
     | "users"
+    | "megaphone"
     | "trash";
   className?: string;
 }) {
@@ -144,6 +145,13 @@ export function Icon({
         <path d="M16 21v-2a4 4 0 0 0-4-4H6a4 4 0 0 0-4 4v2" />
         <circle cx="9" cy="7" r="4" />
         <path d="M22 21v-2a4 4 0 0 0-3-3.87M16 3.13a4 4 0 0 1 0 7.75" />
+      </>
+    ),
+    megaphone: (
+      <>
+        <path d="M3 11v2a2 2 0 0 0 2 2h2l10 5V4L7 9H5a2 2 0 0 0-2 2Z" />
+        <path d="m7 15 2 6h4l-2-5" />
+        <path d="M21 9a4 4 0 0 1 0 6" />
       </>
     ),
     trash: (

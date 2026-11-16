@@ -195,7 +195,23 @@ export function MarketingAnalysis({
           amount for the whole campaign.
         </p>
         {campaigns.length > 0 ? (
-          <ReportTable
+          <>
+            <div className="mt-5 grid gap-5 md:grid-cols-2">
+              {[{ title: "Orders by campaign", key: "orders" as const, format: (v: number) => count.format(v) }, { title: "Net revenue by campaign", key: "net" as const, format: (v: number) => money.format(v) }].map(chart => {
+                const max = Math.max(1, ...campaigns.map(c => Number(c[chart.key])));
+                return <div key={chart.key} className="rounded-xl border border-line p-4">
+                  <h3 className="text-sm font-bold">{chart.title}</h3>
+                  <div className="mt-4 space-y-3">{campaigns.map(c => {
+                    const value = Number(c[chart.key]);
+                    return <div key={c.promocode}>
+                      <div className="mb-1 flex justify-between gap-3 text-xs"><span className="truncate font-medium">{c.campaign_name}</span><span className="shrink-0 tabular-nums">{chart.format(value)}</span></div>
+                      <div className="h-2.5 overflow-hidden rounded-full bg-surface-strong"><div className="h-full rounded-full bg-accent" style={{ width: `${(value / max) * 100}%` }} /></div>
+                    </div>;
+                  })}</div>
+                </div>;
+              })}
+            </div>
+            <ReportTable
             headings={[
               "Campaign",
               "Channel",
@@ -219,6 +235,7 @@ export function MarketingAnalysis({
               ],
             }))}
           />
+          </>
         ) : (
           <p className={descriptionClass}>
             No campaigns overlap this period or have linked sales under these filters.
