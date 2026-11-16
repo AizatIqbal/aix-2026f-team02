@@ -53,7 +53,7 @@
 
 | # | 제목 Title | 담당 Owner | 완료 Done |
 |---|---|---|---|
-| 1 |  |  |  |
+| 1 | Continued integration of Customer and Order dashboard | Syafiq | Both the customer and order data from the database can now be connected to frontend |
 | 2 |Improving Sales Analysis and Discount Calculator|Aizat  |Ranking product now have scroll function and export function can generate sales report. Discount calculator now can suggest amount of percentage without giving input how much discounted price |
 | 3 |  |  | |
 | 4 |  |  |  |
