@@ -33,6 +33,7 @@ class Filters:
     weekdays: tuple[int, ...] = ()  # Monday=0 ... Sunday=6
     start_time: time = time(0, 0)
     end_time: time = time(23, 59, 59)
+    promocode: str | None = None
 
     def __post_init__(self) -> None:
         if self.end < self.start:
@@ -158,6 +159,12 @@ def selected_rows(snapshot: dict, filters: Filters) -> tuple[list[dict], list[in
             else start_time <= order_time <= end_time
         )
         if not in_time_window:
+            continue
+        order_code = (order.get("promocode") or "").strip().upper()
+        if filters.promocode == "__none__":
+            if order_code:
+                continue
+        elif filters.promocode and order_code != filters.promocode.strip().upper():
             continue
         selected[order["order_id"]] = (order, order_date, order_time, [])
 

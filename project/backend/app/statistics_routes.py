@@ -43,6 +43,7 @@ def get_report_filters(
     weekdays: list[int] | None = Query(default=None),
     start_time: time = time(0, 0),
     end_time: time = time(23, 59, 59),
+    promocode: str | None = Query(default=None, max_length=30),
     service: BusinessDataService = Depends(get_business_data_service),
 ) -> Filters:
     """Build report filters. Omit both start and end to cover every sale on record."""
@@ -71,6 +72,7 @@ def get_report_filters(
             weekdays=tuple(weekdays or ()),
             start_time=start_time,
             end_time=end_time,
+            promocode=(promocode.strip().upper() if promocode and promocode.strip() else None),
         )
     except ValueError as exc:
         raise HTTPException(status_code=422, detail=str(exc)) from exc

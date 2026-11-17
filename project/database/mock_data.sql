@@ -190,6 +190,13 @@ INSERT INTO customer (customer_phone, customer_name, customer_age, customer_gend
 ('010-2000-0029', 'Noh Sohee', 28, 'Female'),
 ('010-2000-0030', 'Ha Siwoo', 52, 'Male');
 
+-- Campaigns for marketing management and analytics demonstrations.
+INSERT INTO campaign (promocode, campaign_name, channel, start_date, end_date, budget, discount_value) VALUES
+('AUTUMN10', 'Autumn Lunch Boost', 'instagram', '2026-11-01', '2026-11-30', 450000, 2000),
+('LOYALTY5', 'Returning Guest Rewards', 'email', '2026-11-10', '2026-12-15', 300000, 1500),
+('CHUSEOK24', 'Chuseok Family Table', 'facebook', '2026-10-01', '2026-10-12', 600000, 3000),
+('NOODLEWEEK', 'Noodle Week Special', 'kakao', '2026-10-15', '2026-10-25', 250000, 1000);
+
 -- Orders
 INSERT INTO orders (order_id, order_date, order_time, customer_phone, promocode, discount, total) VALUES
 (1, '2026-10-01', '10:32:42', NULL, NULL, 0.00, 57500.00),
@@ -41660,3 +41667,11 @@ INSERT INTO order_item (order_id, product_id, quantity, price) VALUES
 (12000, 12, 1, 10000.00);
 
 COMMIT;
+
+
+-- Link a reproducible sample of sales to campaigns so campaign analytics has
+-- attributed orders, discount totals, and revenue to chart in a fresh demo DB.
+UPDATE orders SET promocode='AUTUMN10', discount=2000 WHERE order_date BETWEEN '2026-11-01' AND '2026-11-05' AND MOD(order_id, 4)=0;
+UPDATE orders SET promocode='LOYALTY5', discount=1500 WHERE order_date BETWEEN '2026-11-01' AND '2026-11-05' AND MOD(order_id, 4)=1;
+UPDATE orders SET promocode='CHUSEOK24', discount=3000 WHERE order_date BETWEEN '2026-10-01' AND '2026-10-12' AND MOD(order_id, 4)=2;
+UPDATE orders SET promocode='NOODLEWEEK', discount=1000 WHERE order_date BETWEEN '2026-10-15' AND '2026-10-25' AND MOD(order_id, 4)=3;
