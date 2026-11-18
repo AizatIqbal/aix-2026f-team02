@@ -55,7 +55,7 @@
 |---|---|---|---|
 | 1 | Continued integration of Customer and Order dashboard | Syafiq | Both the customer and order data from the database can now be connected to frontend |
 | 2 |Improving Sales Analysis and Discount Calculator|Aizat  |Ranking product now have scroll function and export function can generate sales report. Discount calculator now can suggest amount of percentage without giving input how much discounted price |
-| 3 |  |  | |
+| 3 | Implementation of Marketing Campaign Feature | Farhana | Added Marketing tab for campaign management, linked orders, and marketing analysis. |
 | 4 |  |  |  |
 | 5 | |  | |
 
