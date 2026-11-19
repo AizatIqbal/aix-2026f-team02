@@ -36,8 +36,6 @@ app.mount(
 
 
 # CORS
-# Browsers may call this API from the local dev servers and from the Vercel
-# site: the production address and this team's preview deployments.
 app.add_middleware(
     CORSMiddleware,
     allow_origins=[
@@ -46,9 +44,7 @@ app.add_middleware(
         "http://127.0.0.1:5173",
         "http://127.0.0.1:8443",
         "http://192.168.0.104:8443",
-        "https://aix-2026f-team02-frontend.vercel.app",
     ],
-    allow_origin_regex=r"https://aix-2026f-team02-frontend-([a-z0-9-]+-)?null-d49b\.vercel\.app",
     allow_credentials=True,
     allow_methods=["*"],
     allow_headers=["*"],
