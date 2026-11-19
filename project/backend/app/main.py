@@ -1,5 +1,8 @@
 import os
 import uuid
+from urllib.parse import quote
+
+import httpx
 from decimal import Decimal
 from pathlib import Path
 
@@ -35,16 +38,25 @@ app.mount(
 )
 
 
-# CORS
+# CORS: set CORS_ORIGINS in Vercel to the exact deployed frontend origin(s),
+# comma-separated. Local origins remain the default for development.
+DEFAULT_CORS_ORIGINS = [
+    "http://localhost:5173",
+    "http://localhost:8443",
+    "http://127.0.0.1:5173",
+    "http://127.0.0.1:8443",
+    "http://192.168.0.104:8443",
+]
+configured_cors_origins = os.getenv("CORS_ORIGINS", "").strip()
+CORS_ORIGINS = (
+    [origin.strip() for origin in configured_cors_origins.split(",") if origin.strip()]
+    if configured_cors_origins
+    else DEFAULT_CORS_ORIGINS
+)
+
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=[
-        "http://localhost:5173",
-        "http://localhost:8443",
-        "http://127.0.0.1:5173",
-        "http://127.0.0.1:8443",
-        "http://192.168.0.104:8443",
-    ],
+    allow_origins=CORS_ORIGINS,
     allow_credentials=True,
     allow_methods=["*"],
     allow_headers=["*"],
@@ -143,13 +155,19 @@ def health_check():
 
 @app.get("/api/v1/health/database", tags=["health"])
 def database_health_check():
-    db = DatabaseManager()
+    try:
+        db = DatabaseManager()
+    except RuntimeError as exc:
+        raise HTTPException(
+            status_code=503,
+            detail="Database configuration is incomplete",
+        ) from exc
 
     try:
         db.connect()
         return {
             "status": "connected",
-            "database": os.getenv("DB_NAME", "business_management"),
+            "database": db.database_name,
         }
     except Exception:
         raise HTTPException(
@@ -203,7 +221,7 @@ def create_category(category: CategoryCreate):
             """
             SELECT category_id, category_name
             FROM category
-            WHERE category_name = :name
+            WHERE LOWER(category_name) = LOWER(:name)
             """,
             {"name": name},
         )
@@ -260,7 +278,7 @@ def bulk_import(payload: BulkImportRequest):
                     text("""
                         SELECT category_id, category_name
                         FROM category
-                        WHERE category_name = :name
+                        WHERE LOWER(category_name) = LOWER(:name)
                         LIMIT 1
                     """),
                     {"name": name},
@@ -271,11 +289,10 @@ def bulk_import(payload: BulkImportRequest):
                     skipped_categories += 1
                     continue
 
-                result = connection.execute(
-                    text("INSERT INTO category (category_name) VALUES (:name)"),
+                category_id = int(connection.execute(
+                    text("INSERT INTO category (category_name) VALUES (:name) RETURNING category_id"),
                     {"name": name},
-                )
-                category_id = int(result.lastrowid)
+                ).scalar_one())
                 category = {
                     "category_id": category_id,
                     "category_name": name,
@@ -303,7 +320,7 @@ def bulk_import(payload: BulkImportRequest):
                             text("""
                                 SELECT category_id, category_name
                                 FROM category
-                                WHERE category_name = :name
+                                WHERE LOWER(category_name) = LOWER(:name)
                                 LIMIT 1
                             """),
                             {"name": category_name},
@@ -313,11 +330,10 @@ def bulk_import(payload: BulkImportRequest):
                             category_id = int(existing["category_id"])
                             category_ids_by_name[key] = category_id
                         else:
-                            result = connection.execute(
-                                text("INSERT INTO category (category_name) VALUES (:name)"),
+                            category_id = int(connection.execute(
+                                text("INSERT INTO category (category_name) VALUES (:name) RETURNING category_id"),
                                 {"name": category_name},
-                            )
-                            category_id = int(result.lastrowid)
+                            ).scalar_one())
                             imported_categories.append({
                                 "category_id": category_id,
                                 "category_name": category_name,
@@ -341,7 +357,7 @@ def bulk_import(payload: BulkImportRequest):
                         SELECT product_id
                         FROM product
                         WHERE category_id = :category_id
-                          AND product_name = :product_name
+                          AND LOWER(product_name) = LOWER(:product_name)
                         LIMIT 1
                     """),
                     {"category_id": category_id, "product_name": product_name},
@@ -350,18 +366,18 @@ def bulk_import(payload: BulkImportRequest):
                     skipped_products += 1
                     continue
 
-                result = connection.execute(
+                product_id = int(connection.execute(
                     text("""
                         INSERT INTO product (category_id, product_name, price)
                         VALUES (:category_id, :product_name, :price)
+                        RETURNING product_id
                     """),
                     {
                         "category_id": category_id,
                         "product_name": product_name,
                         "price": str(item.price),
                     },
-                )
-                product_id = int(result.lastrowid)
+                ).scalar_one())
                 imported_products.append({
                     "product_id": product_id,
                     "category_id": int(category_id),
@@ -455,11 +471,59 @@ async def upload_product_image(file: UploadFile = File(...)):
             detail="Only PNG and JPEG images are supported",
         )
 
-    PRODUCT_IMAGE_DIR.mkdir(parents=True, exist_ok=True)
     filename = f"{uuid.uuid4().hex}{extension}"
+    supabase_url = os.getenv("SUPABASE_URL", "").rstrip("/")
+    supabase_secret_key = os.getenv("SUPABASE_SECRET_KEY", "")
+    storage_bucket = os.getenv("SUPABASE_STORAGE_BUCKET", "product-images")
+
+    if supabase_url and supabase_secret_key:
+        object_path = f"products/{filename}"
+        upload_url = (
+            f"{supabase_url}/storage/v1/object/"
+            f"{quote(storage_bucket, safe='')}/{quote(object_path, safe='/')}"
+        )
+        content_type = "image/png" if extension == ".png" else "image/jpeg"
+        # Current Supabase sb_secret_* API keys belong in the apikey header.
+        # Do not send them as Bearer tokens: they are not JWTs.
+        headers = {
+            "apikey": supabase_secret_key,
+            "Content-Type": content_type,
+            "x-upsert": "false",
+        }
+
+        try:
+            async with httpx.AsyncClient(timeout=30.0) as client:
+                response = await client.post(upload_url, content=content, headers=headers)
+                response.raise_for_status()
+        except httpx.HTTPStatusError as exc:
+            # Do not expose storage credentials or upstream response bodies to clients.
+            raise HTTPException(
+                status_code=502,
+                detail=f"Product image storage upload failed (HTTP {exc.response.status_code})",
+            ) from exc
+        except httpx.HTTPError as exc:
+            raise HTTPException(
+                status_code=502,
+                detail="Product image storage is temporarily unavailable",
+            ) from exc
+
+        public_url = (
+            f"{supabase_url}/storage/v1/object/public/"
+            f"{quote(storage_bucket, safe='')}/{quote(object_path, safe='/')}"
+        )
+        return {"image_url": public_url}
+
+    # Vercel's filesystem is ephemeral/read-only outside /tmp. Fail clearly if
+    # production storage is not configured instead of returning a broken URL.
+    if os.getenv("VERCEL") == "1":
+        raise HTTPException(
+            status_code=503,
+            detail="Product image storage is not configured",
+        )
+
+    PRODUCT_IMAGE_DIR.mkdir(parents=True, exist_ok=True)
     destination = PRODUCT_IMAGE_DIR / filename
     destination.write_bytes(content)
-
     return {"image_url": f"/uploads/products/{filename}"}
 
 
@@ -552,7 +616,7 @@ def create_product(product: ProductCreate):
                 is_active AS active
             FROM product
             WHERE category_id = :category_id
-              AND product_name = :product_name
+              AND LOWER(product_name) = LOWER(:product_name)
             ORDER BY product_id DESC
             LIMIT 1
             """,
@@ -713,7 +777,7 @@ def get_orders_page(
                 conditions.append("o.order_id = :order_exact")
                 filter_params["order_exact"] = int(cleaned_order_query)
             elif cleaned_order_query:
-                conditions.append("CAST(o.order_id AS CHAR) LIKE :order_pattern")
+                conditions.append("CAST(o.order_id AS TEXT) LIKE :order_pattern")
                 filter_params["order_pattern"] = f"%{cleaned_order_query.lstrip('0') or '0'}%"
         if customer_query:
             conditions.append("(LOWER(COALESCE(c.customer_name, '')) LIKE :customer_pattern OR LOWER(COALESCE(o.customer_phone, '')) LIKE :customer_pattern)")
@@ -896,6 +960,8 @@ def create_order(order: OrderCreate):
                 today = date.today()
                 if campaign["start_date"] > today or campaign["end_date"] < today:
                     raise HTTPException(status_code=422, detail="This campaign is not currently active")
+                # Use the exact stored primary-key value for the PostgreSQL FK.
+                promocode = campaign["promocode"]
                 # The current campaign schema stores a fixed discount amount.
                 campaign_discount = Decimal(str(campaign["discount_value"]))
                 if campaign_discount <= 0:
@@ -905,10 +971,11 @@ def create_order(order: OrderCreate):
                 raise HTTPException(status_code=422, detail="Discount cannot exceed order subtotal")
 
             total = subtotal - discount
-            result = connection.execute(
+            order_id = int(connection.execute(
                 text("""
                     INSERT INTO orders (customer_phone, promocode, discount, total)
                     VALUES (:customer_phone, :promocode, :discount, :total)
+                    RETURNING order_id
                 """),
                 {
                     "customer_phone": order.customer_phone.strip() if order.customer_phone else None,
@@ -916,8 +983,7 @@ def create_order(order: OrderCreate):
                     "discount": discount,
                     "total": total,
                 },
-            )
-            order_id = result.lastrowid
+            ).scalar_one())
 
             for item in order_items:
                 connection.execute(
@@ -1221,7 +1287,7 @@ def get_campaign(promocode: str):
                 budget,
                 discount_value
             FROM campaign
-            WHERE promocode = :promocode
+            WHERE UPPER(promocode) = UPPER(:promocode)
             """,
             {"promocode": promocode},
         )
@@ -1246,19 +1312,19 @@ def update_campaign(promocode: str, campaign: CampaignCreate):
         raise HTTPException(status_code=422, detail="End date cannot be earlier than start date")
     db = DatabaseManager()
     try:
-        existing = db.fetch_one("SELECT promocode FROM campaign WHERE promocode = :code", {"code": promocode})
+        existing = db.fetch_one("SELECT promocode FROM campaign WHERE UPPER(promocode) = UPPER(:code)", {"code": promocode})
         if not existing:
             raise HTTPException(status_code=404, detail="Campaign not found")
         db.execute_query("""
             UPDATE campaign SET campaign_name=:name, channel=:channel, start_date=:start_date,
                 end_date=:end_date, budget=:budget, discount_value=:discount_value
-            WHERE promocode=:promocode
+            WHERE UPPER(promocode)=UPPER(:promocode)
         """, {"name": campaign.campaign_name.strip(), "channel": campaign.channel.strip(),
               "start_date": campaign.start_date, "end_date": campaign.end_date,
               "budget": campaign.budget, "discount_value": campaign.discount_value,
               "promocode": promocode})
         return db.fetch_one("""SELECT promocode, campaign_name, channel, start_date, end_date,
-            budget, discount_value FROM campaign WHERE promocode=:promocode""", {"promocode": promocode})
+            budget, discount_value FROM campaign WHERE UPPER(promocode)=UPPER(:promocode)""", {"promocode": promocode})
     finally:
         db.close()
 
@@ -1303,7 +1369,7 @@ def validate_campaign(request: CampaignValidationRequest):
 @app.post("/api/v1/campaigns", tags=["campaigns"], status_code=201)
 def create_campaign(campaign: CampaignCreate):
 
-    promocode = campaign.promocode.strip()
+    promocode = campaign.promocode.strip().upper()
     name = campaign.campaign_name.strip()
     channel = campaign.channel.strip()
 
@@ -1365,7 +1431,7 @@ def create_campaign(campaign: CampaignCreate):
                 budget,
                 discount_value
             FROM campaign
-            WHERE promocode = :promocode
+            WHERE UPPER(promocode) = UPPER(:promocode)
             """,
             {"promocode": promocode},
         )
