@@ -36,10 +36,10 @@ class SQLAlchemyBusinessDataHandler:
         self.db = database_manager
 
     def _snapshot_connection(self):
-        # MySQL's default transaction isolation is REPEATABLE READ. Set it
-        # explicitly for MySQL so all reads see one consistent snapshot.
+        # Analytics reads multiple related tables and should use one consistent
+        # snapshot. Both MySQL and PostgreSQL support REPEATABLE READ.
         connection = self.db.engine.connect()
-        if connection.dialect.name == "mysql":
+        if connection.dialect.name in {"mysql", "postgresql"}:
             connection = connection.execution_options(isolation_level="REPEATABLE READ")
         return connection
 
