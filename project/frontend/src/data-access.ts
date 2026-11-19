@@ -260,8 +260,16 @@ export function resolveAssetUrl(path: string | null | undefined): string | undef
   return `${apiOrigin}${path.startsWith("/") ? "" : "/"}${path}`;
 }
 
+// ngrok's free plan shows a warning page in front of browser requests, which
+// would reach this code as HTML instead of JSON. This header skips it. It is
+// only sent when the API runs behind an ngrok address.
+const TUNNEL_HEADERS: Record<string, string> = /\.ngrok(-free)?\.(app|dev)(\/|$)/i.test(API_BASE_URL)
+  ? { "ngrok-skip-browser-warning": "true" }
+  : {};
+
 async function apiRequest<T>(endpoint: string, options: RequestInit = {}): Promise<T> {
   const headers = new Headers(options.headers);
+  for (const [name, value] of Object.entries(TUNNEL_HEADERS)) headers.set(name, value);
   if (options.body && !headers.has("Content-Type")) headers.set("Content-Type", "application/json");
 
   let response: Response;
@@ -459,6 +467,7 @@ export async function uploadProductImage(file: File): Promise<{ image_url: strin
     response = await fetch(`${API_BASE_URL}/products/images`, {
       method: "POST",
       body: formData,
+      headers: TUNNEL_HEADERS,
     });
   } catch {
     throw new Error("Cannot reach the PointNull API. Check that the backend is running.");
