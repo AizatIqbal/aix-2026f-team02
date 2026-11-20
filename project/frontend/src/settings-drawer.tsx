@@ -1,9 +1,9 @@
 import { useEffect } from "react";
 import { useModalScrollLock, Icon } from "./ui";
-import { usePreferences, type AppLanguage, type AppTheme, type AppCurrency } from "./preferences";
+import { usePreferences, type AppLanguage, type AppTheme, type AppCurrency, type AppDisplaySize } from "./preferences";
 
 export function SettingsDrawer({ onClose }: { onClose: () => void }) {
-  const { language, theme, currency, setLanguage, setTheme, setCurrency, exchangeRateStatus, exchangeRateDate, exchangeRateError, t } = usePreferences();
+  const { language, theme, currency, displaySize, setLanguage, setTheme, setCurrency, setDisplaySize, exchangeRateStatus, exchangeRateDate, exchangeRateError, t } = usePreferences();
   useModalScrollLock();
 
   useEffect(() => {
@@ -70,6 +70,23 @@ export function SettingsDrawer({ onClose }: { onClose: () => void }) {
     );
   }
 
+  function displaySizeOption(value: AppDisplaySize, title: string, description: string, sampleClass: string) {
+    const selected = displaySize === value;
+    return (
+      <button
+        type="button"
+        onClick={() => setDisplaySize(value)}
+        aria-pressed={selected}
+        className={`flex min-h-[92px] flex-col items-center justify-center gap-1 rounded-xl border px-2 py-3 text-center transition ${selected ? "border-accent bg-accent-soft text-accent-strong" : "border-line bg-white text-ink hover:bg-surface-strong"}`}
+      >
+        <span className={`${sampleClass} font-bold leading-none`}>Aa</span>
+        <span className="text-xs font-semibold">{title}</span>
+        <span className={`text-[10px] leading-tight ${selected ? "text-accent-strong/80" : "text-ink-faint"}`}>{description}</span>
+        {selected && <Icon name="check" className="mt-0.5 size-4" />}
+      </button>
+    );
+  }
+
   return (
     <div
       className="fixed inset-0 z-[90] flex justify-end bg-ink/35 backdrop-blur-sm"
@@ -98,8 +115,8 @@ export function SettingsDrawer({ onClose }: { onClose: () => void }) {
               <p className="mt-1 text-xs text-ink-muted">{t("Choose your preferred language.")}</p>
             </div>
             <div className="space-y-2">
-              {languageOption("en", "🇬🇧 English", "English")}
-              {languageOption("ko", "🇰🇷 한국어", t("Korean"))}
+              {languageOption("en", "🇬🇧 English", "영어")}
+              {languageOption("ko", "🇰🇷 한국어", "Korean")}
             </div>
           </section>
 
@@ -135,6 +152,18 @@ export function SettingsDrawer({ onClose }: { onClose: () => void }) {
             <div className="flex gap-2">
               {themeOption("light", t("Light"), t("Bright workspace"), "sun")}
               {themeOption("dark", t("Dark"), t("Low-light workspace"), "moon")}
+            </div>
+          </section>
+
+          <section aria-labelledby="settings-display-title" className="space-y-3">
+            <div>
+              <h3 id="settings-display-title" className="text-sm font-bold text-ink">{t("Display size")}</h3>
+              <p className="mt-1 text-xs text-ink-muted">{t("Adjust spacing and text size.")}</p>
+            </div>
+            <div className="grid grid-cols-3 gap-2">
+              {displaySizeOption("compact", t("Compact"), t("More content"), "text-sm")}
+              {displaySizeOption("default", t("Default"), t("Balanced layout"), "text-lg")}
+              {displaySizeOption("large", t("Large"), t("Easier to read"), "text-2xl")}
             </div>
           </section>
         </div>

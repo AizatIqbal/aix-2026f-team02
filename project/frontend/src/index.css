@@ -369,3 +369,101 @@ html.theme-dark .startup-splash {
 html.theme-dark [class~="hover:bg-accent-strong"]:hover {
   background-color: #3f6537 !important;
 }
+
+
+/* User-controlled display density. The app's semantic data and layout breakpoints remain unchanged. */
+html[data-display-size="compact"] {
+  --spacing: 0.23rem;
+  --text-xs: 0.6875rem;
+  --text-sm: 0.8125rem;
+  --text-base: 0.9375rem;
+  --text-lg: 1.0625rem;
+  --text-xl: 1.1875rem;
+  --text-2xl: 1.375rem;
+  --text-3xl: 1.6875rem;
+  --text-4xl: 2.0625rem;
+  --text-5xl: 2.75rem;
+}
+
+html[data-display-size="large"] {
+  --spacing: 0.275rem;
+  --text-xs: 0.8rem;
+  --text-sm: 0.9375rem;
+  --text-base: 1.0625rem;
+  --text-lg: 1.1875rem;
+  --text-xl: 1.3125rem;
+  --text-2xl: 1.6rem;
+  --text-3xl: 2rem;
+  --text-4xl: 2.4rem;
+  --text-5xl: 3.3rem;
+}
+
+
+/* Modal density follows the user's Display size preference too.
+   Scope spacing and type tokens to dialogs so nested checkout/registration
+   panels respond even when component utilities declare their own font sizes. */
+html[data-display-size] [role="dialog"] {
+  --spacing: 0.25rem;
+}
+
+html[data-display-size="compact"] [role="dialog"] {
+  --spacing: 0.22rem;
+  --text-xs: 0.6875rem;
+  --text-sm: 0.8125rem;
+  --text-base: 0.9375rem;
+  --text-lg: 1.0625rem;
+  --text-xl: 1.1875rem;
+  --text-2xl: 1.375rem;
+  --text-3xl: 1.625rem;
+  --text-4xl: 2rem;
+  --text-5xl: 2.65rem;
+}
+
+html[data-display-size="large"] [role="dialog"] {
+  --spacing: 0.28rem;
+  --text-xs: 0.8125rem;
+  --text-sm: 1rem;
+  --text-base: 1.125rem;
+  --text-lg: 1.25rem;
+  --text-xl: 1.375rem;
+  --text-2xl: 1.625rem;
+  --text-3xl: 2rem;
+  --text-4xl: 2.5rem;
+  --text-5xl: 3.4rem;
+}
+
+.pointnull-checkout-dialog {
+  max-width: 64rem;
+}
+
+.pointnull-checkout-dialog[data-display-size="compact"] {
+  max-width: 56rem;
+}
+
+.pointnull-checkout-dialog[data-display-size="large"] {
+  max-width: 72rem;
+}
+
+/* Keep checkout columns proportional to the selected display density. */
+@media (min-width: 1024px) {
+  .pointnull-checkout-layout {
+    grid-template-columns: minmax(0, 1fr) 390px;
+    grid-template-rows: minmax(0, 1fr);
+  }
+
+  .pointnull-checkout-dialog[data-display-size="compact"] .pointnull-checkout-layout {
+    grid-template-columns: minmax(0, 1fr) 340px;
+  }
+
+  .pointnull-checkout-dialog[data-display-size="large"] .pointnull-checkout-layout {
+    grid-template-columns: minmax(0, 1fr) 440px;
+  }
+}
+
+/* Compact mode must not make checkout controls too small to use by touch. */
+.pointnull-checkout-dialog button,
+.pointnull-checkout-dialog input,
+.pointnull-checkout-dialog select,
+.pointnull-checkout-dialog textarea {
+  min-height: 44px;
+}

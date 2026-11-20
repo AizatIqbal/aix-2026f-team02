@@ -1069,10 +1069,10 @@ function ConfirmDelete({
             <Button onClick={onClose}>{t("Cancel")}</Button>
 
             <Button
-                className="border-danger bg-danger text-white hover:bg-danger"
+                variant="danger"
                 onClick={onConfirm}
             >
-              {t("Delete Customer")}
+              Delete Customer
             </Button>
           </div>
         </section>

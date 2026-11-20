@@ -469,7 +469,9 @@ function Header({
               tab === "orders" ? "bg-accent-soft text-accent-strong" : ""
             }`}
           >
-            {t("Orders")}
+            <span className="flex items-center gap-2">
+              <Icon name="receipt" /> {t("Orders")}
+            </span>
           </Button>
         </nav>
         <Button variant="secondary" onClick={onImport} className="shrink-0 px-3 sm:px-4">

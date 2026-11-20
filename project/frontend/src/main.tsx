@@ -9,6 +9,10 @@ try {
   if (window.localStorage.getItem("pointnull-theme") === "dark") {
     document.documentElement.classList.add("theme-dark");
   }
+  const savedDisplaySize = window.localStorage.getItem("pointnull-display-size");
+  if (savedDisplaySize === "compact" || savedDisplaySize === "large" || savedDisplaySize === "default") {
+    document.documentElement.dataset.displaySize = savedDisplaySize;
+  }
 } catch {
   // Preferences still work for this session if browser storage is unavailable.
 }

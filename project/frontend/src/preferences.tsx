@@ -3,6 +3,7 @@ import { createContext, useCallback, useContext, useEffect, useMemo, useState, t
 export type AppLanguage = "en" | "ko";
 export type AppTheme = "light" | "dark";
 export type AppCurrency = "KRW" | "USD" | "MYR";
+export type AppDisplaySize = "compact" | "default" | "large";
 
 type ExchangeRates = Partial<Record<AppCurrency, number>>;
 type ExchangeRateStatus = "loading" | "ready" | "error";
@@ -10,6 +11,7 @@ type ExchangeRateStatus = "loading" | "ready" | "error";
 const LANGUAGE_KEY = "pointnull-language";
 const THEME_KEY = "pointnull-theme";
 const CURRENCY_KEY = "pointnull-currency";
+const DISPLAY_SIZE_KEY = "pointnull-display-size";
 const FX_CACHE_KEY = "pointnull-fx-rates";
 const FX_CACHE_TTL = 12 * 60 * 60 * 1000;
 
@@ -25,6 +27,14 @@ const ko: Record<string, string> = {
   "Settings": "설정",
   "Language / 언어": "언어",
   "Appearance": "화면 테마",
+  "Display size": "표시 크기",
+  "Adjust spacing and text size.": "간격과 글자 크기를 조정하세요.",
+  "Compact": "컴팩트",
+  "Default": "기본",
+  "Large": "크게",
+  "More content": "더 많은 내용을 표시",
+  "Balanced layout": "균형 잡힌 레이아웃",
+  "Easier to read": "더 편하게 읽기",
   "Currency / 통화": "표시 통화",
   "Choose your preferred display currency.": "표시할 통화를 선택하세요.",
   "KRW · Korean Won": "KRW · 대한민국 원",
@@ -513,12 +523,14 @@ interface PreferencesValue {
   language: AppLanguage;
   theme: AppTheme;
   currency: AppCurrency;
+  displaySize: AppDisplaySize;
   exchangeRateStatus: ExchangeRateStatus;
   exchangeRateDate: string;
   exchangeRateError: string;
   setLanguage: (language: AppLanguage) => void;
   setTheme: (theme: AppTheme) => void;
   setCurrency: (currency: AppCurrency) => void;
+  setDisplaySize: (size: AppDisplaySize) => void;
   formatMoney: (amountInKrw: number) => string;
   t: (key: string) => string;
   productName: (productId: number, sourceName: string) => string;
@@ -574,6 +586,15 @@ function storedCurrency(): AppCurrency {
   }
 }
 
+function storedDisplaySize(): AppDisplaySize {
+  try {
+    const saved = localStorage.getItem(DISPLAY_SIZE_KEY);
+    return saved === "compact" || saved === "large" ? saved : "default";
+  } catch {
+    return "default";
+  }
+}
+
 function storedTheme(): AppTheme {
   try {
     return localStorage.getItem(THEME_KEY) === "dark" ? "dark" : "light";
@@ -586,6 +607,7 @@ export function PreferencesProvider({ children }: { children: ReactNode }) {
   const [language, setLanguage] = useState<AppLanguage>(storedLanguage);
   const [theme, setTheme] = useState<AppTheme>(storedTheme);
   const [currency, setCurrencyState] = useState<AppCurrency>(storedCurrency);
+  const [displaySize, setDisplaySize] = useState<AppDisplaySize>(storedDisplaySize);
   const [cachedAtStart] = useState<CachedExchangeRates | null>(readCachedExchangeRates);
   const [exchangeRates, setExchangeRates] = useState<ExchangeRates>(() => cachedAtStart?.rates ?? { KRW: 1 });
   const [exchangeRateDate, setExchangeRateDate] = useState(cachedAtStart?.date ?? "");
@@ -602,6 +624,11 @@ export function PreferencesProvider({ children }: { children: ReactNode }) {
     document.documentElement.classList.toggle("theme-dark", theme === "dark");
     document.body.style.colorScheme = theme;
   }, [theme]);
+
+  useEffect(() => {
+    try { localStorage.setItem(DISPLAY_SIZE_KEY, displaySize); } catch { /* Storage may be unavailable. */ }
+    document.documentElement.dataset.displaySize = displaySize;
+  }, [displaySize]);
 
   useEffect(() => {
     let active = true;
@@ -711,7 +738,7 @@ export function PreferencesProvider({ children }: { children: ReactNode }) {
     return match?.ko ?? sourceName;
   }, [language]);
 
-  const value = useMemo(() => ({ language, theme, currency, exchangeRateStatus, exchangeRateDate, exchangeRateError, setLanguage, setTheme, setCurrency, formatMoney, t, productName, categoryName, categoryLabel }), [language, theme, currency, exchangeRateStatus, exchangeRateDate, exchangeRateError, setCurrency, formatMoney, t, productName, categoryName, categoryLabel]);
+  const value = useMemo(() => ({ language, theme, currency, displaySize, exchangeRateStatus, exchangeRateDate, exchangeRateError, setLanguage, setTheme, setCurrency, setDisplaySize, formatMoney, t, productName, categoryName, categoryLabel }), [language, theme, currency, displaySize, exchangeRateStatus, exchangeRateDate, exchangeRateError, setCurrency, formatMoney, t, productName, categoryName, categoryLabel]);
   return <PreferencesContext.Provider value={value}>{children}</PreferencesContext.Provider>;
 }
 

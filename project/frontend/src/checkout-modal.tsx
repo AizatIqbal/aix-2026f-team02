@@ -231,7 +231,7 @@ export function CheckoutModal({
         </button>
       </header>
 
-      <div className="grid min-h-0 flex-1 grid-rows-[minmax(0,1fr)_minmax(0,0.8fr)] overflow-hidden lg:grid-cols-[minmax(0,1fr)_390px] lg:grid-rows-1">
+      <div className="pointnull-checkout-layout grid min-h-0 flex-1 grid-rows-[minmax(0,1fr)_minmax(0,0.8fr)] overflow-hidden">
         <div className="min-h-0 overflow-y-auto overscroll-contain p-4 sm:p-6">
           <div className="grid grid-cols-2 rounded-xl bg-surface-strong p-1">
             <button
@@ -450,6 +450,7 @@ function ModalFrame({
   onClose: () => void;
   closeDisabled?: boolean;
 }) {
+  const { displaySize } = usePreferences();
   useModalScrollLock();
 
   return (
@@ -461,7 +462,8 @@ function ModalFrame({
       }}
     >
       <section
-        className="my-auto flex max-h-[calc(100dvh-1rem)] min-h-0 w-full max-w-5xl flex-col overflow-hidden rounded-2xl bg-white shadow-2xl sm:max-h-[calc(100dvh-2rem)]"
+        className="pointnull-checkout-dialog my-auto flex max-h-[calc(100dvh-1rem)] min-h-0 w-full max-w-5xl flex-col overflow-hidden rounded-2xl bg-white shadow-2xl sm:max-h-[calc(100dvh-2rem)]"
+        data-display-size={displaySize}
         role="dialog"
         aria-modal="true"
         aria-labelledby="checkout-title"
