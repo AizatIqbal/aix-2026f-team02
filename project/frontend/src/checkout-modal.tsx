@@ -13,15 +13,10 @@ import {
   type Product,
   type SavedOrder,
 } from "./data-access";
-import { Button, Icon, Input, Surface } from "./ui";
+import { Button, Icon, Input, Surface, useModalScrollLock } from "./ui";
+import { usePreferences } from "./preferences";
 
 type CustomerMode = "walk-in" | "registered";
-
-const MONEY = new Intl.NumberFormat("ko-KR", {
-  style: "currency",
-  currency: "KRW",
-  maximumFractionDigits: 0,
-});
 
 interface CheckoutLine extends OrderLineInput {
   product_name: string;
@@ -40,6 +35,7 @@ export function CheckoutModal({
   onSaved: (saved: SavedOrder) => void;
   onDone: (saved: SavedOrder) => void;
 }) {
+  const { t, productName, formatMoney } = usePreferences();
   const [lines] = useState<CheckoutLine[]>(() =>
     products
       .filter((product) => selection[product.product_id])
@@ -170,7 +166,7 @@ export function CheckoutModal({
   if (saved) {
     return (
       <ModalFrame closeDisabled onClose={onClose}>
-        <div className="flex min-h-[560px] items-center justify-center p-8 text-center">
+        <div className="flex min-h-0 flex-1 items-center justify-center overflow-y-auto overscroll-contain p-5 text-center sm:p-8">
           <div className="max-w-md">
             <div className="mx-auto flex size-16 items-center justify-center rounded-2xl bg-accent text-white shadow-lg">
               <Icon name="check" className="size-8" />
@@ -198,7 +194,7 @@ export function CheckoutModal({
                   Final amount
                 </div>
                 <div className="mt-1 font-display text-lg font-bold text-accent-strong">
-                  {MONEY.format(saved.order.total)}
+                  {formatMoney(saved.order.total)}
                 </div>
               </div>
             </div>
@@ -213,16 +209,16 @@ export function CheckoutModal({
 
   return (
     <ModalFrame closeDisabled={submitting} onClose={onClose}>
-      <header className="flex items-start justify-between border-b border-line px-6 py-5">
+      <header className="flex shrink-0 items-start justify-between border-b border-line px-5 py-4 sm:px-6 sm:py-5">
         <div>
           <div className="text-xs font-bold uppercase tracking-widest text-accent">
-            Complete transaction
+            {t("Complete transaction")}
           </div>
           <h2 id="checkout-title" className="mt-1 font-display text-2xl font-bold">
-            Checkout
+            {t("Checkout")}
           </h2>
           <p className="mt-1 text-sm text-ink-muted">
-            Confirm the customer, apply an optional campaign, and complete the sale.
+            {t("Confirm the customer, apply an optional campaign, and complete the sale.")}
           </p>
         </div>
         <button
@@ -235,8 +231,8 @@ export function CheckoutModal({
         </button>
       </header>
 
-      <div className="grid min-h-0 flex-1 lg:grid-cols-[1fr_390px]">
-        <div className="overflow-y-auto p-6">
+      <div className="grid min-h-0 flex-1 grid-rows-[minmax(0,1fr)_minmax(0,0.8fr)] overflow-hidden lg:grid-cols-[minmax(0,1fr)_390px] lg:grid-rows-1">
+        <div className="min-h-0 overflow-y-auto overscroll-contain p-4 sm:p-6">
           <div className="grid grid-cols-2 rounded-xl bg-surface-strong p-1">
             <button
               className={`rounded-lg px-4 py-3 text-sm font-bold transition ${
@@ -247,7 +243,7 @@ export function CheckoutModal({
                 setSubmitError("");
               }}
             >
-              Walk-in Customer
+              {t("Walk-in Customer")}
             </button>
             <button
               className={`rounded-lg px-4 py-3 text-sm font-bold transition ${
@@ -260,7 +256,7 @@ export function CheckoutModal({
                 setSubmitError("");
               }}
             >
-              Registered Customer
+              {t("Registered Customer")}
             </button>
           </div>
 
@@ -299,15 +295,14 @@ export function CheckoutModal({
           <Surface className="mt-5 p-5">
             <div className="flex items-start justify-between gap-4">
               <div>
-                <h3 className="font-display font-bold">Campaign code</h3>
+                <h3 className="font-display font-bold">{t("Campaign code")}</h3>
                 <p className="mt-1 text-xs leading-5 text-ink-muted">
-                  Optional. Eligibility is based on campaign rules and is available to walk-in
-                  customers when allowed.
+                  {t("Optional. Eligibility is based on campaign rules and is available to walk-in customers when allowed.")}
                 </p>
               </div>
               {campaign?.valid && (
                 <span className="rounded-full bg-accent-soft px-3 py-1 text-xs font-bold text-accent-strong">
-                  Applied
+                  {t("Applied")}
                 </span>
               )}
             </div>
@@ -324,7 +319,7 @@ export function CheckoutModal({
                     setCampaignCode("");
                   }}
                 >
-                  Remove
+                  {t("Remove")}
                 </Button>
               </div>
             ) : (
@@ -340,7 +335,7 @@ export function CheckoutModal({
                       setCampaignError("");
                     }}
                   >
-                    <option value="">Choose a running campaign code…</option>
+                    <option value="">{t("Choose a running campaign code…")}</option>
                     {availableCampaigns.map((item) => (
                       <option key={item.promocode} value={item.promocode}>
                         {item.promocode} — {item.campaign_name}
@@ -355,7 +350,7 @@ export function CheckoutModal({
                         setCampaignCode(event.target.value.toUpperCase());
                         setCampaignError("");
                       }}
-                      placeholder="Or enter a code manually"
+                      placeholder={t("Or enter a code manually")}
                       disabled={validatingCampaign}
                     />
                     <Button
@@ -363,7 +358,7 @@ export function CheckoutModal({
                       disabled={!campaignCode.trim() || validatingCampaign}
                       onClick={() => void applyCampaign()}
                     >
-                      {validatingCampaign ? "Checking…" : "Apply"}
+                      {validatingCampaign ? t("Checking…") : t("Apply")}
                     </Button>
                   </div>
                   {campaignError && (
@@ -375,9 +370,9 @@ export function CheckoutModal({
           </Surface>
         </div>
 
-        <aside className="flex flex-col border-t border-line bg-canvas lg:border-l lg:border-t-0">
-          <div className="flex-1 overflow-y-auto p-6">
-            <h3 className="font-display text-lg font-bold">Order summary</h3>
+        <aside className="flex min-h-0 flex-col border-t border-line bg-canvas lg:border-l lg:border-t-0">
+          <div className="min-h-0 flex-1 overflow-y-auto overscroll-contain p-4 sm:p-6">
+            <h3 className="font-display text-lg font-bold">{t("Order summary")}</h3>
             <p className="mt-1 text-xs text-ink-muted">
               {lines.reduce((sum, line) => sum + line.quantity, 0)} items in this transaction
             </p>
@@ -388,35 +383,35 @@ export function CheckoutModal({
                   className="flex items-start justify-between gap-4 border-b border-line pb-3 last:border-0"
                 >
                   <div className="min-w-0">
-                    <div className="truncate text-sm font-semibold">{line.product_name}</div>
+                    <div className="truncate text-sm font-semibold">{productName(line.product_id, line.product_name)}</div>
                     <div className="mt-0.5 text-xs text-ink-faint">
-                      {line.quantity} × {MONEY.format(line.price)}
+                      {line.quantity} × {formatMoney(line.price)}
                     </div>
                   </div>
                   <div className="shrink-0 text-sm font-bold">
-                    {MONEY.format(line.price * line.quantity)}
+                    {formatMoney(line.price * line.quantity)}
                   </div>
                 </div>
               ))}
             </div>
             <div className="mt-6 space-y-3 border-t border-line pt-5 text-sm">
-              <SummaryRow label="Subtotal" value={MONEY.format(subtotal)} />
+              <SummaryRow label={t("Subtotal")} value={formatMoney(subtotal)} />
               <SummaryRow
-                label="Campaign"
-                value={campaign?.valid ? campaign.code : "None"}
+                label={t("Campaign")}
+                value={campaign?.valid ? campaign.code : t("None")}
                 accent={Boolean(campaign?.valid)}
               />
               <SummaryRow
-                label="Discount"
-                value={discount ? `−${MONEY.format(discount)}` : MONEY.format(0)}
+                label={t("Discount")}
+                value={discount ? `−${formatMoney(discount)}` : formatMoney(0)}
                 accent={discount > 0}
               />
               <div className="border-t border-line pt-4">
-                <SummaryRow label="Final total" value={MONEY.format(finalTotal)} strong />
+                <SummaryRow label={t("Final total")} value={formatMoney(finalTotal)} strong />
               </div>
             </div>
           </div>
-          <div className="border-t border-line bg-white p-6">
+          <div className="shrink-0 border-t border-line bg-white p-4 pb-[max(1rem,env(safe-area-inset-bottom))] sm:p-6">
             {submitError && (
               <div className="mb-3 rounded-xl bg-danger-soft px-4 py-3 text-xs font-medium text-danger">
                 {submitError}
@@ -429,15 +424,15 @@ export function CheckoutModal({
               onClick={() => void confirmTransaction()}
             >
               {submitting
-                ? "Processing transaction…"
-                : `Confirm Transaction · ${MONEY.format(finalTotal)}`}
+                ? t("Processing transaction…")
+                : `${t("Confirm Transaction")} · ${formatMoney(finalTotal)}`}
             </Button>
             <p className="mt-3 text-center text-[11px] leading-4 text-ink-faint">
               {mode === "walk-in"
-                ? "No customer information is required."
+                ? t("No customer information is required.")
                 : selectedCustomer
                   ? `This sale will be linked to ${selectedCustomer.customer_name}.`
-                  : "Select a customer to continue."}
+                  : t("Select a customer to continue.")}
             </p>
           </div>
         </aside>
@@ -455,16 +450,18 @@ function ModalFrame({
   onClose: () => void;
   closeDisabled?: boolean;
 }) {
+  useModalScrollLock();
+
   return (
     <div
-      className="fixed inset-0 z-[70] grid place-items-center bg-ink/50 p-4 backdrop-blur-sm"
+      className="fixed inset-0 z-[70] grid place-items-center overflow-y-auto overscroll-contain bg-ink/50 p-2 backdrop-blur-sm sm:p-4"
       role="presentation"
       onMouseDown={() => {
         if (!closeDisabled) onClose();
       }}
     >
       <section
-        className="flex max-h-[calc(100vh-2rem)] min-h-0 w-full max-w-5xl flex-col overflow-hidden rounded-2xl bg-white shadow-2xl"
+        className="my-auto flex max-h-[calc(100dvh-1rem)] min-h-0 w-full max-w-5xl flex-col overflow-hidden rounded-2xl bg-white shadow-2xl sm:max-h-[calc(100dvh-2rem)]"
         role="dialog"
         aria-modal="true"
         aria-labelledby="checkout-title"
@@ -477,6 +474,7 @@ function ModalFrame({
 }
 
 function WalkInPanel() {
+  const { t } = usePreferences();
   return (
     <Surface className="mt-5 p-5">
       <div className="flex items-start gap-4">
@@ -484,7 +482,7 @@ function WalkInPanel() {
           <Icon name="users" />
         </div>
         <div>
-          <h3 className="font-display font-bold">Walk-in Customer</h3>
+          <h3 className="font-display font-bold">{t("Walk-in Customer")}</h3>
           <p className="mt-1 text-sm leading-6 text-ink-muted">
             Complete this sale immediately without collecting customer information. Registration is
             always optional.
@@ -522,6 +520,8 @@ function RegisteredCustomerPanel({
   onCancelRegister: () => void;
   onRegistered: (customer: Customer) => void;
 }) {
+  const { formatMoney } = usePreferences();
+
   if (registering) {
     return <RegistrationForm onCancel={onCancelRegister} onRegistered={onRegistered} />;
   }
@@ -587,7 +587,7 @@ function RegisteredCustomerPanel({
                   <div className="shrink-0 text-right">
                     <div className="text-xs font-semibold">{customerSummary.orders} orders</div>
                     <div className="mt-0.5 text-xs text-ink-muted">
-                      {MONEY.format(customerSummary.spending)}
+                      {formatMoney(customerSummary.spending)}
                     </div>
                   </div>
                 </button>
@@ -622,8 +622,11 @@ function RegistrationForm({
   onCancel: () => void;
   onRegistered: (customer: Customer) => void;
 }) {
+  const { t } = usePreferences();
   const [name, setName] = useState("");
   const [phone, setPhone] = useState("");
+  const [age, setAge] = useState("");
+  const [gender, setGender] = useState("");
   const [error, setError] = useState("");
   const [saving, setSaving] = useState(false);
 
@@ -640,14 +643,24 @@ function RegistrationForm({
       setError("Enter a customer name and a valid Korean mobile number.");
       return;
     }
+
+    const numericAge = age.trim() ? Number(age) : null;
+    if (
+      numericAge !== null &&
+      (!Number.isInteger(numericAge) || numericAge < 1 || numericAge > 120)
+    ) {
+      setError("Age must be between 1 and 120.");
+      return;
+    }
+
     setSaving(true);
     setError("");
     try {
       const customer = await addCustomer({
         customer_name: name.trim(),
         customer_phone: phone,
-        customer_age: null,
-        customer_gender: null,
+        customer_age: numericAge,
+        customer_gender: gender || null,
       });
       onRegistered(customer);
     } catch (caught) {
@@ -660,9 +673,9 @@ function RegistrationForm({
   return (
     <Surface className="mt-5 p-5">
       <div>
-        <div className="text-xs font-bold uppercase tracking-wide text-accent">New customer</div>
-        <h3 className="mt-1 font-display text-lg font-bold">Quick registration</h3>
-        <p className="mt-1 text-xs text-ink-muted">Only a name and phone number are required.</p>
+        <div className="text-xs font-bold uppercase tracking-wide text-accent">{t("New customer")}</div>
+        <h3 className="mt-1 font-display text-lg font-bold">{t("Quick registration")}</h3>
+        <p className="mt-1 text-xs text-ink-muted">{t("Only a name and phone number are required.")}</p>
       </div>
       <form className="mt-5 space-y-4" onSubmit={(event) => void submit(event)}>
         {error && (
@@ -671,7 +684,7 @@ function RegistrationForm({
           </div>
         )}
         <label className="block text-sm font-semibold">
-          Customer name
+          {t("Customer name")}
           <Input
             className="mt-1.5 w-full"
             value={name}
@@ -682,7 +695,7 @@ function RegistrationForm({
           />
         </label>
         <label className="block text-sm font-semibold">
-          Phone number
+          {t("Phone number")}
           <Input
             className="mt-1.5 w-full"
             value={phone}
@@ -692,12 +705,40 @@ function RegistrationForm({
             required
           />
         </label>
+        <div className="grid gap-4 sm:grid-cols-2">
+          <label className="block text-sm font-semibold">
+            {t("Age")} <span className="font-normal text-ink-faint">({t("optional")})</span>
+            <Input
+              className="mt-1.5 w-full"
+              type="number"
+              min="1"
+              max="120"
+              step="1"
+              value={age}
+              onChange={(event) => setAge(event.target.value)}
+              placeholder="Age"
+            />
+          </label>
+          <label className="block text-sm font-semibold">
+            {t("Gender")} <span className="font-normal text-ink-faint">({t("optional")})</span>
+            <select
+              className="mt-1.5 min-h-11 w-full rounded-xl border border-line bg-white px-3 text-sm text-ink outline-none focus:border-accent"
+              value={gender}
+              onChange={(event) => setGender(event.target.value)}
+            >
+              <option value="">{t("Not recorded")}</option>
+              <option value="Woman">{t("Woman")}</option>
+              <option value="Man">{t("Man")}</option>
+              <option value="Other">{t("Other")}</option>
+            </select>
+          </label>
+        </div>
         <div className="flex justify-end gap-2 pt-1">
           <Button type="button" onClick={onCancel} disabled={saving}>
-            Back to search
+            {t("Back to search")}
           </Button>
           <Button type="submit" variant="primary" disabled={saving}>
-            {saving ? "Registering…" : "Register & Select"}
+            {saving ? t("Registering…") : t("Register & Select")}
           </Button>
         </div>
       </form>

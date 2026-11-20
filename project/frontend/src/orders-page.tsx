@@ -1,16 +1,12 @@
 import { useEffect, useMemo, useState } from "react";
 import { getOrderDetail, getOrdersPage, type Order, type OrderItem } from "./data-access";
-import { Button, Icon, Input, Surface } from "./ui";
+import { Button, Icon, Input, Surface, useModalScrollLock } from "./ui";
+import { usePreferences } from "./preferences";
 
 type DatePreset = "today" | "7d" | "30d" | "all" | "custom";
 type SortDirection = "newest" | "oldest" | "highest" | "lowest";
 
 const PAGE_SIZE = 8;
-const MONEY = new Intl.NumberFormat("ko-KR", {
-  style: "currency",
-  currency: "KRW",
-  maximumFractionDigits: 0,
-});
 const DATE = new Intl.DateTimeFormat("en-US", {
   year: "numeric",
   month: "short",
@@ -32,6 +28,7 @@ function orderDateTime(order: Order): Date {
 }
 
 export function OrdersPage() {
+  const { t, formatMoney } = usePreferences();
   const [orders, setOrders] = useState<Order[]>([]);
   const [summary, setSummary] = useState({ orders: 0, revenue: 0, average: 0, items: 0 });
   const [total, setTotal] = useState(0);
@@ -128,9 +125,9 @@ export function OrdersPage() {
   return (
     <section>
       <div className="mb-6">
-        <div className="font-display text-3xl font-bold tracking-tight">Orders</div>
+        <div className="font-display text-3xl font-bold tracking-tight">{t("Orders")}</div>
         <div className="mt-1 text-sm text-ink-muted">
-          View and manage your restaurant&apos;s sales transactions.
+          {t("View and manage your restaurant's sales transactions.")}
         </div>
       </div>
 
@@ -141,19 +138,19 @@ export function OrdersPage() {
       )}
 
       <div className="mb-5 grid grid-cols-2 gap-3 lg:grid-cols-4">
-        <SummaryCard label="Total Orders" value={summary.orders.toLocaleString()} detail="Matching transactions" />
-        <SummaryCard label="Total Revenue" value={MONEY.format(summary.revenue)} detail="Final sales total" />
-        <SummaryCard label="Average Order Value" value={MONEY.format(summary.average)} detail="Per transaction" />
-        <SummaryCard label="Total Items Sold" value={summary.items.toLocaleString()} detail="Product units" />
+        <SummaryCard label={t("Total Orders")} value={summary.orders.toLocaleString()} detail="Matching transactions" />
+        <SummaryCard label={t("Total Revenue")} value={formatMoney(summary.revenue)} detail="Final sales total" />
+        <SummaryCard label={t("Average Order Value")} value={formatMoney(summary.average)} detail="Per transaction" />
+        <SummaryCard label={t("Total Items Sold")} value={summary.items.toLocaleString()} detail="Product units" />
       </div>
 
       <Surface className="mb-5 overflow-hidden">
         <div className="border-b border-line px-5 py-4">
           <div className="flex flex-wrap items-center justify-between gap-3">
             <div>
-              <h2 className="font-display text-base font-bold">Filter orders</h2>
+              <h2 className="font-display text-base font-bold">{t("Filter orders")}</h2>
               <p className="mt-0.5 text-xs text-ink-faint">
-                Refine transactions by reference, customer, or date.
+                {t("Refine transactions by reference, customer, or date.")}
               </p>
             </div>
             <Button className="min-h-9 px-3" onClick={resetFilters}>
@@ -165,7 +162,7 @@ export function OrdersPage() {
         </div>
         <div className="grid gap-4 p-5 lg:grid-cols-2 xl:grid-cols-[0.75fr_1.2fr_1fr]">
           <label className="block text-xs font-semibold text-ink-muted">
-            Order ID
+            {t("Order ID")}
             <div className="relative mt-1.5">
               <Icon name="search" className="pointer-events-none absolute left-3 top-1/2 size-4 -translate-y-1/2 text-ink-faint" />
               <Input
@@ -177,7 +174,7 @@ export function OrdersPage() {
             </div>
           </label>
           <label className="block text-xs font-semibold text-ink-muted">
-            Customer name or phone
+            {t("Customer name or phone")}
             <div className="relative mt-1.5">
               <Icon name="search" className="pointer-events-none absolute left-3 top-1/2 size-4 -translate-y-1/2 text-ink-faint" />
               <Input
@@ -189,22 +186,22 @@ export function OrdersPage() {
             </div>
           </label>
           <label className="block text-xs font-semibold text-ink-muted">
-            Sort by
+            {t("Sort by")}
             <select
               className="mt-1.5 min-h-11 w-full rounded-xl border border-line bg-white px-3 text-sm text-ink outline-none focus:border-accent focus:ring-2 focus:ring-accent/15"
               value={sort}
               onChange={(event) => { setSort(event.target.value as SortDirection); setPage(1); }}
             >
-              <option value="newest">Newest first</option>
-              <option value="oldest">Oldest first</option>
-              <option value="highest">Highest amount</option>
-              <option value="lowest">Lowest amount</option>
+              <option value="newest">{t("Newest first")}</option>
+              <option value="oldest">{t("Oldest first")}</option>
+              <option value="highest">{t("Highest amount")}</option>
+              <option value="lowest">{t("Lowest amount")}</option>
             </select>
           </label>
         </div>
         <div className="flex flex-wrap items-end gap-4 border-t border-line bg-canvas/45 px-5 py-4">
           <div>
-            <div className="mb-1.5 text-xs font-semibold text-ink-muted">Quick date</div>
+            <div className="mb-1.5 text-xs font-semibold text-ink-muted">{t("Quick date")}</div>
             <div className="flex flex-wrap gap-2">
               {([
                 ["today", "Today"], ["7d", "7 Days"], ["30d", "30 Days"], ["all", "All"],
@@ -222,7 +219,7 @@ export function OrdersPage() {
           </div>
           <div className="flex flex-wrap items-end gap-2 sm:ml-auto">
             <label className="block text-xs font-semibold text-ink-muted">
-              From
+              {t("From")}
               <Input
                 className="mt-1.5 block"
                 type="date"
@@ -232,7 +229,7 @@ export function OrdersPage() {
             </label>
             <span className="mb-3 text-ink-faint">—</span>
             <label className="block text-xs font-semibold text-ink-muted">
-              To
+              {t("To")}
               <Input
                 className="mt-1.5 block"
                 type="date"
@@ -247,8 +244,8 @@ export function OrdersPage() {
       <Surface className="overflow-hidden">
         <div className="flex flex-wrap items-center justify-between gap-3 border-b border-line px-5 py-4">
           <div>
-            <h2 className="font-display text-lg font-bold">Sales transactions</h2>
-            <p className="mt-0.5 text-sm text-ink-muted">Select an order to view its item details.</p>
+            <h2 className="font-display text-lg font-bold">{t("Sales transactions")}</h2>
+            <p className="mt-0.5 text-sm text-ink-muted">{t("Select an order to view its item details.")}</p>
           </div>
           <div className="rounded-full bg-accent-soft px-3 py-2 text-sm font-semibold text-accent-strong">
             {total.toLocaleString()} matching {total === 1 ? "order" : "orders"}
@@ -262,11 +259,11 @@ export function OrdersPage() {
             <div className="flex size-14 items-center justify-center rounded-2xl bg-accent-soft text-accent">
               <Icon name="search" className="size-7" />
             </div>
-            <h2 className="mt-4 font-display text-xl font-bold">No transactions found</h2>
+            <h2 className="mt-4 font-display text-xl font-bold">{t("No transactions found")}</h2>
             <p className="mt-2 max-w-md text-sm leading-6 text-ink-muted">
-              No orders match the current search and date filters. Reset the filters to view all transactions.
+              {t("No orders match the current search and date filters. Reset the filters to view all transactions.")}
             </p>
-            <Button className="mt-5" onClick={resetFilters}>Clear filters</Button>
+            <Button className="mt-5" onClick={resetFilters}>{t("Clear filters")}</Button>
           </div>
         ) : (
           <>
@@ -274,10 +271,10 @@ export function OrdersPage() {
               <table className="w-full min-w-[920px] text-left text-sm">
                 <thead className="bg-surface-strong/70 text-xs uppercase tracking-wide text-ink-faint">
                   <tr>
-                    <th className="px-5 py-3.5 font-semibold">Order ID</th>
-                    <th className="px-5 py-3.5 font-semibold">Order Date &amp; Time</th>
-                    <th className="px-5 py-3.5 font-semibold">Customer</th>
-                    <th className="px-5 py-3.5 font-semibold">Items</th>
+                    <th className="px-5 py-3.5 font-semibold">{t("Order ID")}</th>
+                    <th className="px-5 py-3.5 font-semibold">{t("Date & time")}</th>
+                    <th className="px-5 py-3.5 font-semibold">{t("Customer")}</th>
+                    <th className="px-5 py-3.5 font-semibold">{t("Items")}</th>
                     <th className="px-5 py-3.5 font-semibold">Total Amount</th>
                     <th className="px-5 py-3.5 text-right font-semibold">Actions</th>
                   </tr>
@@ -308,7 +305,7 @@ export function OrdersPage() {
                           )}
                         </td>
                         <td className="px-5 py-4 font-semibold tabular-nums">{Number(order.item_count ?? 0).toLocaleString()}</td>
-                        <td className="px-5 py-4 font-display font-bold tabular-nums">{MONEY.format(order.total)}</td>
+                        <td className="px-5 py-4 font-display font-bold tabular-nums">{formatMoney(order.total)}</td>
                         <td className="px-5 py-4 text-right">
                           <Button className="min-h-9 px-3" onClick={(event) => { event.stopPropagation(); void openOrderDetails(order); }}>
                             <span className="flex items-center gap-1.5">View details <Icon name="arrow" className="size-4" /></span>
@@ -384,6 +381,9 @@ function OrderDetail({
   loading: boolean;
   onClose: () => void;
 }) {
+  const { t, productName, categoryLabel, formatMoney } = usePreferences();
+  useModalScrollLock();
+
   const totalItems = items.reduce((total, item) => total + item.quantity, 0);
   const subtotal = items.reduce((total, item) => total + item.quantity * item.price, 0);
   const dateTime = orderDateTime(order);
@@ -397,61 +397,61 @@ function OrderDetail({
   }, [onClose]);
 
   return (
-    <div className="fixed inset-0 z-[60] flex justify-end bg-ink/45 backdrop-blur-sm" role="presentation" onMouseDown={onClose}>
-      <section className="flex h-full w-full max-w-2xl flex-col bg-canvas shadow-2xl" role="dialog" aria-modal="true" aria-labelledby="order-detail-title" onMouseDown={(event) => event.stopPropagation()}>
-        <header className="flex items-start justify-between border-b border-line bg-white px-6 py-5">
+    <div className="fixed inset-0 z-[60] flex justify-end overflow-hidden bg-ink/45 backdrop-blur-sm" role="presentation" onMouseDown={onClose}>
+      <section className="flex h-[100dvh] min-h-0 w-full max-w-2xl flex-col overflow-hidden bg-canvas shadow-2xl" role="dialog" aria-modal="true" aria-labelledby="order-detail-title" onMouseDown={(event) => event.stopPropagation()}>
+        <header className="flex shrink-0 items-start justify-between border-b border-line bg-white px-5 py-4 sm:px-6 sm:py-5">
           <div>
-            <div className="text-xs font-bold uppercase tracking-widest text-accent">Transaction detail</div>
+            <div className="text-xs font-bold uppercase tracking-widest text-accent">{t("Transaction detail")}</div>
             <h2 id="order-detail-title" className="mt-1 font-display text-2xl font-bold">Order ORD-{String(order.order_id).padStart(4, "0")}</h2>
           </div>
           <button className="flex size-10 items-center justify-center rounded-xl border border-line text-xl text-ink-muted hover:bg-surface-strong" onClick={onClose} aria-label="Close order details">×</button>
         </header>
 
-        <div className="flex-1 overflow-y-auto p-6">
+        <div className="min-h-0 flex-1 overflow-y-auto overscroll-contain p-4 sm:p-6">
           <Surface className="p-5">
-            <h3 className="font-display text-lg font-bold">Order information</h3>
+            <h3 className="font-display text-lg font-bold">{t("Order information")}</h3>
             <div className="mt-4 grid gap-4 sm:grid-cols-2">
-              <DetailField label="Order ID" value={`ORD-${String(order.order_id).padStart(4, "0")}`} />
-              <DetailField label="Date & time" value={`${DATE.format(dateTime)} at ${TIME.format(dateTime)}`} />
-              <DetailField label="Customer" value={order.customer_name ?? "Guest customer"} secondary={order.customer_phone ?? "No customer linked"} />
-              <DetailField label="Total amount" value={MONEY.format(order.total)} />
+              <DetailField label={t("Order ID")} value={`ORD-${String(order.order_id).padStart(4, "0")}`} />
+              <DetailField label={t("Date & time")} value={`${DATE.format(dateTime)} at ${TIME.format(dateTime)}`} />
+              <DetailField label={t("Customer")} value={order.customer_name ?? t("Guest customer")} secondary={order.customer_phone ?? t("No customer linked")} />
+              <DetailField label={t("Total amount")} value={formatMoney(order.total)} />
             </div>
           </Surface>
 
           <Surface className="mt-5 overflow-hidden">
             <div className="border-b border-line px-5 py-4">
-              <h3 className="font-display text-lg font-bold">Order items</h3>
-              <p className="mt-0.5 text-sm text-ink-muted">Products included in this transaction.</p>
+              <h3 className="font-display text-lg font-bold">{t("Order items")}</h3>
+              <p className="mt-0.5 text-sm text-ink-muted">{t("Products included in this transaction.")}</p>
             </div>
             {loading ? (
-              <div className="p-8 text-center text-sm text-ink-muted">Loading order items…</div>
+              <div className="p-8 text-center text-sm text-ink-muted">{t("Loading order items…")}</div>
             ) : items.length ? (
               <div className="overflow-x-auto">
                 <table className="w-full min-w-[620px] text-left text-sm">
                   <thead className="bg-surface-strong/70 text-xs uppercase tracking-wide text-ink-faint">
                     <tr>
-                      <th className="px-5 py-3 font-semibold">Product</th>
-                      <th className="px-5 py-3 font-semibold">Category</th>
-                      <th className="px-5 py-3 text-right font-semibold">Unit Price</th>
-                      <th className="px-5 py-3 text-right font-semibold">Qty</th>
-                      <th className="px-5 py-3 text-right font-semibold">Subtotal</th>
+                      <th className="px-5 py-3 font-semibold">{t("Product")}</th>
+                      <th className="px-5 py-3 font-semibold">{t("Category")}</th>
+                      <th className="px-5 py-3 text-right font-semibold">{t("Unit Price")}</th>
+                      <th className="px-5 py-3 text-right font-semibold">{t("Qty")}</th>
+                      <th className="px-5 py-3 text-right font-semibold">{t("Subtotal")}</th>
                     </tr>
                   </thead>
                   <tbody className="divide-y divide-line">
                     {items.map((item) => (
                       <tr key={item.order_item_id ?? `${item.order_id}-${item.product_id}`}>
-                        <td className="px-5 py-4 font-semibold">{item.product_name ?? `Product #${item.product_id}`}</td>
-                        <td className="px-5 py-4 text-ink-muted">{item.category_name ?? "Uncategorized"}</td>
-                        <td className="px-5 py-4 text-right tabular-nums">{MONEY.format(item.price)}</td>
+                        <td className="px-5 py-4 font-semibold">{item.product_name ? productName(item.product_id, item.product_name) : `Product #${item.product_id}`}</td>
+                        <td className="px-5 py-4 text-ink-muted">{item.category_name ? categoryLabel(item.category_name) : t("Uncategorized")}</td>
+                        <td className="px-5 py-4 text-right tabular-nums">{formatMoney(item.price)}</td>
                         <td className="px-5 py-4 text-right font-semibold tabular-nums">{item.quantity}</td>
-                        <td className="px-5 py-4 text-right font-semibold tabular-nums">{MONEY.format(item.price * item.quantity)}</td>
+                        <td className="px-5 py-4 text-right font-semibold tabular-nums">{formatMoney(item.price * item.quantity)}</td>
                       </tr>
                     ))}
                   </tbody>
                 </table>
               </div>
             ) : (
-              <div className="p-8 text-center text-sm text-ink-muted">No item details were found for this order.</div>
+              <div className="p-8 text-center text-sm text-ink-muted">{t("No item details were found for this order.")}</div>
             )}
           </Surface>
 
@@ -459,14 +459,14 @@ function OrderDetail({
             <h3 className="font-display text-lg font-bold">Order summary</h3>
             <div className="mt-4 space-y-3 text-sm">
               <SummaryLine label="Total items" value={totalItems.toLocaleString()} />
-              <SummaryLine label="Subtotal" value={MONEY.format(subtotal)} />
-              {order.discount > 0 && <SummaryLine label="Discount" value={`−${MONEY.format(order.discount)}`} accent />}
-              <div className="border-t border-line pt-3"><SummaryLine label="Final total" value={MONEY.format(order.total)} strong /></div>
+              <SummaryLine label="Subtotal" value={formatMoney(subtotal)} />
+              {order.discount > 0 && <SummaryLine label="Discount" value={`−${formatMoney(order.discount)}`} accent />}
+              <div className="border-t border-line pt-3"><SummaryLine label="Final total" value={formatMoney(order.total)} strong /></div>
             </div>
           </Surface>
         </div>
 
-        <footer className="border-t border-line bg-white px-6 py-4 text-right">
+        <footer className="shrink-0 border-t border-line bg-white px-5 py-4 pb-[max(1rem,env(safe-area-inset-bottom))] text-right sm:px-6">
           <Button variant="primary" onClick={onClose}>Done</Button>
         </footer>
       </section>

@@ -1,4 +1,65 @@
+import { useEffect } from "react";
 import type { ButtonHTMLAttributes, HTMLAttributes, InputHTMLAttributes, ReactNode } from "react";
+
+
+let modalScrollLockCount = 0;
+let savedModalScrollStyles: {
+  bodyOverflow: string;
+  bodyOverscrollBehavior: string;
+  bodyPaddingRight: string;
+  htmlOverflow: string;
+  htmlOverscrollBehavior: string;
+} | null = null;
+
+/** Lock the page behind an open modal while leaving the modal's own scroll areas usable. */
+export function useModalScrollLock(active = true): void {
+  useEffect(() => {
+    if (!active || typeof document === "undefined") return;
+
+    const body = document.body;
+    const html = document.documentElement;
+
+    if (modalScrollLockCount === 0) {
+      savedModalScrollStyles = {
+        bodyOverflow: body.style.overflow,
+        bodyOverscrollBehavior: body.style.overscrollBehavior,
+        bodyPaddingRight: body.style.paddingRight,
+        htmlOverflow: html.style.overflow,
+        htmlOverscrollBehavior: html.style.overscrollBehavior,
+      };
+
+      // Compensate for the disappearing desktop scrollbar to avoid a horizontal layout shift.
+      const scrollbarWidth = Math.max(0, window.innerWidth - html.clientWidth);
+      if (scrollbarWidth > 0) {
+        const currentPadding = Number.parseFloat(window.getComputedStyle(body).paddingRight) || 0;
+        body.style.paddingRight = `${currentPadding + scrollbarWidth}px`;
+      }
+
+      body.style.overflow = "hidden";
+      body.style.overscrollBehavior = "none";
+      html.style.overflow = "hidden";
+      html.style.overscrollBehavior = "none";
+    }
+
+    modalScrollLockCount += 1;
+    let released = false;
+
+    return () => {
+      if (released) return;
+      released = true;
+      modalScrollLockCount = Math.max(0, modalScrollLockCount - 1);
+
+      if (modalScrollLockCount === 0 && savedModalScrollStyles) {
+        body.style.overflow = savedModalScrollStyles.bodyOverflow;
+        body.style.overscrollBehavior = savedModalScrollStyles.bodyOverscrollBehavior;
+        body.style.paddingRight = savedModalScrollStyles.bodyPaddingRight;
+        html.style.overflow = savedModalScrollStyles.htmlOverflow;
+        html.style.overscrollBehavior = savedModalScrollStyles.htmlOverscrollBehavior;
+        savedModalScrollStyles = null;
+      }
+    };
+  }, [active]);
+}
 
 type ButtonVariant = "primary" | "secondary" | "ghost" | "chip";
 
@@ -87,7 +148,11 @@ export function Icon({
     | "search"
     | "users"
     | "megaphone"
-    | "trash";
+    | "trash"
+    | "settings"
+    | "gear"
+    | "sun"
+    | "moon";
   className?: string;
 }) {
   const paths: Record<string, ReactNode> = {
@@ -154,6 +219,25 @@ export function Icon({
         <path d="M21 9a4 4 0 0 1 0 6" />
       </>
     ),
+    settings: (
+      <>
+        <circle cx="12" cy="12" r="3" />
+        <path d="M19.4 15a1.7 1.7 0 0 0 .34 1.88l.06.06-1.7 2.94-.09-.02a1.7 1.7 0 0 0-1.73.65l-.05.08h-3.4l-.05-.08a1.7 1.7 0 0 0-1.73-.65l-.09.02-1.7-2.94.06-.06A1.7 1.7 0 0 0 9.6 15l-.09-.03v-3.4l.09-.03a1.7 1.7 0 0 0-.34-1.88l-.06-.06 1.7-2.94.09.02a1.7 1.7 0 0 0 1.73-.65l.05-.08h3.4l.05.08a1.7 1.7 0 0 0 1.73.65l.09-.02 1.7 2.94-.06.06A1.7 1.7 0 0 0 19.4 11.5l.09.03v3.4z" transform="translate(-2 -2) scale(1.16)" />
+      </>
+    ),
+    gear: (
+      <>
+        <path d="M10 2.8h4l.55 2.05c.63.16 1.22.41 1.77.73l1.9-.98 2.83 2.83-.98 1.9c.32.55.57 1.14.73 1.77l2.05.55v4l-2.05.55a7.6 7.6 0 0 1-.73 1.77l.98 1.9-2.83 2.83-1.9-.98a7.6 7.6 0 0 1-1.77.73L14 22.8h-4l-.55-2.05a7.6 7.6 0 0 1-1.77-.73l-1.9.98-2.83-2.83.98-1.9a7.6 7.6 0 0 1-.73-1.77L1.15 14v-4l2.05-.55c.16-.63.41-1.22.73-1.77l-.98-1.9 2.83-2.83 1.9.98c.55-.32 1.14-.57 1.77-.73L10 2.8Z" transform="translate(.9 .2) scale(.96)" />
+        <circle cx="12" cy="12" r="3.1" />
+      </>
+    ),
+    sun: (
+      <>
+        <circle cx="12" cy="12" r="4" />
+        <path d="M12 2v2M12 20v2M4.93 4.93l1.42 1.42m11.3 11.3 1.42 1.42M2 12h2m16 0h2M4.93 19.07l1.42-1.42m11.3-11.3 1.42-1.42" />
+      </>
+    ),
+    moon: <path d="M20.4 15.2A8.5 8.5 0 0 1 8.8 3.6 8.5 8.5 0 1 0 20.4 15.2Z" />,
     trash: (
       <>
         <path d="M3 6h18M8 6V4h8v2M19 6l-1 15H6L5 6" />

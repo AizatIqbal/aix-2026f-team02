@@ -296,3 +296,76 @@
     animation: none;
   }
 }
+
+/* PointNull appearance preference: dark mode overrides the shared design tokens. */
+html.theme-dark {
+  color-scheme: dark;
+  --color-canvas: #121b15;
+  --color-surface-strong: #223126;
+  --color-product: #293a2d;
+  --color-line: #36493a;
+  --color-ink: #edf3ea;
+  --color-ink-muted: #bdc8bb;
+  --color-ink-faint: #91a091;
+  --color-accent: #4f7548;
+  --color-accent-strong: #bad3a7;
+  --color-accent-light: #d0e0c4;
+  --color-accent-soft: #2b402f;
+  --color-danger: #f0a49a;
+  --color-danger-soft: #492b28;
+}
+
+html.theme-dark body {
+  background: var(--color-canvas);
+  color: var(--color-ink);
+}
+
+html.theme-dark [class~="bg-ink"] {
+  background-color: #0d160f !important;
+}
+
+html.theme-dark [class~="bg-white"],
+html.theme-dark [class~="bg-white/95"],
+html.theme-dark [class~="bg-white/90"],
+html.theme-dark [class~="bg-white/80"] {
+  background-color: #1b2a20 !important;
+}
+
+html.theme-dark input,
+html.theme-dark select,
+html.theme-dark textarea {
+  background-color: #1b2a20;
+  color: var(--color-ink);
+  border-color: var(--color-line);
+}
+
+html.theme-dark input::placeholder,
+html.theme-dark textarea::placeholder {
+  color: var(--color-ink-faint);
+}
+
+html.theme-dark option {
+  background: #1b2a20;
+  color: var(--color-ink);
+}
+
+html.theme-dark .startup-splash {
+  color: white;
+  background: #18271d;
+}
+
+@keyframes settings-slide-in {
+  from { transform: translateX(24px); opacity: 0.7; }
+  to { transform: translateX(0); opacity: 1; }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .animate-\[settings-slide-in_180ms_ease-out\] {
+    animation: none !important;
+  }
+}
+
+/* Keep primary buttons legible when the dark theme is active. */
+html.theme-dark [class~="hover:bg-accent-strong"]:hover {
+  background-color: #3f6537 !important;
+}
