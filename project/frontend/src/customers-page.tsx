@@ -31,7 +31,7 @@ interface CustomerRow {
   lastOrderDate: string | null;
 }
 
-export function CustomersPage() {
+export function CustomersPage({ simpleMode = false }: { simpleMode?: boolean }) {
   const { t, formatMoney } = usePreferences();
   const [customers, setCustomers] = useState<CustomerSummary[]>([]);
   const [detailOrders, setDetailOrders] = useState<Order[]>([]);
@@ -186,19 +186,23 @@ export function CustomersPage() {
             </div>
 
             <div className="mt-1 text-sm text-ink-muted">
-              {t("Manage customer information and understand customer activity.")}
+              {simpleMode
+                ? t("View registered customers and their recent order history.")
+                : t("Manage customer information and understand customer activity.")}
             </div>
           </div>
 
-          <Button
+          {!simpleMode && (
+            <Button
               variant="primary"
               onClick={() => setForm({ type: "add" })}
-          >
-          <span className="flex items-center gap-2">
-            <Icon name="plus" />
-            {t("Add Customer")}
-          </span>
-          </Button>
+            >
+              <span className="flex items-center gap-2">
+                <Icon name="plus" />
+                {t("Add Customer")}
+              </span>
+            </Button>
+          )}
         </div>
 
         {error && (
@@ -207,29 +211,17 @@ export function CustomersPage() {
             </div>
         )}
 
-        <div className="mb-5 grid grid-cols-2 gap-3 lg:grid-cols-4">
-          <SummaryCard
-              label={t("Total Customers")}
-              value={String(customers.length)}
-          />
-
-          <SummaryCard
-              label={t("Total Orders")}
-              value={String(linkedOrders)}
-          />
-
-          <SummaryCard
-              label={t("Total Customer Spending")}
-              value={formatMoney(totalSpent)}
-          />
-
-          <SummaryCard
+        {!simpleMode && (
+          <div className="mb-5 grid grid-cols-2 gap-3 lg:grid-cols-4">
+            <SummaryCard label={t("Total Customers")} value={String(customers.length)} />
+            <SummaryCard label={t("Total Orders")} value={String(linkedOrders)} />
+            <SummaryCard label={t("Total Customer Spending")} value={formatMoney(totalSpent)} />
+            <SummaryCard
               label={t("Average Spending per Customer")}
-              value={formatMoney(
-                  customers.length ? totalSpent / customers.length : 0
-              )}
-          />
-        </div>
+              value={formatMoney(customers.length ? totalSpent / customers.length : 0)}
+            />
+          </div>
+        )}
 
         <Surface className="overflow-visible">
           <div className="flex flex-wrap items-center gap-3 border-b border-line p-4 sm:p-5">
@@ -248,21 +240,20 @@ export function CustomersPage() {
               />
             </div>
 
-            <label className="flex items-center gap-2 text-sm font-semibold text-ink-muted">
-              {t("Sort by")}
-
-              <select
+            {!simpleMode && (
+              <label className="flex items-center gap-2 text-sm font-semibold text-ink-muted">
+                {t("Sort by")}
+                <select
                   className="min-h-11 rounded-xl border border-line bg-white px-3 text-sm text-ink outline-none focus:border-accent"
                   value={sort}
-                  onChange={(event) =>
-                      setSort(event.target.value as SortKey)
-                  }
-              >
-                <option value="name">{t("Customer name")}</option>
-                <option value="orders">{t("Total orders")}</option>
-                <option value="spent">{t("Total spending")}</option>
-              </select>
-            </label>
+                  onChange={(event) => setSort(event.target.value as SortKey)}
+                >
+                  <option value="name">{t("Customer name")}</option>
+                  <option value="orders">{t("Total orders")}</option>
+                  <option value="spent">{t("Total spending")}</option>
+                </select>
+              </label>
+            )}
 
             <div className="rounded-full bg-accent-soft px-3 py-2 text-sm font-semibold text-accent-strong">
               {filteredRows.length}{" "}
@@ -283,7 +274,9 @@ export function CustomersPage() {
                 </h2>
 
                 <p className="mt-2 max-w-md text-sm leading-6 text-ink-muted">
-                  {t("Try a different name or phone number, or add a new customer record.")}
+                  {simpleMode
+                    ? t("Customers registered during checkout or imported into PointNull will appear here.")
+                    : t("Try a different name or phone number, or add a new customer record.")}
                 </p>
               </div>
           ) : (
@@ -294,7 +287,7 @@ export function CustomersPage() {
                       openMenu ? "overflow-visible" : "overflow-x-auto"
                     }
                 >
-                  <table className="w-full min-w-[930px] text-left text-sm">
+                  <table className={`w-full ${simpleMode ? "min-w-[680px]" : "min-w-[930px]"} text-left text-sm`}>
                     <thead className="bg-surface-strong/70 text-xs uppercase tracking-wide text-ink-faint">
                     <tr>
                       <th className="px-5 py-3.5 font-semibold">
@@ -309,17 +302,13 @@ export function CustomersPage() {
                         {t("Total Orders")}
                       </th>
 
-                      <th className="px-5 py-3.5 font-semibold">
-                        {t("Total Spent")}
-                      </th>
-
-                      <th className="px-5 py-3.5 font-semibold">
-                        {t("Last Order Date")}
-                      </th>
-
-                      <th className="px-5 py-3.5 text-right font-semibold">
-                        {t("Actions")}
-                      </th>
+                      {!simpleMode && (
+                        <th className="px-5 py-3.5 font-semibold">{t("Total Spent")}</th>
+                      )}
+                      <th className="px-5 py-3.5 font-semibold">{t("Last Order Date")}</th>
+                      {!simpleMode && (
+                        <th className="px-5 py-3.5 text-right font-semibold">{t("Actions")}</th>
+                      )}
                     </tr>
                     </thead>
 
@@ -349,11 +338,13 @@ export function CustomersPage() {
                                     {row.customer.customer_name}
                                   </button>
 
-                                  <div className="mt-0.5 text-xs text-ink-faint">
-                                    {row.customer.customer_age
+                                  {!simpleMode && (
+                                    <div className="mt-0.5 text-xs text-ink-faint">
+                                      {row.customer.customer_age
                                         ? `${row.customer.customer_age} years`
                                         : "Age not recorded"}
-                                  </div>
+                                    </div>
+                                  )}
                                 </div>
                               </div>
                             </td>
@@ -366,14 +357,11 @@ export function CustomersPage() {
                               {row.totalOrders.toLocaleString()}
                             </td>
 
-                            {/* Explicitly prevent unwanted strikethrough. */}
-                            <td className="px-5 py-4 font-semibold tabular-nums">
-                          <span
-                              style={{ textDecoration: "none" }}
-                          >
-                            {formatMoney(row.totalSpent)}
-                          </span>
-                            </td>
+                            {!simpleMode && (
+                              <td className="px-5 py-4 font-semibold tabular-nums">
+                                <span style={{ textDecoration: "none" }}>{formatMoney(row.totalSpent)}</span>
+                              </td>
+                            )}
 
                             <td className="px-5 py-4 text-ink-muted">
                               {row.lastOrderDate
@@ -383,70 +371,71 @@ export function CustomersPage() {
                                   : "—"}
                             </td>
 
-                            {/* Raise the active dropdown above adjacent rows. */}
-                            <td
-                                className={`relative px-5 py-4 text-right ${
-                                    menuIsOpen ? "z-50" : ""
-                                }`}
-                            >
-                              <Button
-                                  variant="secondary"
-                                  className="min-h-9 px-3"
-                                  aria-haspopup="menu"
-                                  aria-expanded={menuIsOpen}
-                                  onClick={() =>
-                                      setOpenMenu((current) =>
-                                          current === row.customer.customer_phone
-                                              ? null
-                                              : row.customer.customer_phone
-                                      )
-                                  }
+                            {!simpleMode && (
+                              <td
+                                  className={`relative px-5 py-4 text-right ${
+                                      menuIsOpen ? "z-50" : ""
+                                  }`}
                               >
-                            <span className="flex items-center gap-1.5">
-                              {t("Actions")}
-                              <Icon name="chevron" className="size-4" />
-                            </span>
-                              </Button>
+                                <Button
+                                    variant="secondary"
+                                    className="min-h-9 px-3"
+                                    aria-haspopup="menu"
+                                    aria-expanded={menuIsOpen}
+                                    onClick={() =>
+                                        setOpenMenu((current) =>
+                                            current === row.customer.customer_phone
+                                                ? null
+                                                : row.customer.customer_phone
+                                        )
+                                    }
+                                >
+                              <span className="flex items-center gap-1.5">
+                                {t("Actions")}
+                                <Icon name="chevron" className="size-4" />
+                              </span>
+                                </Button>
 
-                              {menuIsOpen && (
-                                  <div
-                                      role="menu"
-                                      className={`absolute right-5 z-[100] w-44 rounded-xl border border-line bg-white p-1.5 text-left shadow-xl ${
-                                          rowIndex >= visibleRows.length - 2
-                                              ? "bottom-14"
-                                              : "top-14"
-                                      }`}
-                                  >
-                                    <ActionItem
-                                        label="View Details"
-                                        onClick={() => {
-                                          void openCustomerDetail(row.customer);
-                                          setOpenMenu(null);
-                                        }}
-                                    />
+                                {menuIsOpen && (
+                                    <div
+                                        role="menu"
+                                        className={`absolute right-5 z-[100] w-44 rounded-xl border border-line bg-white p-1.5 text-left shadow-xl ${
+                                            rowIndex >= visibleRows.length - 2
+                                                ? "bottom-14"
+                                                : "top-14"
+                                        }`}
+                                    >
+                                      <ActionItem
+                                          label="View Details"
+                                          onClick={() => {
+                                            void openCustomerDetail(row.customer);
+                                            setOpenMenu(null);
+                                          }}
+                                      />
 
-                                    <ActionItem
-                                        label="Edit Customer"
-                                        onClick={() => {
-                                          setForm({
-                                            type: "edit",
-                                            customer: row.customer,
-                                          });
-                                          setOpenMenu(null);
-                                        }}
-                                    />
+                                      <ActionItem
+                                          label="Edit Customer"
+                                          onClick={() => {
+                                            setForm({
+                                              type: "edit",
+                                              customer: row.customer,
+                                            });
+                                            setOpenMenu(null);
+                                          }}
+                                      />
 
-                                    <ActionItem
-                                        label="Delete Customer"
-                                        danger
-                                        onClick={() => {
-                                          setPendingDelete(row.customer);
-                                          setOpenMenu(null);
-                                        }}
-                                    />
-                                  </div>
-                              )}
-                            </td>
+                                      <ActionItem
+                                          label="Delete Customer"
+                                          danger
+                                          onClick={() => {
+                                            setPendingDelete(row.customer);
+                                            setOpenMenu(null);
+                                          }}
+                                      />
+                                    </div>
+                                )}
+                              </td>
+                            )}
                           </tr>
                       );
                     })}
@@ -542,9 +531,8 @@ export function CustomersPage() {
                 orders={detailOrders}
                 loading={detailLoading}
                 onClose={() => setDetail(null)}
-                onEdit={() =>
-                    setForm({ type: "edit", customer: detail })
-                }
+                onEdit={() => setForm({ type: "edit", customer: detail })}
+                readOnly={simpleMode}
             />
         )}
 
@@ -852,12 +840,14 @@ function CustomerDetail({
                           loading,
                           onClose,
                           onEdit,
+                          readOnly = false,
                         }: {
   customer: CustomerSummary;
   orders: Order[];
   loading: boolean;
   onClose: () => void;
   onEdit: () => void;
+  readOnly?: boolean;
 }) {
   const { t, formatMoney } = usePreferences();
   useModalScrollLock();
@@ -924,21 +914,18 @@ function CustomerDetail({
                 </div>
               </div>
 
-              <dl className="mt-5 grid grid-cols-2 gap-4 border-t border-line pt-5 text-sm">
-                <div>
-                  <dt className="text-ink-faint">{t("Age")}</dt>
-                  <dd className="mt-1 font-semibold">
-                    {customer.customer_age ?? t("Not recorded")}
-                  </dd>
-                </div>
-
-                <div>
-                  <dt className="text-ink-faint">{t("Gender")}</dt>
-                  <dd className="mt-1 font-semibold">
-                    {customer.customer_gender ?? "Not recorded"}
-                  </dd>
-                </div>
-              </dl>
+              {!readOnly && (
+                <dl className="mt-5 grid grid-cols-2 gap-4 border-t border-line pt-5 text-sm">
+                  <div>
+                    <dt className="text-ink-faint">{t("Age")}</dt>
+                    <dd className="mt-1 font-semibold">{customer.customer_age ?? t("Not recorded")}</dd>
+                  </div>
+                  <div>
+                    <dt className="text-ink-faint">{t("Gender")}</dt>
+                    <dd className="mt-1 font-semibold">{customer.customer_gender ?? "Not recorded"}</dd>
+                  </div>
+                </dl>
+              )}
             </Surface>
 
             <div className="my-5 grid grid-cols-2 gap-3">
@@ -1011,15 +998,13 @@ function CustomerDetail({
             </Surface>
           </div>
 
-          <footer className="shrink-0 border-t border-line bg-white px-5 py-4 pb-[max(1rem,env(safe-area-inset-bottom))] sm:px-6">
-            <Button
-                variant="primary"
-                className="w-full"
-                onClick={onEdit}
-            >
-              {t("Edit Customer")}
-            </Button>
-          </footer>
+          {!readOnly && (
+            <footer className="shrink-0 border-t border-line bg-white px-5 py-4 pb-[max(1rem,env(safe-area-inset-bottom))] sm:px-6">
+              <Button variant="primary" className="w-full" onClick={onEdit}>
+                {t("Edit Customer")}
+              </Button>
+            </footer>
+          )}
         </aside>
       </div>
   );

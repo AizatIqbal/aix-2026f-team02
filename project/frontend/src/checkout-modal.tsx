@@ -35,7 +35,7 @@ export function CheckoutModal({
   onSaved: (saved: SavedOrder) => void;
   onDone: (saved: SavedOrder) => void;
 }) {
-  const { t, productName, formatMoney } = usePreferences();
+  const { t, productName, formatMoney, appMode } = usePreferences();
   const [lines] = useState<CheckoutLine[]>(() =>
     products
       .filter((product) => selection[product.product_id])
@@ -67,6 +67,11 @@ export function CheckoutModal({
   const finalTotal = subtotal - discount;
 
   useEffect(() => {
+    if (appMode !== "advanced") {
+      setAvailableCampaigns([]);
+      return;
+    }
+
     getCampaigns()
       .then((records) => {
         const now = new Date();
@@ -74,7 +79,7 @@ export function CheckoutModal({
         setAvailableCampaigns(records.filter((item) => item.start_date.slice(0, 10) <= today && item.end_date.slice(0, 10) >= today));
       })
       .catch(() => setAvailableCampaigns([]));
-  }, []);
+  }, [appMode]);
 
   useEffect(() => {
     getCustomerSummaries()
@@ -218,7 +223,9 @@ export function CheckoutModal({
             {t("Checkout")}
           </h2>
           <p className="mt-1 text-sm text-ink-muted">
-            {t("Confirm the customer, apply an optional campaign, and complete the sale.")}
+            {appMode === "advanced"
+              ? t("Confirm the customer, apply an optional campaign, and complete the sale.")
+              : t("Confirm the customer and complete the sale.")}
           </p>
         </div>
         <button
@@ -292,6 +299,7 @@ export function CheckoutModal({
             />
           )}
 
+          {appMode === "advanced" && (
           <Surface className="mt-5 p-5">
             <div className="flex items-start justify-between gap-4">
               <div>
@@ -368,6 +376,7 @@ export function CheckoutModal({
               </>
             )}
           </Surface>
+          )}
         </div>
 
         <aside className="flex min-h-0 flex-col border-t border-line bg-canvas lg:border-l lg:border-t-0">
@@ -396,16 +405,20 @@ export function CheckoutModal({
             </div>
             <div className="mt-6 space-y-3 border-t border-line pt-5 text-sm">
               <SummaryRow label={t("Subtotal")} value={formatMoney(subtotal)} />
-              <SummaryRow
-                label={t("Campaign")}
-                value={campaign?.valid ? campaign.code : t("None")}
-                accent={Boolean(campaign?.valid)}
-              />
-              <SummaryRow
-                label={t("Discount")}
-                value={discount ? `−${formatMoney(discount)}` : formatMoney(0)}
-                accent={discount > 0}
-              />
+              {appMode === "advanced" && (
+                <>
+                  <SummaryRow
+                    label={t("Campaign")}
+                    value={campaign?.valid ? campaign.code : t("None")}
+                    accent={Boolean(campaign?.valid)}
+                  />
+                  <SummaryRow
+                    label={t("Discount")}
+                    value={discount ? `−${formatMoney(discount)}` : formatMoney(0)}
+                    accent={discount > 0}
+                  />
+                </>
+              )}
               <div className="border-t border-line pt-4">
                 <SummaryRow label={t("Final total")} value={formatMoney(finalTotal)} strong />
               </div>

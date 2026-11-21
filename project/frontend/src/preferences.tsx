@@ -4,6 +4,7 @@ export type AppLanguage = "en" | "ko";
 export type AppTheme = "light" | "dark";
 export type AppCurrency = "KRW" | "USD" | "MYR";
 export type AppDisplaySize = "compact" | "default" | "large";
+export type AppMode = "simple" | "advanced";
 
 type ExchangeRates = Partial<Record<AppCurrency, number>>;
 type ExchangeRateStatus = "loading" | "ready" | "error";
@@ -12,6 +13,7 @@ const LANGUAGE_KEY = "pointnull-language";
 const THEME_KEY = "pointnull-theme";
 const CURRENCY_KEY = "pointnull-currency";
 const DISPLAY_SIZE_KEY = "pointnull-display-size";
+const APP_MODE_KEY = "pointnull-app-mode";
 const FX_CACHE_KEY = "pointnull-fx-rates";
 const FX_CACHE_TTL = 12 * 60 * 60 * 1000;
 
@@ -28,6 +30,17 @@ const ko: Record<string, string> = {
   "Language / 언어": "언어",
   "Appearance": "화면 테마",
   "Display size": "표시 크기",
+  "App Mode": "앱 모드",
+  "Simple Mode": "간편 모드",
+  "Advanced Mode": "고급 모드",
+  "Choose the workspace that fits your business needs.": "비즈니스 요구에 맞는 작업 공간을 선택하세요.",
+  "Essential tools for daily sales.": "일상적인 판매에 필요한 필수 기능입니다.",
+  "Full tools for growing businesses.": "성장하는 비즈니스를 위한 전체 기능입니다.",
+  "Simple Mode includes selling, a basic customer directory, order history, and Import. Advanced Mode adds Analysis, Marketing, and full customer management.": "간편 모드에서는 판매, 기본 고객 목록, 주문 내역 및 데이터 가져오기를 사용할 수 있습니다. 고급 모드에서는 분석, 마케팅 및 전체 고객 관리 기능이 추가됩니다.",
+  "Switching modes only changes which tools appear. Your existing data remains saved.": "모드를 변경해도 표시되는 기능만 달라지며 기존 데이터는 그대로 저장됩니다.",
+  "Confirm the customer and complete the sale.": "고객을 확인하고 판매를 완료하세요.",
+  "Simple": "간편",
+  "Advanced": "고급",
   "Adjust spacing and text size.": "간격과 글자 크기를 조정하세요.",
   "Compact": "컴팩트",
   "Default": "기본",
@@ -190,6 +203,8 @@ const ko: Record<string, string> = {
   "Back": "뒤로",
   "Confirm": "확인",
   "Download template": "양식 다운로드",
+  "View registered customers and their recent order history.": "등록된 고객과 최근 주문 내역을 확인하세요.",
+  "Customers registered during checkout or imported into PointNull will appear here.": "체크아웃 중 등록하거나 PointNull로 가져온 고객이 여기에 표시됩니다.",
   "Manage customer information and understand customer activity.": "고객 정보를 관리하고 고객 활동을 확인하세요.",
   "Add Customer": "고객 추가",
   "Total Customers": "전체 고객 수",
@@ -524,6 +539,7 @@ interface PreferencesValue {
   theme: AppTheme;
   currency: AppCurrency;
   displaySize: AppDisplaySize;
+  appMode: AppMode;
   exchangeRateStatus: ExchangeRateStatus;
   exchangeRateDate: string;
   exchangeRateError: string;
@@ -531,6 +547,7 @@ interface PreferencesValue {
   setTheme: (theme: AppTheme) => void;
   setCurrency: (currency: AppCurrency) => void;
   setDisplaySize: (size: AppDisplaySize) => void;
+  setAppMode: (mode: AppMode) => void;
   formatMoney: (amountInKrw: number) => string;
   t: (key: string) => string;
   productName: (productId: number, sourceName: string) => string;
@@ -586,6 +603,21 @@ function storedCurrency(): AppCurrency {
   }
 }
 
+function storedAppMode(): AppMode {
+  try {
+    const saved = localStorage.getItem(APP_MODE_KEY);
+    if (saved === "simple" || saved === "advanced") return saved;
+
+    // Preserve the full workspace for existing installations upgrading to this version.
+    // A clean first-time installation starts in Simple Mode.
+    const hasExistingPreferences = [LANGUAGE_KEY, THEME_KEY, CURRENCY_KEY, DISPLAY_SIZE_KEY]
+      .some((key) => localStorage.getItem(key) !== null);
+    return hasExistingPreferences ? "advanced" : "simple";
+  } catch {
+    return "simple";
+  }
+}
+
 function storedDisplaySize(): AppDisplaySize {
   try {
     const saved = localStorage.getItem(DISPLAY_SIZE_KEY);
@@ -608,6 +640,7 @@ export function PreferencesProvider({ children }: { children: ReactNode }) {
   const [theme, setTheme] = useState<AppTheme>(storedTheme);
   const [currency, setCurrencyState] = useState<AppCurrency>(storedCurrency);
   const [displaySize, setDisplaySize] = useState<AppDisplaySize>(storedDisplaySize);
+  const [appMode, setAppModeState] = useState<AppMode>(storedAppMode);
   const [cachedAtStart] = useState<CachedExchangeRates | null>(readCachedExchangeRates);
   const [exchangeRates, setExchangeRates] = useState<ExchangeRates>(() => cachedAtStart?.rates ?? { KRW: 1 });
   const [exchangeRateDate, setExchangeRateDate] = useState(cachedAtStart?.date ?? "");
@@ -629,6 +662,10 @@ export function PreferencesProvider({ children }: { children: ReactNode }) {
     try { localStorage.setItem(DISPLAY_SIZE_KEY, displaySize); } catch { /* Storage may be unavailable. */ }
     document.documentElement.dataset.displaySize = displaySize;
   }, [displaySize]);
+
+  useEffect(() => {
+    try { localStorage.setItem(APP_MODE_KEY, appMode); } catch { /* Storage may be unavailable. */ }
+  }, [appMode]);
 
   useEffect(() => {
     let active = true;
@@ -692,6 +729,8 @@ export function PreferencesProvider({ children }: { children: ReactNode }) {
     };
   }, [cachedAtStart]);
 
+  const setAppMode = useCallback((nextMode: AppMode) => setAppModeState(nextMode), []);
+
   const setCurrency = useCallback((nextCurrency: AppCurrency) => {
     if (nextCurrency !== "KRW" && !exchangeRates[nextCurrency]) return;
     setCurrencyState(nextCurrency);
@@ -738,7 +777,7 @@ export function PreferencesProvider({ children }: { children: ReactNode }) {
     return match?.ko ?? sourceName;
   }, [language]);
 
-  const value = useMemo(() => ({ language, theme, currency, displaySize, exchangeRateStatus, exchangeRateDate, exchangeRateError, setLanguage, setTheme, setCurrency, setDisplaySize, formatMoney, t, productName, categoryName, categoryLabel }), [language, theme, currency, displaySize, exchangeRateStatus, exchangeRateDate, exchangeRateError, setCurrency, formatMoney, t, productName, categoryName, categoryLabel]);
+  const value = useMemo(() => ({ language, theme, currency, displaySize, appMode, exchangeRateStatus, exchangeRateDate, exchangeRateError, setLanguage, setTheme, setCurrency, setDisplaySize, setAppMode, formatMoney, t, productName, categoryName, categoryLabel }), [language, theme, currency, displaySize, appMode, exchangeRateStatus, exchangeRateDate, exchangeRateError, setCurrency, setAppMode, formatMoney, t, productName, categoryName, categoryLabel]);
   return <PreferencesContext.Provider value={value}>{children}</PreferencesContext.Provider>;
 }
 
