@@ -10,18 +10,13 @@ import {
   type CustomerSummary,
   type Order,
 } from "./data-access";
-import { Button, Icon, Input, Surface } from "./ui";
+import { Button, Icon, Input, Surface, useModalScrollLock } from "./ui";
+import { usePreferences } from "./preferences";
 
 type SortKey = "name" | "orders" | "spent";
 type FormMode = { type: "add" } | { type: "edit"; customer: Customer };
 
 const PAGE_SIZE = 6;
-
-const MONEY = new Intl.NumberFormat("ko-KR", {
-  style: "currency",
-  currency: "KRW",
-  maximumFractionDigits: 0,
-});
 
 const DATE = new Intl.DateTimeFormat("en-US", {
   year: "numeric",
@@ -37,6 +32,7 @@ interface CustomerRow {
 }
 
 export function CustomersPage() {
+  const { t, formatMoney } = usePreferences();
   const [customers, setCustomers] = useState<CustomerSummary[]>([]);
   const [detailOrders, setDetailOrders] = useState<Order[]>([]);
   const [detailLoading, setDetailLoading] = useState(false);
@@ -186,11 +182,11 @@ export function CustomersPage() {
         <div className="mb-6 flex flex-wrap items-end justify-between gap-4">
           <div>
             <div className="font-display text-3xl font-bold tracking-tight">
-              Customers
+              {t("Customers")}
             </div>
 
             <div className="mt-1 text-sm text-ink-muted">
-              Manage customer information and understand customer activity.
+              {t("Manage customer information and understand customer activity.")}
             </div>
           </div>
 
@@ -200,7 +196,7 @@ export function CustomersPage() {
           >
           <span className="flex items-center gap-2">
             <Icon name="plus" />
-            Add Customer
+            {t("Add Customer")}
           </span>
           </Button>
         </div>
@@ -213,23 +209,23 @@ export function CustomersPage() {
 
         <div className="mb-5 grid grid-cols-2 gap-3 lg:grid-cols-4">
           <SummaryCard
-              label="Total Customers"
+              label={t("Total Customers")}
               value={String(customers.length)}
           />
 
           <SummaryCard
-              label="Total Orders"
+              label={t("Total Orders")}
               value={String(linkedOrders)}
           />
 
           <SummaryCard
-              label="Total Customer Spending"
-              value={MONEY.format(totalSpent)}
+              label={t("Total Customer Spending")}
+              value={formatMoney(totalSpent)}
           />
 
           <SummaryCard
-              label="Average Spending per Customer"
-              value={MONEY.format(
+              label={t("Average Spending per Customer")}
+              value={formatMoney(
                   customers.length ? totalSpent / customers.length : 0
               )}
           />
@@ -247,13 +243,13 @@ export function CustomersPage() {
                   className="w-full pl-10"
                   value={search}
                   onChange={(event) => setSearch(event.target.value)}
-                  placeholder="Search by name or phone number"
-                  aria-label="Search customers"
+                  placeholder={t("Search by name or phone number")}
+                  aria-label={t("Search customers")}
               />
             </div>
 
             <label className="flex items-center gap-2 text-sm font-semibold text-ink-muted">
-              Sort by
+              {t("Sort by")}
 
               <select
                   className="min-h-11 rounded-xl border border-line bg-white px-3 text-sm text-ink outline-none focus:border-accent"
@@ -262,9 +258,9 @@ export function CustomersPage() {
                       setSort(event.target.value as SortKey)
                   }
               >
-                <option value="name">Customer name</option>
-                <option value="orders">Total orders</option>
-                <option value="spent">Total spending</option>
+                <option value="name">{t("Customer name")}</option>
+                <option value="orders">{t("Total orders")}</option>
+                <option value="spent">{t("Total spending")}</option>
               </select>
             </label>
 
@@ -283,12 +279,11 @@ export function CustomersPage() {
                 </div>
 
                 <h2 className="mt-4 font-display text-xl font-bold">
-                  No customers found
+                  {t("No customers found")}
                 </h2>
 
                 <p className="mt-2 max-w-md text-sm leading-6 text-ink-muted">
-                  Try a different name or phone number, or add a new customer
-                  record.
+                  {t("Try a different name or phone number, or add a new customer record.")}
                 </p>
               </div>
           ) : (
@@ -303,27 +298,27 @@ export function CustomersPage() {
                     <thead className="bg-surface-strong/70 text-xs uppercase tracking-wide text-ink-faint">
                     <tr>
                       <th className="px-5 py-3.5 font-semibold">
-                        Customer
+                        {t("Customer")}
                       </th>
 
                       <th className="px-5 py-3.5 font-semibold">
-                        Phone Number
+                        {t("Phone Number")}
                       </th>
 
                       <th className="px-5 py-3.5 font-semibold">
-                        Total Orders
+                        {t("Total Orders")}
                       </th>
 
                       <th className="px-5 py-3.5 font-semibold">
-                        Total Spent
+                        {t("Total Spent")}
                       </th>
 
                       <th className="px-5 py-3.5 font-semibold">
-                        Last Order Date
+                        {t("Last Order Date")}
                       </th>
 
                       <th className="px-5 py-3.5 text-right font-semibold">
-                        Actions
+                        {t("Actions")}
                       </th>
                     </tr>
                     </thead>
@@ -376,7 +371,7 @@ export function CustomersPage() {
                           <span
                               style={{ textDecoration: "none" }}
                           >
-                            {MONEY.format(row.totalSpent)}
+                            {formatMoney(row.totalSpent)}
                           </span>
                             </td>
 
@@ -408,7 +403,7 @@ export function CustomersPage() {
                                   }
                               >
                             <span className="flex items-center gap-1.5">
-                              Actions
+                              {t("Actions")}
                               <Icon name="chevron" className="size-4" />
                             </span>
                               </Button>
@@ -474,7 +469,7 @@ export function CustomersPage() {
                             setPage((current) => current - 1)
                         }
                     >
-                      Previous
+                      {t("Previous")}
                     </Button>
 
                     <span className="min-w-20 text-center text-sm font-semibold">
@@ -488,7 +483,7 @@ export function CustomersPage() {
                             setPage((current) => current + 1)
                         }
                     >
-                      Next
+                      {t("Next")}
                     </Button>
                   </div>
                 </div>
@@ -628,6 +623,9 @@ function CustomerForm({
   onClose: () => void;
   onSaved: (customer: Customer, originalPhone?: string) => void;
 }) {
+  const { t } = usePreferences();
+  useModalScrollLock();
+
   const existing = mode.type === "edit" ? mode.customer : null;
 
   const [name, setName] = useState(existing?.customer_name ?? "");
@@ -709,7 +707,7 @@ function CustomerForm({
 
   return (
       <div
-          className="fixed inset-0 z-[60] grid place-items-center bg-ink/45 p-5 backdrop-blur-sm"
+          className="fixed inset-0 z-[60] grid place-items-center overflow-y-auto overscroll-contain bg-ink/45 p-2 backdrop-blur-sm sm:p-5"
           role="presentation"
           onMouseDown={onClose}
       >
@@ -717,13 +715,13 @@ function CustomerForm({
             role="dialog"
             aria-modal="true"
             aria-labelledby="customer-form-title"
-            className="w-full max-w-lg overflow-hidden rounded-2xl bg-white shadow-2xl"
+            className="my-auto flex max-h-[calc(100dvh-1rem)] min-h-0 w-full max-w-lg flex-col overflow-hidden rounded-2xl bg-white shadow-2xl sm:max-h-[calc(100dvh-2.5rem)]"
             onMouseDown={(event) => event.stopPropagation()}
         >
-          <header className="flex items-start justify-between border-b border-line px-6 py-5">
+          <header className="flex shrink-0 items-start justify-between border-b border-line px-5 py-4 sm:px-6 sm:py-5">
             <div>
               <div className="text-xs font-bold uppercase tracking-widest text-accent">
-                Customer record
+                {t("Customer record")}
               </div>
 
               <h2
@@ -731,8 +729,8 @@ function CustomerForm({
                   className="mt-1 font-display text-2xl font-bold"
               >
                 {mode.type === "edit"
-                    ? "Edit customer"
-                    : "Add customer"}
+                    ? t("Edit customer")
+                    : t("Add customer")}
               </h2>
             </div>
 
@@ -746,9 +744,10 @@ function CustomerForm({
           </header>
 
           <form
-              className="p-6"
+              className="flex min-h-0 flex-1 flex-col overflow-hidden"
               onSubmit={(event) => void submit(event)}
           >
+            <div className="min-h-0 flex-1 overflow-y-auto overscroll-contain p-5 sm:p-6">
             {error && (
                 <div className="mb-5 rounded-xl bg-danger-soft px-4 py-3 text-sm font-medium text-danger">
                   {error}
@@ -757,7 +756,7 @@ function CustomerForm({
 
             <div className="space-y-4">
               <label className="block text-sm font-semibold">
-                Customer name <span className="text-danger">*</span>
+                {t("Customer name")} <span className="text-danger">*</span>
 
                 <Input
                     className="mt-2 w-full"
@@ -770,7 +769,7 @@ function CustomerForm({
               </label>
 
               <label className="block text-sm font-semibold">
-                Phone number <span className="text-danger">*</span>
+                {t("Phone number")} <span className="text-danger">*</span>
 
                 <Input
                     className="mt-2 w-full tabular-nums"
@@ -786,9 +785,9 @@ function CustomerForm({
 
               <div className="grid gap-4 sm:grid-cols-2">
                 <label className="block text-sm font-semibold">
-                  Age{" "}
+                  {t("Age")} {" "}
                   <span className="font-normal text-ink-faint">
-                  (optional)
+                  ({t("optional")})
                 </span>
 
                   <Input
@@ -803,9 +802,9 @@ function CustomerForm({
                 </label>
 
                 <label className="block text-sm font-semibold">
-                  Gender{" "}
+                  {t("Gender")} {" "}
                   <span className="font-normal text-ink-faint">
-                  (optional)
+                  ({t("optional")})
                 </span>
 
                   <select
@@ -813,30 +812,32 @@ function CustomerForm({
                       value={gender}
                       onChange={(event) => setGender(event.target.value)}
                   >
-                    <option value="">Not recorded</option>
-                    <option value="Woman">Woman</option>
-                    <option value="Man">Man</option>
-                    <option value="Other">Other</option>
+                    <option value="">{t("Not recorded")}</option>
+                    <option value="Woman">{t("Woman")}</option>
+                    <option value="Man">{t("Man")}</option>
+                    <option value="Other">{t("Other")}</option>
                   </select>
                 </label>
               </div>
             </div>
+            </div>
 
-            <div className="mt-7 flex justify-end gap-3">
-              <Button type="button" onClick={onClose}>
-                Cancel
+            <div className="flex shrink-0 flex-col-reverse gap-2 border-t border-line bg-white px-5 py-4 sm:flex-row sm:justify-end sm:gap-3 sm:px-6">
+              <Button type="button" onClick={onClose} className="w-full sm:w-auto">
+                {t("Cancel")}
               </Button>
 
               <Button
                   variant="primary"
                   type="submit"
                   disabled={saving}
+                  className="w-full sm:w-auto"
               >
                 {saving
-                    ? "Saving…"
+                    ? t("Saving…")
                     : mode.type === "edit"
-                        ? "Save changes"
-                        : "Add customer"}
+                        ? t("Save changes")
+                        : t("Add customer")}
               </Button>
             </div>
           </form>
@@ -858,6 +859,9 @@ function CustomerDetail({
   onClose: () => void;
   onEdit: () => void;
 }) {
+  const { t, formatMoney } = usePreferences();
+  useModalScrollLock();
+
   const sortedOrders = [...orders].sort((a, b) =>
       `${b.order_date}${b.order_time}`.localeCompare(
           `${a.order_date}${a.order_time}`
@@ -868,21 +872,21 @@ function CustomerDetail({
 
   return (
       <div
-          className="fixed inset-0 z-50 flex justify-end bg-ink/35 backdrop-blur-sm"
+          className="fixed inset-0 z-50 flex justify-end overflow-hidden bg-ink/35 backdrop-blur-sm"
           role="presentation"
           onMouseDown={onClose}
       >
         <aside
-            className="flex h-full w-full max-w-xl flex-col bg-canvas shadow-2xl"
+            className="flex h-[100dvh] min-h-0 w-full max-w-xl flex-col overflow-hidden bg-canvas shadow-2xl"
             role="dialog"
             aria-modal="true"
             aria-labelledby="customer-detail-title"
             onMouseDown={(event) => event.stopPropagation()}
         >
-          <header className="flex items-start justify-between border-b border-line bg-white px-6 py-5">
+          <header className="flex shrink-0 items-start justify-between border-b border-line bg-white px-5 py-4 sm:px-6 sm:py-5">
             <div>
               <div className="text-xs font-bold uppercase tracking-widest text-accent">
-                Customer details
+                {t("Customer details")}
               </div>
 
               <h2
@@ -902,7 +906,7 @@ function CustomerDetail({
             </button>
           </header>
 
-          <div className="flex-1 overflow-y-auto p-6">
+          <div className="min-h-0 flex-1 overflow-y-auto overscroll-contain p-4 sm:p-6">
             <Surface className="p-5">
               <div className="flex items-center gap-4">
               <span className="flex size-14 items-center justify-center rounded-2xl bg-accent-soft font-display text-xl font-bold text-accent-strong">
@@ -922,14 +926,14 @@ function CustomerDetail({
 
               <dl className="mt-5 grid grid-cols-2 gap-4 border-t border-line pt-5 text-sm">
                 <div>
-                  <dt className="text-ink-faint">Age</dt>
+                  <dt className="text-ink-faint">{t("Age")}</dt>
                   <dd className="mt-1 font-semibold">
-                    {customer.customer_age ?? "Not recorded"}
+                    {customer.customer_age ?? t("Not recorded")}
                   </dd>
                 </div>
 
                 <div>
-                  <dt className="text-ink-faint">Gender</dt>
+                  <dt className="text-ink-faint">{t("Gender")}</dt>
                   <dd className="mt-1 font-semibold">
                     {customer.customer_gender ?? "Not recorded"}
                   </dd>
@@ -940,7 +944,7 @@ function CustomerDetail({
             <div className="my-5 grid grid-cols-2 gap-3">
               <Surface className="p-5">
                 <div className="text-xs font-semibold uppercase tracking-wide text-ink-faint">
-                  Total Orders
+                  {t("Total Orders")}
                 </div>
 
                 <div className="mt-2 font-display text-2xl font-bold">
@@ -950,21 +954,21 @@ function CustomerDetail({
 
               <Surface className="p-5">
                 <div className="text-xs font-semibold uppercase tracking-wide text-ink-faint">
-                  Total Spent
+                  {t("Total Spent")}
                 </div>
 
                 <div className="mt-2 font-display text-2xl font-bold">
-                  {MONEY.format(totalSpent)}
+                  {formatMoney(totalSpent)}
                 </div>
               </Surface>
             </div>
 
             <h3 className="font-display text-lg font-bold">
-              Recent order history
+              {t("Recent order history")}
             </h3>
 
             <p className="mt-1 text-sm text-ink-muted">
-              Orders linked to this phone number.
+              {t("Orders linked to this phone number.")}
             </p>
 
             <Surface className="mt-4 overflow-hidden">
@@ -994,26 +998,26 @@ function CustomerDetail({
                           </div>
 
                           <div className="font-semibold tabular-nums">
-                            {MONEY.format(order.total)}
+                            {formatMoney(order.total)}
                           </div>
                         </div>
                     ))}
                   </div>
               ) : (
                   <div className="p-8 text-center text-sm text-ink-muted">
-                    No orders are linked to this customer yet.
+                    {t("No orders are linked to this customer yet.")}
                   </div>
               )}
             </Surface>
           </div>
 
-          <footer className="border-t border-line bg-white px-6 py-4">
+          <footer className="shrink-0 border-t border-line bg-white px-5 py-4 pb-[max(1rem,env(safe-area-inset-bottom))] sm:px-6">
             <Button
                 variant="primary"
                 className="w-full"
                 onClick={onEdit}
             >
-              Edit Customer
+              {t("Edit Customer")}
             </Button>
           </footer>
         </aside>
@@ -1030,9 +1034,12 @@ function ConfirmDelete({
   onClose: () => void;
   onConfirm: () => void;
 }) {
+  const { t } = usePreferences();
+  useModalScrollLock();
+
   return (
       <div
-          className="fixed inset-0 z-[70] grid place-items-center bg-ink/45 p-5 backdrop-blur-sm"
+          className="fixed inset-0 z-[70] grid place-items-center overflow-y-auto overscroll-contain bg-ink/45 p-3 backdrop-blur-sm sm:p-5"
           role="presentation"
           onMouseDown={onClose}
       >
@@ -1040,7 +1047,7 @@ function ConfirmDelete({
             role="alertdialog"
             aria-modal="true"
             aria-labelledby="delete-title"
-            className="w-full max-w-md rounded-2xl bg-white p-6 shadow-2xl"
+            className="my-auto max-h-[calc(100dvh-1.5rem)] w-full max-w-md overflow-y-auto overscroll-contain rounded-2xl bg-white p-5 shadow-2xl sm:p-6"
             onMouseDown={(event) => event.stopPropagation()}
         >
           <div className="flex size-12 items-center justify-center rounded-2xl bg-danger-soft text-danger">
@@ -1055,15 +1062,14 @@ function ConfirmDelete({
           </h2>
 
           <p className="mt-2 text-sm leading-6 text-ink-muted">
-            This removes the customer record. Existing orders will remain
-            in sales history but will no longer be linked to this customer.
+            {t("This removes the customer record. Existing orders will remain in sales history but will no longer be linked to this customer.")}
           </p>
 
           <div className="mt-6 flex justify-end gap-3">
-            <Button onClick={onClose}>Cancel</Button>
+            <Button onClick={onClose}>{t("Cancel")}</Button>
 
             <Button
-                className="border-danger bg-danger text-white hover:bg-danger"
+                variant="danger"
                 onClick={onConfirm}
             >
               Delete Customer

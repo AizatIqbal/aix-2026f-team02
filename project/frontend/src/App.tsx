@@ -27,8 +27,10 @@ import {
   type ImportResult,
   type StatisticsGroup,
 } from "./data-access";
-import { Button, CardButton, Icon, IconButton, Input, Surface } from "./ui";
+import { Button, CardButton, Icon, IconButton, Input, Surface, useModalScrollLock } from "./ui";
 import { LazySection } from "./lazy-section";
+import { usePreferences } from "./preferences";
+import { SettingsDrawer } from "./settings-drawer";
 
 // Code for these screens is downloaded the first time each one is opened,
 // so the menu (the first screen) starts with a much smaller bundle.
@@ -91,16 +93,6 @@ const GROUP_LABELS: Record<StatisticsGroup, string> = {
   year: "Yearly",
 };
 const DAYS = ["Monday", "Tuesday", "Wednesday", "Thursday", "Friday", "Saturday", "Sunday"];
-const CURRENCY = new Intl.NumberFormat("ko-KR", {
-  style: "currency",
-  currency: "KRW",
-  maximumFractionDigits: 0,
-});
-
-function formatMoney(value: number): string {
-  return CURRENCY.format(value);
-}
-
 function App() {
   const [tab, setTab] = useState<WorkingTab>("menu");
   const [data, setData] = useState<AppData>(EMPTY_DATA);
@@ -116,6 +108,7 @@ function App() {
   const [pendingDeactivation, setPendingDeactivation] = useState<Product | null>(null);
   const [managementMode, setManagementMode] = useState(false);
   const [importOpen, setImportOpen] = useState(false);
+  const [settingsOpen, setSettingsOpen] = useState(false);
   const [splashVisible, setSplashVisible] = useState(
     () => sessionStorage.getItem("pointnull-intro-seen") !== "true",
   );
@@ -194,7 +187,13 @@ function App() {
 
   return (
     <div className="min-h-screen bg-canvas text-ink">
-      <Header clock={clock} tab={tab} onTabChange={setTab} onImport={() => setImportOpen(true)} />
+      <Header
+        clock={clock}
+        tab={tab}
+        onTabChange={setTab}
+        onImport={() => setImportOpen(true)}
+        onSettings={() => setSettingsOpen(true)}
+      />
       <main className="mx-auto w-full max-w-screen-2xl px-5 pb-28 pt-7 lg:px-8">
         {error && (
           <div className="mb-5 flex min-h-12 items-center rounded-xl border border-danger/20 bg-danger-soft px-4 text-sm font-medium text-danger">
@@ -365,6 +364,7 @@ function App() {
           />
         </Suspense>
       )}
+      {settingsOpen && <SettingsDrawer onClose={() => setSettingsOpen(false)} />}
       {splashVisible && <StartupSplash leaving={splashLeaving} />}
     </div>
   );
@@ -409,12 +409,15 @@ function Header({
   tab,
   onTabChange,
   onImport,
+  onSettings,
 }: {
   clock: Date;
   tab: WorkingTab;
   onTabChange: (tab: WorkingTab) => void;
   onImport: () => void;
+  onSettings: () => void;
 }) {
+  const { t, language } = usePreferences();
   return (
     <header className="sticky top-0 z-40 border-b border-line bg-white/95 backdrop-blur">
       <div className="mx-auto flex min-h-18 max-w-screen-2xl items-center gap-2 px-3 sm:px-5 lg:gap-6 lg:px-8">
@@ -422,7 +425,7 @@ function Header({
           <img src="/favicon.svg" alt="PointNull" className="size-10 rounded-xl" />
           <div className="hidden sm:block">
             <div className="font-display text-lg font-bold leading-tight">PointNull</div>
-            <div className="text-xs font-medium text-ink-faint">Sales workspace</div>
+            <div className="text-xs font-medium text-ink-faint">{t("Sales workspace")}</div>
           </div>
         </div>
         <nav
@@ -435,7 +438,7 @@ function Header({
             className={tab === "menu" ? "bg-accent-soft text-accent-strong" : ""}
           >
             <span className="flex items-center gap-2">
-              <Icon name="grid" /> Sell
+              <Icon name="grid" /> {t("Sell")}
             </span>
           </Button>
           <Button
@@ -444,11 +447,11 @@ function Header({
             className={tab === "analysis" ? "bg-accent-soft text-accent-strong" : ""}
           >
             <span className="flex items-center gap-2">
-              <Icon name="chart" /> Analysis
+              <Icon name="chart" /> {t("Analysis")}
             </span>
           </Button>
           <Button variant="ghost" onClick={() => onTabChange("marketing")} className={tab === "marketing" ? "bg-accent-soft text-accent-strong" : ""}>
-            <span className="flex items-center gap-2"><Icon name="megaphone" /> Marketing</span>
+            <span className="flex items-center gap-2"><Icon name="megaphone" /> {t("Marketing")}</span>
           </Button>
           <Button
             variant="ghost"
@@ -456,7 +459,7 @@ function Header({
             className={tab === "customers" ? "bg-accent-soft text-accent-strong" : ""}
           >
             <span className="flex items-center gap-2">
-              <Icon name="users" /> Customers
+              <Icon name="users" /> {t("Customers")}
             </span>
           </Button>
           <Button
@@ -466,21 +469,30 @@ function Header({
               tab === "orders" ? "bg-accent-soft text-accent-strong" : ""
             }`}
           >
-            Orders
+            <span className="flex items-center gap-2">
+              <Icon name="receipt" /> {t("Orders")}
+            </span>
           </Button>
         </nav>
         <Button variant="secondary" onClick={onImport} className="shrink-0 px-3 sm:px-4">
-          <span className="hidden md:inline">Import data</span>
-          <span className="md:hidden">Import</span>
+          <span className="hidden md:inline">{t("Import data")}</span>
+          <span className="md:hidden">{t("Import")}</span>
         </Button>
+        <IconButton
+          label={t("Settings")}
+          onClick={onSettings}
+          className="size-10 shrink-0"
+        >
+          <img src="/pointnull-settings-gear.svg" alt="" aria-hidden="true" className="size-5 object-contain" />
+        </IconButton>
         <div className="hidden shrink-0 items-center gap-2 text-right md:flex">
           <Icon name="clock" className="size-5 text-accent" />
           <div>
             <div className="text-sm font-semibold">
-              {clock.toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" })}
+              {clock.toLocaleTimeString(language === "ko" ? "ko-KR" : "en-US", { hour: "2-digit", minute: "2-digit" })}
             </div>
             <div className="text-xs text-ink-faint">
-              {clock.toLocaleDateString([], { weekday: "short", month: "short", day: "numeric" })}
+              {clock.toLocaleDateString(language === "ko" ? "ko-KR" : "en-US", { weekday: "short", month: "short", day: "numeric" })}
             </div>
           </div>
         </div>
@@ -518,6 +530,7 @@ function Menu({
   onDeactivateProduct: (product: Product) => void;
   onReactivateProduct: (product: Product) => void;
 }) {
+  const { t, productName, categoryName, formatMoney } = usePreferences();
   const [feedbackProductId, setFeedbackProductId] = useState<number | null>(null);
   const availableProducts = managementMode
     ? products
@@ -542,16 +555,16 @@ function Menu({
       <div className="mb-6 flex items-end justify-between gap-4">
         <div>
           <div className="font-display text-3xl font-bold tracking-tight">
-            {managementMode ? "Manage products" : "New sale"}
+            {managementMode ? t("Manage products") : t("New sale")}
           </div>
           <div className="mt-1 text-sm text-ink-muted">
             {managementMode
-              ? "Edit menu information and control product availability."
-              : "Choose products for the current order."}
+              ? t("Edit menu information and control product availability.")
+              : t("Choose products for the current order.")}
           </div>
         </div>
         <div className="hidden rounded-full bg-white px-3 py-2 text-xs font-semibold text-ink-muted shadow-sm sm:block">
-          {availableProducts.length} {managementMode ? "total items" : "available items"}
+          {availableProducts.length} {t(managementMode ? "total items" : "available items")}
         </div>
       </div>
       <div className="mb-6 flex flex-wrap items-center gap-2">
@@ -560,7 +573,7 @@ function Menu({
             variant={selectedCategory === "all" ? "primary" : "chip"}
             onClick={() => onCategoryChange("all")}
           >
-            All
+            {t("All")}
           </Button>
           {categories.map((item) => (
             <Button
@@ -569,7 +582,7 @@ function Menu({
               onClick={() => onCategoryChange(item.category_id)}
               className="whitespace-nowrap"
             >
-              {item.category_name}
+              {categoryName(item.category_id, item.category_name)}
             </Button>
           ))}
         </div>
@@ -579,12 +592,12 @@ function Menu({
             onClick={() => onManagementModeChange(!managementMode)}
             aria-pressed={managementMode}
           >
-            {managementMode ? "Done managing" : "Manage Products"}
+            {t(managementMode ? "Done managing" : "Manage Products")}
           </Button>
           {managementMode && (
             <Button variant="primary" onClick={onAddProduct}>
               <span className="flex items-center gap-2">
-                <Icon name="plus" /> Add product
+                <Icon name="plus" /> {t("Add product")}
               </span>
             </Button>
           )}
@@ -594,8 +607,8 @@ function Menu({
         <LoadingGrid />
       ) : visibleProducts.length === 0 ? (
         <EmptyState
-          title="No menu items to show"
-          message="Products from the connected database will appear here."
+          title={t("No menu items to show")}
+          message={t("Products from the connected database will appear here.")}
         />
       ) : (
         <div className="grid grid-cols-2 gap-3 md:grid-cols-3 lg:grid-cols-5 xl:grid-cols-6">
@@ -625,16 +638,16 @@ function Menu({
                       <>
                         <span className="absolute size-24 rounded-full border-[18px] border-white/35 transition-transform group-hover:scale-110" />
                         <span className="relative">
-                          {product.product_name.slice(0, 1).toUpperCase()}
+                          {productName(product.product_id, product.product_name).slice(0, 1).toUpperCase()}
                         </span>
                       </>
                     )}
                     <span className="pointer-events-none absolute left-3 top-3 rounded-full bg-white/90 px-2 py-1 text-[10px] font-semibold text-ink-muted shadow-sm">
-                      {categoryMap.get(product.category_id) ?? "Uncategorized"}
+                      {categoryName(product.category_id, categoryMap.get(product.category_id) ?? "Uncategorized")}
                     </span>
                     {inactive && (
                       <span className="pointer-events-none absolute right-3 top-3 rounded-full bg-ink px-2 py-1 text-[10px] font-bold text-white shadow-sm">
-                        Inactive
+                        {t("Inactive")}
                       </span>
                     )}
                     <span
@@ -645,7 +658,7 @@ function Menu({
                   </div>
                   <div className="p-3.5">
                     <div className="min-h-10 font-display text-sm font-bold leading-snug">
-                      {product.product_name}
+                      {productName(product.product_id, product.product_name)}
                     </div>
                     <div className="mt-2 flex items-center justify-between gap-2">
                       <div className="text-lg font-extrabold text-ink">
@@ -661,19 +674,19 @@ function Menu({
                             inactive ? "bg-ink-faint" : "bg-accent"
                           }`}
                         />{" "}
-                        {inactive ? "Not for sale" : "Available"}
+                        {t(inactive ? "Not for sale" : "Available")}
                       </div>
                     </div>
                     <div className="mt-2 text-[10px] font-medium text-ink-faint">
                       Item #{String(product.product_id).padStart(3, "0")} ·{" "}
-                      {managementMode ? "Management mode" : "Tap to add"}
+                      {t(managementMode ? "Management mode" : "Tap to add")}
                     </div>
                   </div>
                 </CardButton>
                 {managementMode && (
                   <div className="flex gap-2 border-t border-line bg-white p-3">
                     <Button className="min-h-9 flex-1 px-3" onClick={() => onEditProduct(product)}>
-                      Edit
+                      {t("Edit")}
                     </Button>
                     <Button
                       className={`min-h-9 flex-1 px-3 ${
@@ -685,14 +698,14 @@ function Menu({
                         inactive ? onReactivateProduct(product) : onDeactivateProduct(product)
                       }
                     >
-                      {inactive ? "Reactivate" : "Deactivate"}
+                      {t(inactive ? "Reactivate" : "Deactivate")}
                     </Button>
                   </div>
                 )}
                 {!managementMode && quantity > 0 && (
                   <div className="absolute bottom-3 right-3 z-10 flex items-center gap-1 rounded-xl bg-ink p-1 text-white shadow-lg">
                     <IconButton
-                      label={`Remove one ${product.product_name}`}
+                      label={`Remove one ${productName(product.product_id, product.product_name)}`}
                       className="size-9 min-h-0 rounded-lg border-0 !bg-transparent !text-white hover:!bg-white/15"
                       onClick={() => onQuantityChange(product.product_id, -1)}
                     >
@@ -704,7 +717,7 @@ function Menu({
                     </div>
 
                     <IconButton
-                      label={`Add one ${product.product_name}`}
+                      label={`Add one ${productName(product.product_id, product.product_name)}`}
                       className="size-9 min-h-0 rounded-lg border-0 !bg-transparent !text-white hover:!bg-white/15"
                       onClick={() => onQuantityChange(product.product_id, 1)}
                     >
@@ -732,6 +745,9 @@ function ProductFormModal({
   onClose: () => void;
   onSaved: (product: Product) => void;
 }) {
+  const { t, categoryName } = usePreferences();
+  useModalScrollLock();
+
   const [name, setName] = useState(product?.product_name ?? "");
   const [categoryId, setCategoryId] = useState(product?.category_id.toString() ?? "");
   const [price, setPrice] = useState(product?.price.toString() ?? "");
@@ -808,35 +824,36 @@ function ProductFormModal({
 
   return (
     <div
-      className="fixed inset-0 z-50 grid place-items-center bg-ink/45 p-5 backdrop-blur-sm"
+      className="fixed inset-0 z-50 flex items-center justify-center overflow-y-auto overscroll-contain bg-ink/45 p-2 backdrop-blur-sm sm:p-5"
       role="presentation"
       onMouseDown={onClose}
     >
       <section
-        className="w-full max-w-lg overflow-hidden rounded-2xl bg-white shadow-2xl"
+        className="my-auto flex max-h-[calc(100dvh-1rem)] min-h-0 w-full max-w-lg flex-col overflow-hidden rounded-2xl bg-white shadow-2xl sm:max-h-[calc(100dvh-2.5rem)]"
         role="dialog"
         aria-modal="true"
         aria-labelledby="product-modal-title"
         onMouseDown={(event) => event.stopPropagation()}
       >
-        <header className="flex items-start justify-between border-b border-line px-6 py-5">
+        <header className="flex shrink-0 items-start justify-between border-b border-line px-5 py-4 sm:px-6 sm:py-5">
           <div>
             <div className="text-xs font-bold uppercase tracking-widest text-accent">
-              Sell setup
+              {t("Sell setup")}
             </div>
             <h2 id="product-modal-title" className="mt-1 font-display text-2xl font-bold">
-              {product ? "Edit product" : "Add product"}
+              {product ? t("Edit product") : t("Add product")}
             </h2>
           </div>
           <button
             className="flex size-10 items-center justify-center rounded-xl border border-line text-xl text-ink-muted hover:bg-surface-strong"
             onClick={onClose}
-            aria-label="Close product form"
+            aria-label={t("Close product form")}
           >
             ×
           </button>
         </header>
-        <form onSubmit={(event) => void submit(event)} className="p-6">
+        <form onSubmit={(event) => void submit(event)} className="flex min-h-0 flex-1 flex-col overflow-hidden">
+          <div className="min-h-0 flex-1 overflow-y-auto overscroll-contain p-5 sm:p-6">
           {error && (
             <div className="mb-5 rounded-xl bg-danger-soft px-4 py-3 text-sm font-medium text-danger">
               {error}
@@ -844,7 +861,7 @@ function ProductFormModal({
           )}
           <div className="space-y-4">
             <label className="block text-sm font-semibold">
-              Product name <span className="text-danger">*</span>
+              {t("Product name")} <span className="text-danger">*</span>
               <Input
                 className="mt-2 w-full"
                 value={name}
@@ -855,23 +872,23 @@ function ProductFormModal({
               />
             </label>
             <label className="block text-sm font-semibold">
-              Category <span className="text-danger">*</span>
+              {t("Category")} <span className="text-danger">*</span>
               <select
                 className="mt-2 min-h-11 w-full rounded-xl border border-line bg-white px-3 text-sm outline-none focus:border-accent focus:ring-2 focus:ring-accent/15"
                 value={categoryId}
                 onChange={(event) => setCategoryId(event.target.value)}
                 required
               >
-                <option value="">Choose a category</option>
+                <option value="">{t("Choose a category")}</option>
                 {categories.map((item) => (
                   <option key={item.category_id} value={item.category_id}>
-                    {item.category_name}
+                    {categoryName(item.category_id, item.category_name)}
                   </option>
                 ))}
               </select>
             </label>
             <label className="block text-sm font-semibold">
-              Price <span className="text-danger">*</span>
+              {t("Price")} <span className="text-danger">*</span>
               <div className="relative mt-2">
                 <span className="absolute left-3 top-1/2 -translate-y-1/2 text-sm text-ink-faint">
                   ₩
@@ -890,7 +907,7 @@ function ProductFormModal({
             </label>
             <div className="block text-sm font-semibold">
               <label htmlFor="product-image-file">
-                Product image <span className="font-normal text-ink-faint">(optional)</span>
+                {t("Product image")} <span className="font-normal text-ink-faint">({t("optional")})</span>
               </label>
               <Input
                 id="product-image-file"
@@ -924,11 +941,12 @@ function ProductFormModal({
               )}
             </div>
           </div>
-          <div className="mt-7 flex justify-end gap-3">
-            <Button type="button" onClick={onClose}>
+          </div>
+          <div className="flex shrink-0 flex-col-reverse gap-2 border-t border-line bg-white px-5 py-4 sm:flex-row sm:justify-end sm:gap-3 sm:px-6">
+            <Button type="button" onClick={onClose} className="w-full sm:w-auto">
               Cancel
             </Button>
-            <Button variant="primary" type="submit" disabled={saving}>
+            <Button variant="primary" type="submit" disabled={saving} className="w-full sm:w-auto">
               {saving ? "Saving…" : product ? "Save changes" : "Add product"}
             </Button>
           </div>
@@ -947,14 +965,17 @@ function DeactivateProductDialog({
   onClose: () => void;
   onConfirm: () => void;
 }) {
+  const { t, productName } = usePreferences();
+  useModalScrollLock();
+
   return (
     <div
-      className="fixed inset-0 z-[60] grid place-items-center bg-ink/45 p-5 backdrop-blur-sm"
+      className="fixed inset-0 z-[60] grid place-items-center overflow-y-auto overscroll-contain bg-ink/45 p-3 backdrop-blur-sm sm:p-5"
       role="presentation"
       onMouseDown={onClose}
     >
       <section
-        className="w-full max-w-md rounded-2xl bg-white p-6 shadow-2xl"
+        className="my-auto max-h-[calc(100dvh-1.5rem)] w-full max-w-md overflow-y-auto overscroll-contain rounded-2xl bg-white p-5 shadow-2xl sm:p-6"
         role="alertdialog"
         aria-modal="true"
         aria-labelledby="deactivate-product-title"
@@ -964,7 +985,7 @@ function DeactivateProductDialog({
           <Icon name="minus" className="size-6" />
         </div>
         <h2 id="deactivate-product-title" className="mt-5 font-display text-xl font-bold">
-          Deactivate {product.product_name}?
+          {t("Deactivate")} {productName(product.product_id, product.product_name)}?
         </h2>
         <p className="mt-2 text-sm leading-6 text-ink-muted">
           This product will no longer appear in normal POS selection. Historical orders and sales
@@ -995,6 +1016,13 @@ function SummaryBar({
   total: number;
   onNext: () => void;
 }) {
+  const { t, language, formatMoney } = usePreferences();
+  const itemStatus = itemCount === 0
+    ? t("No products added yet")
+    : language === "ko"
+      ? `${itemCount}개 상품 ${t("ready for checkout")}`
+      : `${itemCount} ${itemCount === 1 ? t("item") : t("items")} ${t("ready for checkout")}`;
+
   return (
     <div className="fixed inset-x-0 bottom-0 z-40 border-t border-line bg-white/95 px-5 py-3 shadow-bar backdrop-blur">
       <div className="mx-auto flex max-w-screen-2xl items-center justify-between gap-5">
@@ -1005,23 +1033,21 @@ function SummaryBar({
           <div className="min-w-0">
             <div className="flex items-center gap-2">
               <div className="text-xs font-bold uppercase tracking-wide text-ink">
-                Current order
+                {t("Current order")}
               </div>
               <span className="rounded-full bg-surface-strong px-2 py-0.5 text-[10px] font-semibold text-ink-muted">
-                Draft
+                {t("Draft")}
               </span>
             </div>
             <div className="mt-0.5 truncate text-xs text-ink-faint">
-              {itemCount === 0
-                ? "No products added yet"
-                : `${itemCount} ${itemCount === 1 ? "item" : "items"} ready for checkout`}
+              {itemStatus}
             </div>
           </div>
         </div>
         <div className="flex items-center gap-5">
           <div className="text-right">
             <div className="text-[10px] font-semibold uppercase tracking-wide text-ink-faint">
-              Order total
+              {t("Order total")}
             </div>
             <div className="font-display text-2xl font-extrabold">{formatMoney(total)}</div>
           </div>
@@ -1032,7 +1058,7 @@ function SummaryBar({
             className="min-w-44"
           >
             <span className="flex items-center justify-center gap-2">
-              Complete Transaction <Icon name="arrow" />
+              {t("Complete Transaction")} <Icon name="arrow" />
             </span>
           </Button>
         </div>
@@ -1068,6 +1094,7 @@ function statisticsQuery(filters: Filters): URLSearchParams {
 }
 
 function Analysis({ data, loading }: { data: AppData; loading: boolean }) {
+  const { t, language, productName, categoryName, formatMoney } = usePreferences();
   const [filters, setFilters] = useState<Filters>(DEFAULT_FILTERS);
   const [view, setView] = useState<"sales" | "marketing">("sales");
   const [trendProductId, setTrendProductId] = useState(0);
@@ -1145,12 +1172,12 @@ function Analysis({ data, loading }: { data: AppData; loading: boolean }) {
         filters: current ? filters : undefined,
       });
       setExportOpen(false);
-      setExportStatus({ state: "success", message: `${filename} downloaded` });
+      setExportStatus({ state: "success", message: `${filename} · ${t("downloaded")}` });
       window.setTimeout(() => setExportStatus({ state: "idle" }), 3500);
     } catch (caught) {
       setExportStatus({
         state: "error",
-        message: caught instanceof Error ? caught.message : "Export failed. Please try again.",
+        message: caught instanceof Error ? caught.message : t("Export failed. Please try again."),
       });
     }
   }
@@ -1161,31 +1188,31 @@ function Analysis({ data, loading }: { data: AppData; loading: boolean }) {
     <section>
       <div className="mb-6 flex flex-wrap items-end justify-between gap-4">
         <div>
-          <div className="font-display text-3xl font-bold tracking-tight">Analysis</div>
+          <div className="font-display text-3xl font-bold tracking-tight">{t("Analysis")}</div>
           <div className="mt-1 text-sm text-ink-muted">
-            Explore sales, customers, and campaign performance.
+            {t("Explore sales, customers, and campaign performance.")}
           </div>
         </div>
-        <div className="flex flex-wrap gap-2" role="group" aria-label="Analysis view">
+        <div className="flex flex-wrap gap-2" role="group" aria-label={t("Analysis view")}>
           <Button
             aria-pressed={view === "sales"}
             variant={view === "sales" ? "primary" : "secondary"}
             onClick={() => setView("sales")}
           >
-            Sales analysis
+            {t("Sales analysis")}
           </Button>
           <Button
             aria-pressed={view === "marketing"}
             variant={view === "marketing" ? "primary" : "secondary"}
             onClick={() => setView("marketing")}
           >
-            Marketing analysis
+            {t("Marketing analysis")}
           </Button>
         </div>
       </div>
       <Surface className="mb-5 p-4">
         <div className="flex flex-wrap items-end gap-4">
-          <FilterGroup label="Date range">
+          <FilterGroup label={t("Date range")}>
             <div className="flex gap-1 rounded-xl bg-surface-strong p-1">
               {(["today", "7d", "30d", "all"] as DatePreset[]).map((preset) => (
                 <Button
@@ -1194,23 +1221,23 @@ function Analysis({ data, loading }: { data: AppData; loading: boolean }) {
                   onClick={() => setFilters((current) => ({ ...current, preset }))}
                   className={`min-h-9 px-3 ${filters.preset === preset ? "bg-white text-accent-strong shadow-sm" : ""}`}
                 >
-                  {preset === "today" ? "Today" : preset === "all" ? "All" : preset}
+                  {preset === "today" ? t("Today") : preset === "all" ? t("All") : t(preset)}
                 </Button>
               ))}
             </div>
           </FilterGroup>
           {view === "sales" && (
-            <FilterGroup label="Campaign used">
+            <FilterGroup label={t("Campaign used")}>
               <select
-                aria-label="Filter sales by campaign used"
+                aria-label={t("Filter sales by campaign used")}
                 className="min-h-11 min-w-48 rounded-xl border border-line bg-white px-3 text-sm"
                 value={filters.promocode}
                 onChange={(event) =>
                   setFilters((current) => ({ ...current, promocode: event.target.value }))
                 }
               >
-                <option value="">All campaigns</option>
-                <option value="__none__">No campaign code</option>
+                <option value="">{t("All campaigns")}</option>
+                <option value="__none__">{t("No campaign code")}</option>
                 {campaignOptions.map((campaign) => (
                   <option key={campaign.promocode} value={campaign.promocode}>
                     {campaign.campaign_name} ({campaign.promocode})
@@ -1220,9 +1247,9 @@ function Analysis({ data, loading }: { data: AppData; loading: boolean }) {
             </FilterGroup>
           )}
           {view === "sales" && (
-            <FilterGroup label="Group by">
+            <FilterGroup label={t("Group by")}>
               <select
-                aria-label="Group by"
+                aria-label={t("Group by")}
                 className="min-h-11 rounded-xl border border-line bg-white px-3 text-sm"
                 value={filters.group}
                 onChange={(event) =>
@@ -1234,13 +1261,13 @@ function Analysis({ data, loading }: { data: AppData; loading: boolean }) {
               >
                 {(Object.keys(GROUP_LABELS) as StatisticsGroup[]).map((group) => (
                   <option key={group} value={group}>
-                    {GROUP_LABELS[group]}
+                    {t(GROUP_LABELS[group])}
                   </option>
                 ))}
               </select>
             </FilterGroup>
           )}
-          <FilterGroup label="Time of day">
+          <FilterGroup label={t("Time of day")}>
             <div className="flex items-center gap-2">
               <Input
                 type="time"
@@ -1249,7 +1276,7 @@ function Analysis({ data, loading }: { data: AppData; loading: boolean }) {
                   setFilters((current) => ({ ...current, startTime: event.target.value }))
                 }
               />
-              <span className="text-ink-faint">to</span>
+              <span className="text-ink-faint">{t("to")}</span>
               <Input
                 type="time"
                 value={filters.endTime}
@@ -1259,7 +1286,7 @@ function Analysis({ data, loading }: { data: AppData; loading: boolean }) {
               />
             </div>
           </FilterGroup>
-          <FilterGroup label="Day of week">
+          <FilterGroup label={t("Day of week")}>
             <div className="flex flex-wrap gap-1">
               {DAYS.map((day) => (
                 <Button
@@ -1268,13 +1295,13 @@ function Analysis({ data, loading }: { data: AppData; loading: boolean }) {
                   onClick={() => toggleDay(day)}
                   className={`min-h-9 px-3 ${filters.days.includes(day) ? "border-accent bg-accent-soft text-accent-strong" : ""}`}
                 >
-                  {day.slice(0, 3)}
+                  {language === "ko" ? t(day).slice(0, 1) : day.slice(0, 3)}
                 </Button>
               ))}
             </div>
           </FilterGroup>
           {data.categories.length > 0 && (
-            <FilterGroup label="Category">
+            <FilterGroup label={t("Category")}>
               <div className="flex flex-wrap gap-1">
                 {data.categories.map((item) => (
                   <Button
@@ -1283,7 +1310,7 @@ function Analysis({ data, loading }: { data: AppData; loading: boolean }) {
                     onClick={() => toggleCategory(item.category_id)}
                     className={`min-h-9 px-3 ${filters.categories.includes(item.category_id) ? "border-accent bg-accent-soft text-accent-strong" : ""}`}
                   >
-                    {item.category_name}
+                    {categoryName(item.category_id, item.category_name)}
                   </Button>
                 ))}
               </div>
@@ -1291,11 +1318,11 @@ function Analysis({ data, loading }: { data: AppData; loading: boolean }) {
           )}
           <Button variant="ghost" onClick={resetFilters}>
             <span className="flex items-center gap-2">
-              <Icon name="reset" /> Reset
+              <Icon name="reset" /> {t("Reset")}
             </span>
           </Button>
           <div className="ml-auto rounded-full bg-accent-soft px-3 py-2 text-sm font-semibold text-accent-strong">
-            {summary?.orders ?? 0} matching orders
+            {summary?.orders ?? 0} {t("matching orders")}
           </div>
           {view === "sales" && (
             <div className="relative">
@@ -1308,7 +1335,7 @@ function Analysis({ data, loading }: { data: AppData; loading: boolean }) {
               >
                 <span className="flex items-center gap-2">
                   <Icon name="download" />
-                  {exportStatus.state === "loading" ? "Exporting…" : "Export report"}
+                  {exportStatus.state === "loading" ? t("Exporting…") : t("Export report")}
                   <Icon name="chevron" className="size-4" />
                 </span>
               </Button>
@@ -1327,9 +1354,9 @@ function Analysis({ data, loading }: { data: AppData; loading: boolean }) {
                         <Icon name="download" />
                       </span>
                       <span>
-                        <strong className="block text-sm">Download current view</strong>
+                        <strong className="block text-sm">{t("Download current view")}</strong>
                         <small className="mt-1 block leading-5 text-ink-muted">
-                          Uses the selected date range, days, times, and categories.
+                          {t("Uses the selected date range, days, times, and categories.")}
                         </small>
                       </span>
                     </span>
@@ -1344,9 +1371,9 @@ function Analysis({ data, loading }: { data: AppData; loading: boolean }) {
                         <Icon name="chart" />
                       </span>
                       <span>
-                        <strong className="block text-sm">Download full report</strong>
+                        <strong className="block text-sm">{t("Download full report")}</strong>
                         <small className="mt-1 block leading-5 text-ink-muted">
-                          Downloads all available analytics without active filters.
+                          {t("Downloads all available analytics without active filters.")}
                         </small>
                       </span>
                     </span>
@@ -1367,18 +1394,18 @@ function Analysis({ data, loading }: { data: AppData; loading: boolean }) {
       </Surface>
       {view === "sales" && (
         <div className="mb-5 grid grid-cols-2 gap-3 lg:grid-cols-5">
-          <Kpi label="Net revenue" value={formatMoney(Number(summary?.net ?? 0))} />
-          <Kpi label="Orders" value={String(summary?.orders ?? 0)} />
+          <Kpi label={t("Net revenue")} value={formatMoney(Number(summary?.net ?? 0))} />
+          <Kpi label={t("Orders")} value={String(summary?.orders ?? 0)} />
           <Kpi
-            label="Average order value"
+            label={t("Average order value")}
             value={formatMoney(Number(summary?.average_order_value ?? 0))}
           />
-          <Kpi label="Items sold" value={String(summary?.units ?? 0)} />
-          <Kpi label="Top product" value={topProduct?.product_name ?? "—"} />
+          <Kpi label={t("Items sold")} value={String(summary?.units ?? 0)} />
+          <Kpi label={t("Top product")} value={topProduct ? productName(topProduct.product_id, topProduct.product_name) : "—"} />
         </div>
       )}
       {reportError ? (
-        <EmptyState title="Could not load sales report" message={reportError} />
+        <EmptyState title={t("Could not load sales report")} message={reportError} />
       ) : !statistics ? (
         <LoadingAnalysis />
       ) : (
@@ -1387,19 +1414,25 @@ function Analysis({ data, loading }: { data: AppData; loading: boolean }) {
           aria-busy={reportLoading}
           className={`transition-opacity ${reportLoading ? "pointer-events-none opacity-60" : ""}`}
         >
-          {statistics.warnings.map((warning) => (
-            <p key={warning} role="status" className="mb-3 text-sm text-ink-muted">
-              {warning}
-            </p>
-          ))}
+          {statistics.warnings.map((warning) => {
+            const mismatch = warning.match(/^([\d,]+) order totals disagree with item subtotals minus discounts; analytics uses item amounts minus allocated discounts\.?$/i);
+            const message = mismatch
+              ? t("{count} order totals disagree with item subtotals minus discounts; analytics uses item amounts minus allocated discounts.").replace("{count}", mismatch[1])
+              : warning;
+            return (
+              <p key={warning} role="status" className="mb-3 text-sm text-ink-muted">
+                {message}
+              </p>
+            );
+          })}
           {view === "marketing" ? (
             <Suspense fallback={<LoadingAnalysis />}>
               <MarketingAnalysis statistics={statistics} query={query.toString()} />
             </Suspense>
           ) : statistics.summary.orders === 0 ? (
             <EmptyState
-              title="No sales match these filters"
-              message="Adjust the filters or complete a new sale to see analytics."
+              title={t("No sales match these filters")}
+              message={t("Adjust the filters or complete a new sale to see analytics.")}
             />
           ) : (
             <>
@@ -1457,6 +1490,7 @@ function ChartGrid({
   trendProductId: number;
   onSelectTrendProduct: (id: number) => void;
 }) {
+  const { t, language, productName, categoryName, formatMoney } = usePreferences();
   const [barPeriod, setBarPeriod] = useState("");
   const categoryNames = new Map(
     categories.map((category) => [category.category_id, category.category_name]),
@@ -1467,11 +1501,11 @@ function ChartGrid({
     value: Number(row.net),
   }));
   const byDay = statistics.by_weekday.map((row) => ({
-    label: DAYS[row.weekday],
+    label: t(DAYS[row.weekday]),
     value: Number(row.net),
   }));
   const byCategory = statistics.by_category.map((row) => ({
-    label: categoryNames.get(row.category_id) ?? `Category ${row.category_id}`,
+    label: categoryName(row.category_id, categoryNames.get(row.category_id) ?? `Category ${row.category_id}`),
     value: Number(row.net),
   }));
   const periodIndex = statistics.periods.findIndex((point) => point.period === barPeriod);
@@ -1487,7 +1521,7 @@ function ChartGrid({
   const topProducts = periodProducts
     .filter((product) => product.units > 0)
     .slice(0, 10)
-    .map((product) => ({ label: product.product_name, value: product.units }));
+    .map((product) => ({ label: productName(product.product_id, product.product_name), value: product.units }));
   const trendProduct = statistics.product_series.find(
     (product) => product.product_id === trendProductId,
   );
@@ -1499,64 +1533,68 @@ function ChartGrid({
   return (
     <div className="grid gap-5 lg:grid-cols-2">
       <PeriodChart
-        title="Revenue over time"
+        title={t("Revenue over time")}
         data={byDate}
         group={statistics.group}
         metric="net revenue"
-        valueFormatter={(value) => EXACT_REVENUE.format(value)}
+        locale={language === "ko" ? "ko-KR" : "en-US"}
+        weekPrefix={t("Week of")}
+        valueFormatter={formatMoney}
       />
-      <BarChart title="Revenue by hour" data={byHour} valueFormatter={formatMoney} labelStep={4} />
-      <BarChart title="Revenue by day of week" data={byDay} valueFormatter={formatMoney} />
-      <BarChart title="Sales by category" data={byCategory} valueFormatter={formatMoney} />
+      <BarChart title={t("Revenue by hour")} data={byHour} valueFormatter={formatMoney} labelStep={4} />
+      <BarChart title={t("Revenue by day of week")} data={byDay} valueFormatter={formatMoney} />
+      <BarChart title={t("Sales by category")} data={byCategory} valueFormatter={formatMoney} />
       <LazySection minHeight={446} className="lg:col-span-2">
         <label className="mb-2 flex flex-wrap items-center gap-2 text-sm font-semibold">
-          Period for product bars
+          {t("Period for product bars")}
           <select
             className="min-h-10 max-w-full rounded-xl border border-line bg-white px-3"
             value={barPeriod}
             onChange={(event) => setBarPeriod(event.target.value)}
           >
-            <option value="">All selected dates</option>
+            <option value="">{t("All selected dates")}</option>
             {statistics.periods.map((point) => (
               <option key={point.period} value={point.period}>
-                {formatPeriod(point.period, statistics.group, true)}
+                {formatPeriod(point.period, statistics.group, true, false, language === "ko" ? "ko-KR" : "en-US", t("Week of"))}
               </option>
             ))}
           </select>
         </label>
         {topProducts.length > 0 ? (
           <BarChart
-            title="Top 10 products by quantity"
+            title={t("Top 10 products by quantity")}
             data={topProducts}
             valueFormatter={(value) => String(value)}
             horizontal
           />
         ) : (
-          <Surface className="p-5 text-sm text-ink-muted">No product sales in this period.</Surface>
+          <Surface className="p-5 text-sm text-ink-muted">{t("No product sales in this period.")}</Surface>
         )}
       </LazySection>
       <LazySection minHeight={386} className="lg:col-span-2">
         <label className="mb-2 flex flex-wrap items-center gap-2 text-sm font-semibold">
-          Product for units over time
+          {t("Product for units over time")}
           <select
             className="min-h-10 max-w-full rounded-xl border border-line bg-white px-3"
             value={trendProduct?.product_id ?? 0}
             onChange={(event) => onSelectTrendProduct(Number(event.target.value))}
           >
-            <option value={0}>All matching products</option>
+            <option value={0}>{t("All matching products")}</option>
             {statistics.products.map((product) => (
               <option key={product.product_id} value={product.product_id}>
-                {product.product_name}
+                {productName(product.product_id, product.product_name)}
               </option>
             ))}
           </select>
         </label>
         <PeriodChart
-          title="Units sold over time"
+          title={t("Units sold over time")}
           data={unitsByPeriod}
           group={statistics.group}
           metric="units sold"
-          valueFormatter={(value) => value.toLocaleString("en")}
+          locale={language === "ko" ? "ko-KR" : "en-US"}
+          weekPrefix={t("Week of")}
+          valueFormatter={(value) => value.toLocaleString(language === "ko" ? "ko-KR" : "en-US")}
         />
       </LazySection>
     </div>
@@ -1568,45 +1606,26 @@ interface ChartDatum {
   value: number;
 }
 
-const SHORT_CHART_DATE = new Intl.DateTimeFormat("en-US", {
-  month: "short",
-  day: "numeric",
-  timeZone: "UTC",
-});
-const CROSS_YEAR_CHART_DATE = new Intl.DateTimeFormat("en-US", {
-  month: "numeric",
-  day: "numeric",
-  year: "2-digit",
-  timeZone: "UTC",
-});
-const FULL_CHART_DATE = new Intl.DateTimeFormat("en-US", {
-  month: "short",
-  day: "numeric",
-  year: "numeric",
-  timeZone: "UTC",
-});
-const MONTH_CHART_DATE = new Intl.DateTimeFormat("en-US", {
-  month: "short",
-  year: "numeric",
-  timeZone: "UTC",
-});
-const EXACT_REVENUE = new Intl.NumberFormat("ko-KR", {
-  style: "currency",
-  currency: "KRW",
-  maximumFractionDigits: 2,
-});
-
 function formatPeriod(
   period: string,
   group: StatisticsGroup,
   full: boolean,
   spansYears = false,
+  locale = "en-US",
+  weekPrefix = "Week of",
 ): string {
   if (group === "year") return period;
-  if (group === "month") return MONTH_CHART_DATE.format(new Date(period + "-01"));
-  const formatter = full ? FULL_CHART_DATE : spansYears ? CROSS_YEAR_CHART_DATE : SHORT_CHART_DATE;
-  const label = formatter.format(new Date(period));
-  return group === "week" && full ? "Week of " + label : label;
+  const date = new Date(`${period}${group === "month" ? "-01" : ""}T00:00:00Z`);
+  if (group === "month") {
+    return new Intl.DateTimeFormat(locale, { month: "short", year: "numeric", timeZone: "UTC" }).format(date);
+  }
+  const options: Intl.DateTimeFormatOptions = full
+    ? { month: "short", day: "numeric", year: "numeric", timeZone: "UTC" }
+    : spansYears
+      ? { month: "numeric", day: "numeric", year: "2-digit", timeZone: "UTC" }
+      : { month: "short", day: "numeric", timeZone: "UTC" };
+  const label = new Intl.DateTimeFormat(locale, options).format(date);
+  return group === "week" && full ? `${weekPrefix} ${label}` : label;
 }
 
 interface PeriodChartProps {
@@ -1615,25 +1634,28 @@ interface PeriodChartProps {
   title: string;
   metric: string;
   valueFormatter: (value: number) => string;
+  locale?: string;
+  weekPrefix?: string;
 }
 
 function PeriodChart(props: PeriodChartProps) {
   if (props.data.length > 1) return <PeriodTrend {...props} />;
   const data = props.data.map((point) => ({
     ...point,
-    label: formatPeriod(point.label, props.group, true),
+    label: formatPeriod(point.label, props.group, true, false, props.locale, props.weekPrefix),
   }));
   return <BarChart title={props.title} data={data} valueFormatter={props.valueFormatter} />;
 }
 
-function PeriodTrend({ data, group, title, metric, valueFormatter }: PeriodChartProps) {
+function PeriodTrend({ data, group, title, metric, valueFormatter, locale, weekPrefix }: PeriodChartProps) {
+  const { t } = usePreferences();
   const [inspectedIndex, setInspectedIndex] = useState<number | null>(null);
   const lastIndex = data.length - 1;
   const activeIndex = Math.min(inspectedIndex ?? lastIndex, lastIndex);
   const active = data[activeIndex];
-  const activeDate = formatPeriod(active.label, group, true);
+  const activeDate = formatPeriod(active.label, group, true, false, locale, weekPrefix);
   const activeValue = valueFormatter(active.value);
-  const description = GROUP_LABELS[group] + " " + metric;
+  const description = t(`${GROUP_LABELS[group]} ${metric}`);
   const peak = data.reduce((highest, day) => Math.max(highest, day.value), 0);
   const targetStep = Math.max(peak / 4, 1);
   const magnitude = 10 ** Math.floor(Math.log10(targetStep));
@@ -1663,7 +1685,7 @@ function PeriodTrend({ data, group, title, metric, valueFormatter }: PeriodChart
           <div className="font-display text-lg font-bold">{title}</div>
           <div className="text-xs text-ink-muted">
             {description}
-            {group === "week" ? " · weeks start Monday" : ""}
+            {group === "week" ? ` · ${t("weeks start Monday")}` : ""}
           </div>
         </div>
         <div className="rounded-lg bg-accent-soft px-3 py-1.5 text-sm text-accent-strong">
@@ -1724,7 +1746,7 @@ function PeriodTrend({ data, group, title, metric, valueFormatter }: PeriodChart
             min={0}
             max={lastIndex}
             value={activeIndex}
-            aria-label={"Inspect " + description.toLowerCase()}
+            aria-label={`${t("Inspect")} ${description.toLowerCase()}`}
             aria-valuetext={`${activeDate}, ${activeValue}`}
             onChange={(event) => setInspectedIndex(event.currentTarget.valueAsNumber)}
           />
@@ -1740,14 +1762,14 @@ function PeriodTrend({ data, group, title, metric, valueFormatter }: PeriodChart
                 className={`absolute whitespace-nowrap ${alignment} ${mobileVisibility}`}
                 style={{ left: `${x(index)}%` }}
               >
-                {formatPeriod(data[index].label, group, false, spansYears)}
+                {formatPeriod(data[index].label, group, false, spansYears, locale, weekPrefix)}
               </span>
             );
           })}
         </div>
       </div>
       <p className="mt-2 text-xs text-ink-muted">
-        Hover or tap the chart to see the value for a period.
+        {t("Hover or tap the chart to see the value for a period.")}
       </p>
     </Surface>
   );

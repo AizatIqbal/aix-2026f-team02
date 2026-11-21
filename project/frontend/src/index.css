@@ -296,3 +296,174 @@
     animation: none;
   }
 }
+
+/* PointNull appearance preference: dark mode overrides the shared design tokens. */
+html.theme-dark {
+  color-scheme: dark;
+  --color-canvas: #121b15;
+  --color-surface-strong: #223126;
+  --color-product: #293a2d;
+  --color-line: #36493a;
+  --color-ink: #edf3ea;
+  --color-ink-muted: #bdc8bb;
+  --color-ink-faint: #91a091;
+  --color-accent: #4f7548;
+  --color-accent-strong: #bad3a7;
+  --color-accent-light: #d0e0c4;
+  --color-accent-soft: #2b402f;
+  --color-danger: #f0a49a;
+  --color-danger-soft: #492b28;
+}
+
+html.theme-dark body {
+  background: var(--color-canvas);
+  color: var(--color-ink);
+}
+
+html.theme-dark [class~="bg-ink"] {
+  background-color: #0d160f !important;
+}
+
+html.theme-dark [class~="bg-white"],
+html.theme-dark [class~="bg-white/95"],
+html.theme-dark [class~="bg-white/90"],
+html.theme-dark [class~="bg-white/80"] {
+  background-color: #1b2a20 !important;
+}
+
+html.theme-dark input,
+html.theme-dark select,
+html.theme-dark textarea {
+  background-color: #1b2a20;
+  color: var(--color-ink);
+  border-color: var(--color-line);
+}
+
+html.theme-dark input::placeholder,
+html.theme-dark textarea::placeholder {
+  color: var(--color-ink-faint);
+}
+
+html.theme-dark option {
+  background: #1b2a20;
+  color: var(--color-ink);
+}
+
+html.theme-dark .startup-splash {
+  color: white;
+  background: #18271d;
+}
+
+@keyframes settings-slide-in {
+  from { transform: translateX(24px); opacity: 0.7; }
+  to { transform: translateX(0); opacity: 1; }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .animate-\[settings-slide-in_180ms_ease-out\] {
+    animation: none !important;
+  }
+}
+
+/* Keep primary buttons legible when the dark theme is active. */
+html.theme-dark [class~="hover:bg-accent-strong"]:hover {
+  background-color: #3f6537 !important;
+}
+
+
+/* User-controlled display density. The app's semantic data and layout breakpoints remain unchanged. */
+html[data-display-size="compact"] {
+  --spacing: 0.23rem;
+  --text-xs: 0.6875rem;
+  --text-sm: 0.8125rem;
+  --text-base: 0.9375rem;
+  --text-lg: 1.0625rem;
+  --text-xl: 1.1875rem;
+  --text-2xl: 1.375rem;
+  --text-3xl: 1.6875rem;
+  --text-4xl: 2.0625rem;
+  --text-5xl: 2.75rem;
+}
+
+html[data-display-size="large"] {
+  --spacing: 0.275rem;
+  --text-xs: 0.8rem;
+  --text-sm: 0.9375rem;
+  --text-base: 1.0625rem;
+  --text-lg: 1.1875rem;
+  --text-xl: 1.3125rem;
+  --text-2xl: 1.6rem;
+  --text-3xl: 2rem;
+  --text-4xl: 2.4rem;
+  --text-5xl: 3.3rem;
+}
+
+
+/* Modal density follows the user's Display size preference too.
+   Scope spacing and type tokens to dialogs so nested checkout/registration
+   panels respond even when component utilities declare their own font sizes. */
+html[data-display-size] [role="dialog"] {
+  --spacing: 0.25rem;
+}
+
+html[data-display-size="compact"] [role="dialog"] {
+  --spacing: 0.22rem;
+  --text-xs: 0.6875rem;
+  --text-sm: 0.8125rem;
+  --text-base: 0.9375rem;
+  --text-lg: 1.0625rem;
+  --text-xl: 1.1875rem;
+  --text-2xl: 1.375rem;
+  --text-3xl: 1.625rem;
+  --text-4xl: 2rem;
+  --text-5xl: 2.65rem;
+}
+
+html[data-display-size="large"] [role="dialog"] {
+  --spacing: 0.28rem;
+  --text-xs: 0.8125rem;
+  --text-sm: 1rem;
+  --text-base: 1.125rem;
+  --text-lg: 1.25rem;
+  --text-xl: 1.375rem;
+  --text-2xl: 1.625rem;
+  --text-3xl: 2rem;
+  --text-4xl: 2.5rem;
+  --text-5xl: 3.4rem;
+}
+
+.pointnull-checkout-dialog {
+  max-width: 64rem;
+}
+
+.pointnull-checkout-dialog[data-display-size="compact"] {
+  max-width: 56rem;
+}
+
+.pointnull-checkout-dialog[data-display-size="large"] {
+  max-width: 72rem;
+}
+
+/* Keep checkout columns proportional to the selected display density. */
+@media (min-width: 1024px) {
+  .pointnull-checkout-layout {
+    grid-template-columns: minmax(0, 1fr) 390px;
+    grid-template-rows: minmax(0, 1fr);
+  }
+
+  .pointnull-checkout-dialog[data-display-size="compact"] .pointnull-checkout-layout {
+    grid-template-columns: minmax(0, 1fr) 340px;
+  }
+
+  .pointnull-checkout-dialog[data-display-size="large"] .pointnull-checkout-layout {
+    grid-template-columns: minmax(0, 1fr) 440px;
+  }
+}
+
+/* Compact mode must not make checkout controls too small to use by touch. */
+.pointnull-checkout-dialog button,
+.pointnull-checkout-dialog input,
+.pointnull-checkout-dialog select,
+.pointnull-checkout-dialog textarea {
+  min-height: 44px;
+}

@@ -8,13 +8,8 @@ import {
   type Campaign,
   type Order,
 } from "./data-access";
-import { Button, Input, Surface } from "./ui";
-
-const money = new Intl.NumberFormat("ko-KR", {
-  style: "currency",
-  currency: "KRW",
-  maximumFractionDigits: 0,
-});
+import { Button, Input, Surface, useModalScrollLock } from "./ui";
+import { usePreferences } from "./preferences";
 
 const today = new Date().toISOString().slice(0, 10);
 
@@ -38,6 +33,7 @@ export function MarketingCampaigns({
 }: {
   onOpenAnalysis: () => void;
 }) {
+  const { t, formatMoney } = usePreferences();
   const [campaigns, setCampaigns] = useState<Campaign[]>([]);
   const [finished, setFinished] = useState(false);
   const [editing, setEditing] = useState<Campaign | null>(null);
@@ -50,6 +46,8 @@ export function MarketingCampaigns({
   const [linkedOrders, setLinkedOrders] = useState<Order[]>([]);
   const [linkedLoading, setLinkedLoading] = useState(false);
   const [linkedError, setLinkedError] = useState("");
+
+  useModalScrollLock(Boolean(linkedCampaign || draft));
 
   const reload = () =>
     getCampaigns()
@@ -170,20 +168,20 @@ export function MarketingCampaigns({
       <div className="flex flex-wrap items-end justify-between gap-3">
         <div>
           <h1 className="font-display text-3xl font-bold">
-            Marketing campaigns
+            {t("Marketing campaigns")}
           </h1>
           <p className="mt-1 text-sm text-ink-muted">
-            Manage promotions and review their performance in Marketing analysis.
+            {t("Manage promotions and review their performance in Marketing analysis.")}
           </p>
         </div>
 
         <div className="flex flex-wrap gap-2">
           <Button onClick={onOpenAnalysis}>
-            View campaign analytics ↗
+            {t("View campaign analytics ↗")}
           </Button>
 
           <Button variant="primary" onClick={beginCreate}>
-            + Add campaign
+            {t("+ Add campaign")}
           </Button>
         </div>
       </div>
@@ -194,7 +192,7 @@ export function MarketingCampaigns({
           aria-pressed={!finished}
           onClick={() => setFinished(false)}
         >
-          Running ({active.length})
+          {t("Running")} ({active.length})
         </Button>
 
         <Button
@@ -202,13 +200,13 @@ export function MarketingCampaigns({
           aria-pressed={finished}
           onClick={() => setFinished(true)}
         >
-          Finished ({completed.length})
+          {t("Finished")} ({completed.length})
         </Button>
       </div>
 
       {loading ? (
         <Surface className="p-8 text-center text-ink-muted">
-          Loading campaigns…
+          {t("Loading campaigns…")}
         </Surface>
       ) : list.length ? (
         <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-3">
@@ -233,29 +231,29 @@ export function MarketingCampaigns({
                 </div>
 
                 <span className="rounded-full bg-surface-strong px-2 py-1 text-xs">
-                  {finished ? "Finished" : "Running"}
+                  {finished ? t("Finished") : t("Running")}
                 </span>
               </div>
 
               <div className="grid grid-cols-2 gap-3 text-sm">
                 <div>
-                  <p className="text-xs text-ink-muted">Campaign period</p>
+                  <p className="text-xs text-ink-muted">{t("Campaign period")}</p>
                   <p className="mt-1 font-semibold">
                     {c.start_date} – {c.end_date}
                   </p>
                 </div>
 
                 <div>
-                  <p className="text-xs text-ink-muted">Budget</p>
+                  <p className="text-xs text-ink-muted">{t("Budget")}</p>
                   <p className="mt-1 font-semibold">
-                    {money.format(Number(c.budget))}
+                    {formatMoney(Number(c.budget))}
                   </p>
                 </div>
 
                 <div>
-                  <p className="text-xs text-ink-muted">Discount</p>
+                  <p className="text-xs text-ink-muted">{t("Discount")}</p>
                   <p className="mt-1 font-semibold">
-                    {money.format(Number(c.discount_value))}
+                    {formatMoney(Number(c.discount_value))}
                   </p>
                 </div>
               </div>
@@ -272,7 +270,7 @@ export function MarketingCampaigns({
                   variant="secondary"
                   onClick={() => beginEdit(c)}
                 >
-                  Edit campaign
+                  {t("Edit campaign")}
                 </Button>
               </div>
             </Surface>
@@ -285,7 +283,7 @@ export function MarketingCampaigns({
           </h2>
 
           <p className="mt-1 text-sm text-ink-muted">
-            Campaigns will appear here based on their start and end dates.
+            {t("Campaigns will appear here based on their start and end dates.")}
           </p>
         </Surface>
       )}
@@ -298,18 +296,18 @@ export function MarketingCampaigns({
 
       {linkedCampaign && (
         <div
-          className="fixed inset-0 z-50 grid place-items-center overflow-y-auto bg-black/40 p-4"
+          className="fixed inset-0 z-50 grid place-items-center overflow-y-auto overscroll-contain bg-black/40 p-2 sm:p-4"
           onMouseDown={event => {
             if (event.target === event.currentTarget) {
               setLinkedCampaign(null);
             }
           }}
         >
-          <Surface className="my-auto max-h-[85vh] w-full max-w-3xl overflow-y-auto p-6">
-            <div className="flex items-start justify-between gap-3">
+          <Surface className="my-auto flex max-h-[calc(100dvh-1rem)] min-h-0 w-full max-w-3xl flex-col overflow-hidden p-0 sm:max-h-[calc(100dvh-2rem)]">
+            <div className="flex shrink-0 items-start justify-between gap-3 border-b border-line p-5 sm:p-6">
               <div>
                 <h2 className="font-display text-xl font-bold">
-                  Linked orders
+                  {t("Linked orders")}
                 </h2>
 
                 <p className="mt-1 text-sm text-ink-muted">
@@ -321,10 +319,11 @@ export function MarketingCampaigns({
                 variant="ghost"
                 onClick={() => setLinkedCampaign(null)}
               >
-                Close
+                {t("Close")}
               </Button>
             </div>
 
+            <div className="min-h-0 flex-1 overflow-y-auto overscroll-contain p-5 sm:p-6">
             {linkedLoading ? (
               <p className="py-8 text-center text-sm text-ink-muted">
                 Loading linked orders…
@@ -338,10 +337,10 @@ export function MarketingCampaigns({
                 <table className="w-full text-left text-sm">
                   <thead className="border-b border-line text-ink-muted">
                     <tr>
-                      <th className="p-2">Order</th>
-                      <th className="p-2">Date</th>
-                      <th className="p-2">Customer</th>
-                      <th className="p-2 text-right">Total</th>
+                      <th className="p-2">{t("Order")}</th>
+                      <th className="p-2">{t("Date")}</th>
+                      <th className="p-2">{t("Customer")}</th>
+                      <th className="p-2 text-right">{t("Total")}</th>
                     </tr>
                   </thead>
 
@@ -361,7 +360,7 @@ export function MarketingCampaigns({
                         </td>
 
                         <td className="p-2 text-right tabular-nums">
-                          {money.format(Number(order.total))}
+                          {formatMoney(Number(order.total))}
                         </td>
                       </tr>
                     ))}
@@ -370,22 +369,23 @@ export function MarketingCampaigns({
               </div>
             ) : (
               <p className="py-8 text-center text-sm text-ink-muted">
-                No orders have used this campaign code yet.
+                {t("No orders have used this campaign code yet.")}
               </p>
             )}
+            </div>
           </Surface>
         </div>
       )}
 
       {(editing || isCreating) && draft && (
         <div
-          className="fixed inset-0 z-50 grid place-items-center overflow-y-auto bg-black/40 p-4"
+          className="fixed inset-0 z-50 grid place-items-center overflow-y-auto overscroll-contain bg-black/40 p-2 sm:p-4"
           onMouseDown={event => {
             if (event.target === event.currentTarget) closeForm();
           }}
         >
-          <Surface className="my-auto max-h-[90vh] w-full max-w-xl overflow-y-auto p-6">
-            <div className="flex items-center justify-between gap-3">
+          <Surface className="my-auto flex max-h-[calc(100dvh-1rem)] min-h-0 w-full max-w-xl flex-col overflow-hidden p-0 sm:max-h-[calc(100dvh-2rem)]">
+            <div className="flex shrink-0 items-center justify-between gap-3 border-b border-line p-5 sm:p-6">
               <h2 className="font-display text-xl font-bold">
                 {isCreating ? "Add campaign" : "Edit campaign"}
               </h2>
@@ -395,16 +395,18 @@ export function MarketingCampaigns({
                 type="button"
                 onClick={closeForm}
               >
-                Close
+                {t("Close")}
               </Button>
             </div>
 
             <form
-              className="mt-5 grid grid-cols-1 gap-x-6 gap-y-4 sm:grid-cols-2"
+              className="flex min-h-0 flex-1 flex-col overflow-hidden"
               onSubmit={save}
             >
+              <div className="min-h-0 flex-1 overflow-y-auto overscroll-contain p-5 sm:p-6">
+              <div className="grid grid-cols-1 gap-x-6 gap-y-4 sm:grid-cols-2">
               <label className="block min-w-0 text-sm font-semibold sm:col-span-2">
-                Campaign name
+                {t("Campaign name")}
 
                 <Input
                   className="mt-1 block w-full min-w-0"
@@ -417,7 +419,7 @@ export function MarketingCampaigns({
               </label>
 
               <label className="block min-w-0 text-sm font-semibold">
-                Channel
+                {t("Channel")}
 
                 <Input
                   className="mt-1 block w-full min-w-0"
@@ -430,7 +432,7 @@ export function MarketingCampaigns({
               </label>
 
               <label className="block min-w-0 text-sm font-semibold">
-                Promo code
+                {t("Promo code")}
 
                 <Input
                   className="mt-1 block w-full min-w-0"
@@ -448,7 +450,7 @@ export function MarketingCampaigns({
               </label>
 
               <label className="block min-w-0 text-sm font-semibold">
-                Start date
+                {t("Start date")}
 
                 <Input
                   className="mt-1 block w-full min-w-0"
@@ -462,7 +464,7 @@ export function MarketingCampaigns({
               </label>
 
               <label className="block min-w-0 text-sm font-semibold">
-                End date
+                {t("End date")}
 
                 <Input
                   className="mt-1 block w-full min-w-0"
@@ -516,16 +518,19 @@ export function MarketingCampaigns({
                 </p>
               )}
 
-              <div className="sm:col-span-2 flex flex-wrap justify-end gap-2">
+              </div>
+              </div>
+              <div className="flex shrink-0 flex-col-reverse justify-end gap-2 border-t border-line bg-white p-5 sm:flex-row sm:px-6 sm:py-4">
                 <Button
                   variant="secondary"
                   type="button"
                   onClick={closeForm}
+                  className="w-full sm:w-auto"
                 >
-                  Cancel
+                  {t("Cancel")}
                 </Button>
 
-                <Button type="submit" disabled={saving}>
+                <Button type="submit" disabled={saving} className="w-full sm:w-auto">
                   {saving
                     ? "Saving…"
                     : isCreating
