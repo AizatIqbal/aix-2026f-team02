@@ -94,6 +94,7 @@ const GROUP_LABELS: Record<StatisticsGroup, string> = {
 };
 const DAYS = ["Monday", "Tuesday", "Wednesday", "Thursday", "Friday", "Saturday", "Sunday"];
 function App() {
+  const { appMode } = usePreferences();
   const [tab, setTab] = useState<WorkingTab>("menu");
   const [data, setData] = useState<AppData>(EMPTY_DATA);
   const [loading, setLoading] = useState(true);
@@ -114,6 +115,13 @@ function App() {
   );
   const [splashLeaving, setSplashLeaving] = useState(false);
   const [splashMinimumElapsed, setSplashMinimumElapsed] = useState(false);
+
+  useEffect(() => {
+    if (appMode === "simple") {
+      // Simple Mode keeps customer lookup inside checkout, not the Customer Dashboard.
+      if (tab !== "menu" && tab !== "orders") setTab("menu");
+    }
+  }, [appMode, tab]);
 
   useEffect(() => {
     const timer = window.setInterval(() => setClock(new Date()), 1000);
@@ -190,6 +198,7 @@ function App() {
       <Header
         clock={clock}
         tab={tab}
+        appMode={appMode}
         onTabChange={setTab}
         onImport={() => setImportOpen(true)}
         onSettings={() => setSettingsOpen(true)}
@@ -245,7 +254,7 @@ function App() {
           <Analysis data={data} loading={loading} />
         ) : tab === "marketing" ? (
           <Suspense fallback={<LoadingGrid />}><MarketingCampaigns onOpenAnalysis={() => setTab("analysis")} /></Suspense>
-        ) : tab === "customers" ? (
+        ) : tab === "customers" && appMode === "advanced" ? (
           <Suspense fallback={<LoadingGrid />}>
             <CustomersPage />
           </Suspense>
@@ -407,12 +416,14 @@ function StartupSplash({ leaving }: { leaving: boolean }) {
 function Header({
   clock,
   tab,
+  appMode,
   onTabChange,
   onImport,
   onSettings,
 }: {
   clock: Date;
   tab: WorkingTab;
+  appMode: "simple" | "advanced";
   onTabChange: (tab: WorkingTab) => void;
   onImport: () => void;
   onSettings: () => void;
@@ -441,6 +452,7 @@ function Header({
               <Icon name="grid" /> {t("Sell")}
             </span>
           </Button>
+          {appMode === "advanced" && <>
           <Button
             variant="ghost"
             onClick={() => onTabChange("analysis")}
@@ -453,15 +465,18 @@ function Header({
           <Button variant="ghost" onClick={() => onTabChange("marketing")} className={tab === "marketing" ? "bg-accent-soft text-accent-strong" : ""}>
             <span className="flex items-center gap-2"><Icon name="megaphone" /> {t("Marketing")}</span>
           </Button>
-          <Button
-            variant="ghost"
-            onClick={() => onTabChange("customers")}
-            className={tab === "customers" ? "bg-accent-soft text-accent-strong" : ""}
-          >
-            <span className="flex items-center gap-2">
-              <Icon name="users" /> {t("Customers")}
-            </span>
-          </Button>
+          </>}
+          {appMode === "advanced" && (
+            <Button
+              variant="ghost"
+              onClick={() => onTabChange("customers")}
+              className={tab === "customers" ? "bg-accent-soft text-accent-strong" : ""}
+            >
+              <span className="flex items-center gap-2">
+                <Icon name="users" /> {t("Customers")}
+              </span>
+            </Button>
+          )}
           <Button
             variant="ghost"
             onClick={() => onTabChange("orders")}
