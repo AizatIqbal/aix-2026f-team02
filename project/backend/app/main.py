@@ -855,6 +855,87 @@ def update_product(product_id: int, product: ProductUpdate):
         db.close()
 
 
+@app.delete("/api/v1/products/{product_id}", tags=["products"])
+def delete_product(product_id: int):
+    """Delete an unsold product, or archive it when order history exists."""
+    db = DatabaseManager()
+    try:
+        with db.engine.begin() as connection:
+            product_row = connection.execute(
+                text("""
+                    SELECT product_id, product_name
+                    FROM product
+                    WHERE product_id = :product_id
+                    FOR UPDATE
+                """),
+                {"product_id": product_id},
+            ).mappings().first()
+            if not product_row:
+                raise HTTPException(status_code=404, detail="Product not found")
+
+            has_sales = connection.execute(
+                text("SELECT EXISTS (SELECT 1 FROM order_item WHERE product_id = :product_id)"),
+                {"product_id": product_id},
+            ).scalar_one()
+
+            if not has_sales:
+                connection.execute(
+                    text("DELETE FROM product WHERE product_id = :product_id"),
+                    {"product_id": product_id},
+                )
+                return {"product_id": product_id, "action": "deleted", "archive_category": None}
+
+            archive_name = "Archived Products"
+            archive_row = connection.execute(
+                text("""
+                    SELECT category_id, category_name
+                    FROM category
+                    WHERE LOWER(category_name) = LOWER(:name)
+                    LIMIT 1
+                    FOR UPDATE
+                """),
+                {"name": archive_name},
+            ).mappings().first()
+
+            if archive_row:
+                archive_category = dict(archive_row)
+            else:
+                archive_id = connection.execute(
+                    text("INSERT INTO category (category_name) VALUES (:name) RETURNING category_id"),
+                    {"name": archive_name},
+                ).scalar_one()
+                archive_category = {
+                    "category_id": int(archive_id),
+                    "category_name": archive_name,
+                }
+
+            connection.execute(
+                text("""
+                    UPDATE product
+                    SET category_id = :archive_category_id,
+                        is_active = FALSE
+                    WHERE product_id = :product_id
+                """),
+                {
+                    "archive_category_id": archive_category["category_id"],
+                    "product_id": product_id,
+                },
+            )
+
+            return {
+                "product_id": product_id,
+                "action": "archived",
+                "archive_category": archive_category,
+            }
+    except IntegrityError as exc:
+        raise HTTPException(
+            status_code=409,
+            detail="The product could not be deleted because it is referenced by other records",
+        ) from exc
+    finally:
+        db.close()
+
+
 @app.patch("/api/v1/products/{product_id}/active", tags=["products"])
 def set_product_active(product_id: int, status: ProductActiveUpdate):
     db = DatabaseManager()
