@@ -53,41 +53,70 @@ class SQLAlchemyBusinessDataHandler:
             return None
         return date.fromisoformat(str(row[0])[:10]), date.fromisoformat(str(row[1])[:10])
 
-    def get_recommendation_records(self) -> dict:
-        """Only what recommend_products reads: who bought which product.
+    def get_recommendation_records(self, customer_phone: str) -> dict:
+        """Load purchase history only for the target customer and their peers.
 
-        Anonymous orders cannot contribute to customer similarity, so they and
-        their items are left in the database.
+        A peer is a customer who has bought at least one product also bought by
+        the target. Their complete distinct product sets are then loaded so the
+        existing Jaccard scoring algorithm remains unchanged.
         """
-        connection = self._snapshot_connection()
-        try:
-            with connection.begin():
-                products = _fetch_all(
-                    connection, "SELECT product_id, product_name FROM product ORDER BY product_id"
-                )
-                customers = _fetch_all(
-                    connection, "SELECT customer_phone FROM customer ORDER BY customer_phone"
-                )
-                purchases = _fetch_all(
-                    connection,
-                    """
-                    SELECT DISTINCT o.customer_phone, oi.product_id
-                    FROM orders o
-                    JOIN order_item oi ON oi.order_id = o.order_id
-                    WHERE o.customer_phone IS NOT NULL
-                    """,
-                )
-        finally:
-            connection.close()
+        with self.db.engine.connect() as connection:
+            customer = connection.execute(
+                text("SELECT customer_phone FROM customer WHERE customer_phone = :phone"),
+                {"phone": customer_phone},
+            ).first()
+            if customer is None:
+                return {"products": [], "customers": [], "orders": [], "orderItems": []}
 
-        # One synthetic "order" per customer keeps the snapshot shape that
-        # recommend_products already understands.
+            purchases = _fetch_all(
+                connection,
+                """
+                WITH target_products AS (
+                    SELECT DISTINCT oi.product_id
+                    FROM orders target_order
+                    JOIN order_item oi ON oi.order_id = target_order.order_id
+                    WHERE target_order.customer_phone = :phone
+                ),
+                related_customers AS (
+                    SELECT DISTINCT peer_order.customer_phone
+                    FROM orders peer_order
+                    JOIN order_item peer_item ON peer_item.order_id = peer_order.order_id
+                    JOIN target_products tp ON tp.product_id = peer_item.product_id
+                    WHERE peer_order.customer_phone IS NOT NULL
+                      AND peer_order.customer_phone <> :phone
+                ),
+                relevant_customers AS (
+                    SELECT :phone AS customer_phone
+                    UNION
+                    SELECT customer_phone FROM related_customers
+                )
+                SELECT DISTINCT
+                    o.customer_phone,
+                    oi.product_id,
+                    p.product_name
+                FROM relevant_customers rc
+                JOIN orders o ON o.customer_phone = rc.customer_phone
+                JOIN order_item oi ON oi.order_id = o.order_id
+                JOIN product p ON p.product_id = oi.product_id
+                ORDER BY o.customer_phone, oi.product_id
+                """,
+                {"phone": customer_phone},
+            )
+
+        customer_phones = sorted({row["customer_phone"] for row in purchases} | {customer_phone})
+        product_names = {
+            row["product_id"]: row["product_name"]
+            for row in purchases
+        }
         return {
-            "products": products,
-            "customers": customers,
+            "products": [
+                {"product_id": product_id, "product_name": product_name}
+                for product_id, product_name in product_names.items()
+            ],
+            "customers": [{"customer_phone": phone} for phone in customer_phones],
             "orders": [
-                {"order_id": customer["customer_phone"], "customer_phone": customer["customer_phone"]}
-                for customer in customers
+                {"order_id": phone, "customer_phone": phone}
+                for phone in customer_phones
             ],
             "orderItems": [
                 {"order_id": row["customer_phone"], "product_id": row["product_id"]}

@@ -46,7 +46,11 @@ class BusinessDataService:
 
     def get_recommendations(self, customer_phone: str) -> dict:
         load = getattr(self.data_handler, "get_recommendation_records", None)
-        records = load() if load is not None else self.data_handler.get_analysis_records()
+        records = (
+            load(customer_phone)
+            if load is not None
+            else self.data_handler.get_analysis_records()
+        )
         return recommend_products(records, customer_phone)
 
     def get_discount_suggestion(

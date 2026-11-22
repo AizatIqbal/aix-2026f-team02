@@ -1,5 +1,6 @@
 import { useEffect, useState, type ReactNode } from "react";
-import { useModalScrollLock, Icon } from "./ui";
+import { useModalScrollLock, Icon, Button } from "./ui";
+import { TranslationManager } from "./translation-manager";
 import {
   usePreferences,
   type AppLanguage,
@@ -9,7 +10,7 @@ import {
   type AppMode,
 } from "./preferences";
 
-type SettingSection = "mode" | "language" | "currency" | "appearance" | "display";
+type SettingSection = "mode" | "language" | "currency" | "appearance" | "display" | "translations";
 
 export function SettingsDrawer({ onClose }: { onClose: () => void }) {
   const {
@@ -29,15 +30,16 @@ export function SettingsDrawer({ onClose }: { onClose: () => void }) {
     t,
   } = usePreferences();
   const [expandedSection, setExpandedSection] = useState<SettingSection | null>(null);
+  const [translationManagerOpen, setTranslationManagerOpen] = useState(false);
   useModalScrollLock();
 
   useEffect(() => {
     function handleKeyDown(event: KeyboardEvent) {
-      if (event.key === "Escape") onClose();
+      if (event.key === "Escape" && !translationManagerOpen) onClose();
     }
     window.addEventListener("keydown", handleKeyDown);
     return () => window.removeEventListener("keydown", handleKeyDown);
-  }, [onClose]);
+  }, [onClose, translationManagerOpen]);
 
   function toggleSection(section: SettingSection) {
     setExpandedSection((current) => current === section ? null : section);
@@ -238,6 +240,18 @@ export function SettingsDrawer({ onClose }: { onClose: () => void }) {
           )}
 
           {settingRow(
+            "translations",
+            t("Translation memory"),
+            t("Manage product, category, and campaign translations"),
+            <>
+              <p className="text-xs leading-5 text-ink-muted">{t("Review machine translations and save your preferred wording.")}</p>
+              <Button variant="secondary" className="w-full" onClick={() => setTranslationManagerOpen(true)}>
+                {t("Open translation manager")}
+              </Button>
+            </>,
+          )}
+
+          {settingRow(
             "currency",
             t("Currency / 통화"),
             currencySummary,
@@ -295,6 +309,7 @@ export function SettingsDrawer({ onClose }: { onClose: () => void }) {
           {t("PointNull")} · {t("Settings")}
         </footer>
       </aside>
+      {translationManagerOpen && <TranslationManager onClose={() => setTranslationManagerOpen(false)} />}
     </div>
   );
 }

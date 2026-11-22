@@ -35,7 +35,7 @@ export function CheckoutModal({
   onSaved: (saved: SavedOrder) => void;
   onDone: (saved: SavedOrder) => void;
 }) {
-  const { t, productName, formatMoney, appMode } = usePreferences();
+  const { t, productName, campaignName, ensureTranslations, formatMoney, appMode } = usePreferences();
   const [lines] = useState<CheckoutLine[]>(() =>
     products
       .filter((product) => selection[product.product_id])
@@ -80,6 +80,15 @@ export function CheckoutModal({
       })
       .catch(() => setAvailableCampaigns([]));
   }, [appMode]);
+
+  useEffect(() => {
+    if (availableCampaigns.length) {
+      void ensureTranslations(availableCampaigns.map((item) => ({
+        source_text: item.campaign_name,
+        context: "campaign" as const,
+      })));
+    }
+  }, [availableCampaigns, ensureTranslations]);
 
   useEffect(() => {
     getCustomerSummaries()
@@ -346,7 +355,7 @@ export function CheckoutModal({
                     <option value="">{t("Choose a running campaign code…")}</option>
                     {availableCampaigns.map((item) => (
                       <option key={item.promocode} value={item.promocode}>
-                        {item.promocode} — {item.campaign_name}
+                        {item.promocode} — {campaignName(item.campaign_name)}
                       </option>
                     ))}
                   </select>

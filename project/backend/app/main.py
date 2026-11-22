@@ -17,6 +17,7 @@ from typing import Literal
 
 from app.db.database_manager import DatabaseManager
 from app.statistics_routes import router as statistics_router
+from app.translations import router as translations_router
 
 
 app = FastAPI(
@@ -954,29 +955,39 @@ def get_orders_page(
             "lowest": "o.total ASC, o.order_date DESC, o.order_time DESC",
         }.get(sort, "o.order_date DESC, o.order_time DESC, o.order_id DESC")
 
+        # One aggregate round-trip for order totals and item quantities.
+        # Aggregate order rows first, then join items to that filtered set so
+        # order revenue/counts are never multiplied by the number of line items.
         summary = db.fetch_one(
             f"""
+            WITH filtered_orders AS (
+                SELECT o.order_id, o.total
+                FROM orders o
+                LEFT JOIN customer c ON c.customer_phone = o.customer_phone
+                {where_sql}
+            ),
+            order_summary AS (
+                SELECT
+                    COUNT(*) AS orders,
+                    COALESCE(SUM(total), 0) AS revenue,
+                    COALESCE(AVG(total), 0) AS average
+                FROM filtered_orders
+            ),
+            item_summary AS (
+                SELECT COALESCE(SUM(oi.quantity), 0) AS items
+                FROM filtered_orders fo
+                LEFT JOIN order_item oi ON oi.order_id = fo.order_id
+            )
             SELECT
-                COUNT(*) AS orders,
-                COALESCE(SUM(o.total), 0) AS revenue,
-                COALESCE(AVG(o.total), 0) AS average
-            FROM orders o
-            LEFT JOIN customer c ON c.customer_phone = o.customer_phone
-            {where_sql}
+                order_summary.orders,
+                order_summary.revenue,
+                order_summary.average,
+                item_summary.items
+            FROM order_summary
+            CROSS JOIN item_summary
             """,
             filter_params,
-        ) or {"orders": 0, "revenue": 0, "average": 0}
-
-        item_summary = db.fetch_one(
-            f"""
-            SELECT COALESCE(SUM(oi.quantity), 0) AS items
-            FROM orders o
-            LEFT JOIN customer c ON c.customer_phone = o.customer_phone
-            LEFT JOIN order_item oi ON oi.order_id = o.order_id
-            {where_sql}
-            """,
-            filter_params,
-        ) or {"items": 0}
+        ) or {"orders": 0, "revenue": 0, "average": 0, "items": 0}
 
         items = db.fetch_all(
             f"""
@@ -1011,7 +1022,7 @@ def get_orders_page(
                 "orders": int(summary["orders"] or 0),
                 "revenue": float(summary["revenue"] or 0),
                 "average": float(summary["average"] or 0),
-                "items": int(item_summary["items"] or 0),
+                "items": int(summary["items"] or 0),
             },
         }
     finally:
@@ -1089,11 +1100,25 @@ def create_order(order: OrderCreate):
                 if not customer:
                     raise HTTPException(status_code=404, detail="Customer not found")
 
+            # Fetch all distinct cart products in one query instead of one
+            # round-trip per line item. Preserve the submitted line order below.
+            product_ids = list(dict.fromkeys(item.product_id for item in order.items))
+            product_params = {f"product_id_{index}": product_id for index, product_id in enumerate(product_ids)}
+            product_placeholders = ", ".join(
+                f":product_id_{index}" for index in range(len(product_ids))
+            )
+            product_rows = connection.execute(
+                text(f"""
+                    SELECT product_id, product_name, price, is_active
+                    FROM product
+                    WHERE product_id IN ({product_placeholders})
+                """),
+                product_params,
+            ).mappings().all()
+            products_by_id = {row["product_id"]: row for row in product_rows}
+
             for item in order.items:
-                product = connection.execute(
-                    text("SELECT product_id, product_name, price, is_active FROM product WHERE product_id = :product_id"),
-                    {"product_id": item.product_id},
-                ).mappings().first()
+                product = products_by_id.get(item.product_id)
                 if not product:
                     raise HTTPException(status_code=404, detail=f"Product {item.product_id} not found")
                 if not product["is_active"]:
@@ -1147,19 +1172,21 @@ def create_order(order: OrderCreate):
                 },
             ).scalar_one())
 
-            for item in order_items:
-                connection.execute(
-                    text("""
-                        INSERT INTO order_item (order_id, product_id, quantity, price)
-                        VALUES (:order_id, :product_id, :quantity, :price)
-                    """),
+            connection.execute(
+                text("""
+                    INSERT INTO order_item (order_id, product_id, quantity, price)
+                    VALUES (:order_id, :product_id, :quantity, :price)
+                """),
+                [
                     {
                         "order_id": order_id,
                         "product_id": item["product_id"],
                         "quantity": item["quantity"],
                         "price": item["price"],
-                    },
-                )
+                    }
+                    for item in order_items
+                ],
+            )
 
         return {
             "message": "Order created successfully",
@@ -1408,6 +1435,40 @@ def delete_customer(customer_phone: str):
         db.close()
 
 
+# CAMPAIGN ORDERS
+
+@app.get("/api/v1/campaigns/{promocode}/orders", tags=["campaigns"])
+def get_campaign_orders(promocode: str):
+    """Return only orders linked to one campaign, without downloading all sales."""
+    normalized_code = promocode.strip().upper()
+    if not normalized_code:
+        raise HTTPException(status_code=422, detail="Campaign code is required")
+
+    db = DatabaseManager()
+    try:
+        return db.fetch_all(
+            """
+            SELECT
+                o.order_id,
+                o.order_date,
+                o.order_time,
+                o.day_of_week,
+                o.customer_phone,
+                c.customer_name,
+                o.promocode,
+                o.discount,
+                o.total
+            FROM orders o
+            LEFT JOIN customer c ON c.customer_phone = o.customer_phone
+            WHERE o.promocode = :promocode
+            ORDER BY o.order_date DESC, o.order_time DESC, o.order_id DESC
+            """,
+            {"promocode": normalized_code},
+        )
+    finally:
+        db.close()
+
+
 # CAMPAIGNS
 
 @app.get("/api/v1/campaigns", tags=["campaigns"])
@@ -1609,3 +1670,4 @@ def create_campaign(campaign: CampaignCreate):
 
 # ANALYTICS AND RECOMMENDATIONS
 app.include_router(statistics_router)
+app.include_router(translations_router)

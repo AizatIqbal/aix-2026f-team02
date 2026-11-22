@@ -1,4 +1,13 @@
-import { createContext, useCallback, useContext, useEffect, useMemo, useState, type ReactNode } from "react";
+import { createContext, useCallback, useContext, useEffect, useMemo, useRef, useState, type ReactNode } from "react";
+import {
+  generateTranslations,
+  resolveTranslations,
+  type TranslationContext,
+  type TranslationLanguage,
+  type TranslationRecord,
+  type TranslationResolveRecord,
+  type TranslationSource,
+} from "./data-access";
 
 export type AppLanguage = "en" | "ko";
 export type AppTheme = "light" | "dark";
@@ -16,6 +25,7 @@ const DISPLAY_SIZE_KEY = "pointnull-display-size";
 const APP_MODE_KEY = "pointnull-app-mode";
 const FX_CACHE_KEY = "pointnull-fx-rates";
 const FX_CACHE_TTL = 12 * 60 * 60 * 1000;
+const TRANSLATION_CACHE_KEY = "pointnull-translation-memory";
 
 const ko: Record<string, string> = {
   "Sales workspace": "판매 작업 공간",
@@ -33,6 +43,7 @@ const ko: Record<string, string> = {
   "App Mode": "앱 모드",
   "Simple Mode": "간편 모드",
   "Advanced Mode": "고급 모드",
+  "Simple Mode keeps selling and order history visible. Advanced Mode adds Analysis, Marketing, Customers, and Import.": "간편 모드에서는 판매와 주문 내역을 사용할 수 있습니다. 고급 모드에서는 분석, 마케팅, 고객 관리 및 데이터 가져오기 기능이 추가됩니다.",
   "Choose the workspace that fits your business needs.": "비즈니스 요구에 맞는 작업 공간을 선택하세요.",
   "Essential tools for daily sales.": "일상적인 판매에 필요한 필수 기능입니다.",
   "Full tools for growing businesses.": "성장하는 비즈니스를 위한 전체 기능입니다.",
@@ -334,6 +345,7 @@ const ko: Record<string, string> = {
   "Campaigns will appear here based on their start and end dates.": "시작일과 종료일에 따라 캠페인이 여기에 표시됩니다.",
   "Linked orders": "연결된 주문",
   "Close": "닫기",
+  "Loading…": "불러오는 중…",
   "Order": "주문",
   "Date": "날짜",
   "Total": "합계",
@@ -521,54 +533,38 @@ const ko: Record<string, string> = {
   "Female": "여성",
   "Male": "남성",
   "Unknown": "알 수 없음",
-};
-
-const categoryKo: Record<number, { en: string; ko: string }> = {
-  1: { en: "Rice Bowls", ko: "덮밥류" },
-  2: { en: "Soups & Stews", ko: "국 & 찌개" },
-  3: { en: "Noodles", ko: "면류" },
-  4: { en: "Grill & BBQ", ko: "구이 & 바비큐" },
-  5: { en: "Street Food", ko: "길거리 음식" },
-  6: { en: "Sides", ko: "사이드 메뉴" },
-  7: { en: "Drinks", ko: "음료" },
-};
-
-const productKo: Record<number, { en: string; ko: string }> = {
-  1: { en: "Bulgogi Rice Bowl", ko: "불고기 덮밥" },
-  2: { en: "Spicy Pork Rice Bowl", ko: "제육 덮밥" },
-  3: { en: "Chicken Teriyaki Bowl", ko: "치킨 데리야끼 덮밥" },
-  4: { en: "Beef Bibimbap", ko: "소고기 비빔밥" },
-  5: { en: "Kimchi Fried Rice", ko: "김치볶음밥" },
-  6: { en: "Kimchi Jjigae", ko: "김치찌개" },
-  7: { en: "Soft Tofu Stew", ko: "순두부찌개" },
-  8: { en: "Beef Doenjang Stew", ko: "소고기 된장찌개" },
-  9: { en: "Budae Jjigae", ko: "부대찌개" },
-  10: { en: "Samgyetang", ko: "삼계탕" },
-  11: { en: "Jajangmyeon", ko: "짜장면" },
-  12: { en: "Jjamppong", ko: "짬뽕" },
-  13: { en: "Japchae", ko: "잡채" },
-  14: { en: "Cold Buckwheat Noodles", ko: "냉메밀국수" },
-  15: { en: "Kalguksu", ko: "칼국수" },
-  16: { en: "Pork Belly Set", ko: "삼겹살 세트" },
-  17: { en: "Beef Galbi", ko: "소갈비" },
-  18: { en: "Spicy Chicken Galbi", ko: "매운 닭갈비" },
-  19: { en: "Grilled Mackerel", ko: "고등어구이" },
-  20: { en: "Bulgogi Platter", ko: "불고기 모둠" },
-  21: { en: "Tteokbokki", ko: "떡볶이" },
-  22: { en: "Cheese Tteokbokki", ko: "치즈 떡볶이" },
-  23: { en: "Gimbap", ko: "김밥" },
-  24: { en: "Korean Fried Chicken", ko: "한국식 프라이드 치킨" },
-  25: { en: "Fish Cake Skewers", ko: "어묵꼬치" },
-  26: { en: "Kimchi Pancake", ko: "김치전" },
-  27: { en: "Seafood Pancake", ko: "해물파전" },
-  28: { en: "Steamed Egg", ko: "계란찜" },
-  29: { en: "Mandu Dumplings", ko: "만두" },
-  30: { en: "Japchae Side", ko: "잡채 (사이드)" },
-  31: { en: "Iced Americano", ko: "아이스 아메리카노" },
-  32: { en: "Sikhye", ko: "식혜" },
-  33: { en: "Barley Tea", ko: "보리차" },
-  34: { en: "Citron Tea", ko: "유자차" },
-  35: { en: "Soda", ko: "탄산음료" },
+  "Translation memory": "번역 메모리",
+  "Manage product, category, and campaign translations": "상품, 카테고리 및 캠페인 번역을 관리합니다.",
+  "Review machine translations and save your preferred wording.": "자동 번역을 검토하고 원하는 표현으로 저장하세요.",
+  "Open translation manager": "번역 관리 열기",
+  "Language tools": "언어 도구",
+  "Translation direction": "번역 방향",
+  "Original language": "원본 언어",
+  "Translated language": "번역 언어",
+  "Choose two different languages.": "서로 다른 두 언어를 선택하세요.",
+  "Add a translation": "번역 추가",
+  "Manual entries are saved as verified and take priority over machine translations.": "직접 입력한 번역은 검증된 번역으로 저장되며 자동 번역보다 우선 적용됩니다.",
+  "Content type": "콘텐츠 유형",
+  "Original text": "원문",
+  "Translation": "번역",
+  "Save verified translation": "검증된 번역 저장",
+  "Saved translations": "저장된 번역",
+  "Search translations": "번역 검색",
+  "All content": "전체 콘텐츠",
+  "Campaigns": "캠페인",
+  "General": "일반",
+  "Verified": "검증됨",
+  "Needs review": "검토 필요",
+  "Save & verify": "저장 및 검증",
+  "Translation saved and verified.": "번역을 저장하고 검증했습니다.",
+  "Manual translation saved.": "직접 입력한 번역을 저장했습니다.",
+  "Translations could not be loaded.": "번역을 불러오지 못했습니다.",
+  "A translation cannot be empty.": "번역 내용을 입력하세요.",
+  "Translation could not be saved.": "번역을 저장하지 못했습니다.",
+  "No translations found for this language pair.": "이 언어 조합에 저장된 번역이 없습니다.",
+  "Machine translations are suggestions. Verified translations are kept in the database and reused without another provider request.": "자동 번역은 제안입니다. 검증된 번역은 데이터베이스에 저장되어 제공업체를 다시 호출하지 않고 재사용됩니다.",
+  "need review": "개 검토 필요",
+  "saved": "개 저장됨",
 };
 
 interface PreferencesValue {
@@ -590,6 +586,9 @@ interface PreferencesValue {
   productName: (productId: number, sourceName: string) => string;
   categoryName: (categoryId: number, sourceName: string) => string;
   categoryLabel: (sourceName: string) => string;
+  campaignName: (sourceName: string) => string;
+  ensureTranslations: (items: TranslationSource[]) => Promise<void>;
+  applyTranslations: (items: Array<TranslationRecord | TranslationResolveRecord>) => void;
 }
 
 const PreferencesContext = createContext<PreferencesValue | null>(null);
@@ -672,6 +671,38 @@ function storedTheme(): AppTheme {
   }
 }
 
+type TranslationMap = Record<string, string>;
+
+function normalizeTranslationText(value: string): string {
+  return value.normalize("NFC").trim().toLocaleLowerCase();
+}
+
+function sourceLanguageForText(value: string): TranslationLanguage {
+  // Mixed labels follow their first language-bearing character.
+  const firstLanguageCharacter = value.normalize("NFC").match(/[A-Za-z\uac00-\ud7a3]/)?.[0];
+  return firstLanguageCharacter && /[\uac00-\ud7a3]/.test(firstLanguageCharacter) ? "ko" : "en";
+}
+
+function translationKey(
+  context: TranslationContext,
+  sourceLanguage: TranslationLanguage,
+  targetLanguage: TranslationLanguage,
+  sourceText: string,
+): string {
+  return [context, sourceLanguage, targetLanguage, normalizeTranslationText(sourceText)].join("|");
+}
+
+function readCachedTranslations(): TranslationMap {
+  try {
+    const raw = localStorage.getItem(TRANSLATION_CACHE_KEY);
+    if (!raw) return {};
+    const parsed = JSON.parse(raw) as TranslationMap;
+    return parsed && typeof parsed === "object" && !Array.isArray(parsed) ? parsed : {};
+  } catch {
+    return {};
+  }
+}
+
 export function PreferencesProvider({ children }: { children: ReactNode }) {
   const [language, setLanguage] = useState<AppLanguage>(storedLanguage);
   const [theme, setTheme] = useState<AppTheme>(storedTheme);
@@ -683,6 +714,13 @@ export function PreferencesProvider({ children }: { children: ReactNode }) {
   const [exchangeRateDate, setExchangeRateDate] = useState(cachedAtStart?.date ?? "");
   const [exchangeRateStatus, setExchangeRateStatus] = useState<ExchangeRateStatus>(cachedAtStart ? "ready" : "loading");
   const [exchangeRateError, setExchangeRateError] = useState("");
+  const [translationMap, setTranslationMap] = useState<TranslationMap>(readCachedTranslations);
+  const translationRequests = useRef(new Set<string>());
+
+  useEffect(() => {
+    try { localStorage.setItem(TRANSLATION_CACHE_KEY, JSON.stringify(translationMap)); }
+    catch { /* Browser storage is an optional fast cache; PostgreSQL remains canonical. */ }
+  }, [translationMap]);
 
   useEffect(() => {
     try { localStorage.setItem(LANGUAGE_KEY, language); } catch { /* Storage may be unavailable. */ }
@@ -793,28 +831,97 @@ export function PreferencesProvider({ children }: { children: ReactNode }) {
   }, [displayRate, moneyFormatter]);
 
   const t = useCallback((key: string) => language === "ko" ? (ko[key] ?? key) : key, [language]);
-  const productName = useCallback((productId: number, sourceName: string) => {
-    if (language !== "ko") return sourceName;
-    const translation = productKo[productId];
-    return translation && translation.en.toLocaleLowerCase() === sourceName.trim().toLocaleLowerCase()
-      ? translation.ko
-      : sourceName;
-  }, [language]);
-  const categoryName = useCallback((categoryId: number, sourceName: string) => {
-    if (language !== "ko") return sourceName;
-    const translation = categoryKo[categoryId];
-    return translation && translation.en.toLocaleLowerCase() === sourceName.trim().toLocaleLowerCase()
-      ? translation.ko
-      : sourceName;
-  }, [language]);
+  const applyTranslations = useCallback((items: Array<TranslationRecord | TranslationResolveRecord>) => {
+    const additions: TranslationMap = {};
+    for (const item of items) {
+      if (!item.translated_text || item.source_language === item.target_language) continue;
+      additions[translationKey(item.context, item.source_language, item.target_language, item.source_text)] = item.translated_text;
+    }
+    if (Object.keys(additions).length) {
+      setTranslationMap((current) => ({ ...current, ...additions }));
+    }
+  }, []);
+
+  const ensureTranslations = useCallback(async (items: TranslationSource[]) => {
+    const targetLanguage = language;
+    const seen = new Set<string>();
+    const eligible = items.filter((item) => {
+      const sourceText = item.source_text.trim();
+      if (!sourceText) return false;
+      const sourceLanguage = sourceLanguageForText(sourceText);
+      if (sourceLanguage === targetLanguage) return false;
+      const requestKey = translationKey(item.context, sourceLanguage, targetLanguage, sourceText);
+      if (seen.has(requestKey)) return false;
+      seen.add(requestKey);
+      return true;
+    });
+
+    // Keep request sizes bounded. The backend resolves cache hits first and
+    // only calls MyMemory for genuinely missing entries.
+    for (let index = 0; index < eligible.length; index += 100) {
+      const batch = eligible.slice(index, index + 100);
+      const requestKeys = batch.map((item) => {
+        const sourceLanguage = sourceLanguageForText(item.source_text);
+        return translationKey(item.context, sourceLanguage, targetLanguage, item.source_text);
+      });
+      const pending = batch.filter((item, itemIndex) => !translationRequests.current.has(requestKeys[itemIndex]));
+      const pendingKeys = pending.map((item) => {
+        const sourceLanguage = sourceLanguageForText(item.source_text);
+        return translationKey(item.context, sourceLanguage, targetLanguage, item.source_text);
+      });
+      if (!pending.length) continue;
+      pendingKeys.forEach((key) => translationRequests.current.add(key));
+      try {
+        // This first request is database-only. A language switch never waits
+        // for an external translation provider.
+        const resolved = await resolveTranslations(pending, targetLanguage);
+        applyTranslations(resolved);
+        const missing = resolved
+          .filter((item) => item.provider === "pending")
+          .map((item) => ({ source_text: item.source_text, context: item.context }));
+        if (missing.length) {
+          // Generate cache misses separately in the background. The current
+          // screen continues using original text until results are available.
+          void generateTranslations(missing, targetLanguage)
+            .then(applyTranslations)
+            .catch(() => { /* Provider failure is non-blocking. */ })
+            .finally(() => pendingKeys.forEach((key) => translationRequests.current.delete(key)));
+        } else {
+          pendingKeys.forEach((key) => translationRequests.current.delete(key));
+        }
+      } catch {
+        // Cache service failure is optional. Keep displaying original text.
+        pendingKeys.forEach((key) => translationRequests.current.delete(key));
+      }
+    }
+  }, [language, applyTranslations]);
+
+  const translatedName = useCallback((context: TranslationContext, sourceName: string) => {
+    const sourceText = sourceName.trim();
+    if (!sourceText) return sourceName;
+    const sourceLanguage = sourceLanguageForText(sourceText);
+    if (sourceLanguage === language) return sourceName;
+    const key = translationKey(context, sourceLanguage, language, sourceText);
+    return translationMap[key] ?? sourceName;
+  }, [language, translationMap]);
+
+  const productName = useCallback((_productId: number, sourceName: string) => {
+    return translatedName("product", sourceName);
+  }, [translatedName]);
+
+  const categoryName = useCallback((_categoryId: number, sourceName: string) => {
+    return translatedName("category", sourceName);
+  }, [translatedName]);
 
   const categoryLabel = useCallback((sourceName: string) => {
-    if (language !== "ko") return sourceName;
-    const match = Object.values(categoryKo).find((entry) => entry.en.toLocaleLowerCase() === sourceName.trim().toLocaleLowerCase());
-    return match?.ko ?? sourceName;
-  }, [language]);
+    return translatedName("category", sourceName);
+  }, [translatedName]);
 
-  const value = useMemo(() => ({ language, theme, currency, displaySize, appMode, exchangeRateStatus, exchangeRateDate, exchangeRateError, setLanguage, setTheme, setCurrency, setDisplaySize, setAppMode, formatMoney, t, productName, categoryName, categoryLabel }), [language, theme, currency, displaySize, appMode, exchangeRateStatus, exchangeRateDate, exchangeRateError, setCurrency, setAppMode, formatMoney, t, productName, categoryName, categoryLabel]);
+  const campaignName = useCallback((sourceName: string) => {
+    return translatedName("campaign", sourceName);
+  }, [translatedName]);
+
+  const value = useMemo(() => ({ language, theme, currency, displaySize, appMode, exchangeRateStatus, exchangeRateDate, exchangeRateError, setLanguage, setTheme, setCurrency, setDisplaySize, setAppMode, formatMoney, t, productName, categoryName, categoryLabel, campaignName, ensureTranslations, applyTranslations }), [language, theme, currency, displaySize, appMode, exchangeRateStatus, exchangeRateDate, exchangeRateError, setCurrency, setAppMode, formatMoney, t, productName, categoryName, categoryLabel, campaignName, ensureTranslations, applyTranslations]);
   return <PreferencesContext.Provider value={value}>{children}</PreferencesContext.Provider>;
 }
 

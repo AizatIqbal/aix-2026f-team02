@@ -96,14 +96,13 @@ const GROUP_LABELS: Record<StatisticsGroup, string> = {
 };
 const DAYS = ["Monday", "Tuesday", "Wednesday", "Thursday", "Friday", "Saturday", "Sunday"];
 function App() {
-  const { appMode } = usePreferences();
+  const { appMode, ensureTranslations, categoryName, productName } = usePreferences();
   const [tab, setTab] = useState<WorkingTab>("menu");
   const [data, setData] = useState<AppData>(EMPTY_DATA);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
   const [selection, setSelection] = useState<Record<number, number>>({});
   const [category, setCategory] = useState<number | "all" | "uncategorized">("all");
-  const [clock, setClock] = useState(new Date());
   const [toast, setToast] = useState("");
   const [checkoutOpen, setCheckoutOpen] = useState(false);
   const [productModalOpen, setProductModalOpen] = useState(false);
@@ -126,11 +125,6 @@ function App() {
   }, [appMode, tab]);
 
   useEffect(() => {
-    const timer = window.setInterval(() => setClock(new Date()), 1000);
-    return () => window.clearInterval(timer);
-  }, []);
-
-  useEffect(() => {
     Promise.all([getCategories(), getProducts()])
       .then(([categories, products]) => {
         setData((current) => ({
@@ -144,6 +138,17 @@ function App() {
       })
       .finally(() => setLoading(false));
   }, []);
+
+  // Warm the translation memory without delaying the screen or language switch.
+  // Cache hits are restored from PostgreSQL; misses are translated asynchronously.
+  const translationSources = useMemo(() => [
+    ...data.categories.map((item) => ({ source_text: item.category_name, context: "category" as const })),
+    ...data.products.map((item) => ({ source_text: item.product_name, context: "product" as const })),
+  ], [data.categories, data.products]);
+
+  useEffect(() => {
+    if (translationSources.length) void ensureTranslations(translationSources);
+  }, [ensureTranslations, translationSources]);
   // Keep the splash screen visible for at least 2.2 seconds
   useEffect(() => {
     if (!splashVisible) return;
@@ -198,7 +203,6 @@ function App() {
   return (
     <div className="min-h-screen bg-canvas text-ink">
       <Header
-        clock={clock}
         tab={tab}
         appMode={appMode}
         onTabChange={setTab}
@@ -233,8 +237,8 @@ function App() {
               setCategory(result.category.category_id);
               setToast(
                 result.moved_product_ids.length
-                  ? `${result.category.category_name} created · ${result.moved_product_ids.length} products moved`
-                  : `${result.category.category_name} category created`,
+                  ? `${categoryName(result.category.category_id, result.category.category_name)} created · ${result.moved_product_ids.length} products moved`
+                  : `${categoryName(result.category.category_id, result.category.category_name)} category created`,
               );
               window.setTimeout(() => setToast(""), 2800);
               return result;
@@ -313,7 +317,7 @@ function App() {
                       record.product_id === updated.product_id ? updated : record,
                     ),
                   }));
-                  setToast(`${updated.product_name} is available for sale`);
+                  setToast(`${productName(updated.product_id, updated.product_name)} is available for sale`);
                   window.setTimeout(() => setToast(""), 2800);
                 })
                 .catch((caught) =>
@@ -375,8 +379,8 @@ function App() {
             setProductModalOpen(false);
             setToast(
               editingProduct
-                ? `${product.product_name} updated`
-                : `${product.product_name} added to Sell`,
+                ? `${productName(product.product_id, product.product_name)} updated`
+                : `${productName(product.product_id, product.product_name)} added to Sell`,
             );
             setEditingProduct(null);
             window.setTimeout(() => setToast(""), 2800);
@@ -403,7 +407,7 @@ function App() {
                   return rest;
                 });
                 setPendingDeactivation(null);
-                setToast(`${updated.product_name} deactivated`);
+                setToast(`${productName(updated.product_id, updated.product_name)} deactivated`);
                 window.setTimeout(() => setToast(""), 2800);
               })
               .catch((caught) => {
@@ -492,15 +496,39 @@ function StartupSplash({ leaving }: { leaving: boolean }) {
   );
 }
 
+function LiveClock() {
+  const { language } = usePreferences();
+  const [clock, setClock] = useState(() => new Date());
+
+  useEffect(() => {
+    const timer = window.setInterval(() => setClock(new Date()), 1000);
+    return () => window.clearInterval(timer);
+  }, []);
+
+  const locale = language === "ko" ? "ko-KR" : "en-US";
+
+  return (
+    <div className="hidden shrink-0 items-center gap-2 text-right md:flex">
+      <Icon name="clock" className="size-5 text-accent" />
+      <div>
+        <div className="text-sm font-semibold">
+          {clock.toLocaleTimeString(locale, { hour: "2-digit", minute: "2-digit" })}
+        </div>
+        <div className="text-xs text-ink-faint">
+          {clock.toLocaleDateString(locale, { weekday: "short", month: "short", day: "numeric" })}
+        </div>
+      </div>
+    </div>
+  );
+}
+
 function Header({
-  clock,
   tab,
   appMode,
   onTabChange,
   onImport,
   onSettings,
 }: {
-  clock: Date;
   tab: WorkingTab;
   appMode: "simple" | "advanced";
   onTabChange: (tab: WorkingTab) => void;
@@ -579,17 +607,7 @@ function Header({
         >
           <img src="/pointnull-settings-gear.svg" alt="" aria-hidden="true" className="size-5 object-contain" />
         </IconButton>
-        <div className="hidden shrink-0 items-center gap-2 text-right md:flex">
-          <Icon name="clock" className="size-5 text-accent" />
-          <div>
-            <div className="text-sm font-semibold">
-              {clock.toLocaleTimeString(language === "ko" ? "ko-KR" : "en-US", { hour: "2-digit", minute: "2-digit" })}
-            </div>
-            <div className="text-xs text-ink-faint">
-              {clock.toLocaleDateString(language === "ko" ? "ko-KR" : "en-US", { weekday: "short", month: "short", day: "numeric" })}
-            </div>
-          </div>
-        </div>
+        <LiveClock />
       </div>
     </header>
   );
@@ -702,8 +720,8 @@ function Menu({
               {managementMode && (
                 <button
                   type="button"
-                  aria-label={`Delete ${item.category_name} category`}
-                  title={`Delete ${item.category_name}`}
+                  aria-label={`${t("Delete category")}: ${categoryName(item.category_id, item.category_name)}`}
+                  title={`${t("Delete category")}: ${categoryName(item.category_id, item.category_name)}`}
                   onClick={(event) => {
                     event.stopPropagation();
                     setCategoryToDelete(item);
@@ -910,7 +928,7 @@ function CreateCategoryDialog({
   onClose: () => void;
   onCreate: (name: string, productIds: number[]) => Promise<void>;
 }) {
-  const { t } = usePreferences();
+  const { t, productName, categoryName } = usePreferences();
   useModalScrollLock();
   const [name, setName] = useState("");
   const selectableProducts = products.filter((product) =>
@@ -993,7 +1011,7 @@ function CreateCategoryDialog({
                       {uncategorizedProducts.map((product) => (
                         <label key={product.product_id} className="flex cursor-pointer items-center gap-3 rounded-lg bg-accent-soft/40 px-2 py-2 text-sm hover:bg-accent-soft">
                           <input type="checkbox" className="size-4 accent-current" checked={selectedIds.includes(product.product_id)} onChange={() => toggleProduct(product.product_id)} />
-                          <span className="min-w-0 flex-1 truncate">{product.product_name}</span>
+                          <span className="min-w-0 flex-1 truncate">{productName(product.product_id, product.product_name)}</span>
                           <span className="shrink-0 text-xs text-accent-strong">{t("No category")}</span>
                         </label>
                       ))}
@@ -1005,8 +1023,8 @@ function CreateCategoryDialog({
                       {categorizedProducts.map((product) => (
                         <label key={product.product_id} className="flex cursor-pointer items-center gap-3 rounded-lg px-2 py-2 text-sm hover:bg-surface-strong">
                           <input type="checkbox" className="size-4 accent-current" checked={selectedIds.includes(product.product_id)} onChange={() => toggleProduct(product.product_id)} />
-                          <span className="min-w-0 flex-1 truncate">{product.product_name}</span>
-                          <span className="shrink-0 text-xs text-ink-faint">{categories.find((item) => item.category_id === product.category_id)?.category_name ?? t("Uncategorized")}</span>
+                          <span className="min-w-0 flex-1 truncate">{productName(product.product_id, product.product_name)}</span>
+                          <span className="shrink-0 text-xs text-ink-faint">{categories.find((item) => item.category_id === product.category_id) ? categoryName(product.category_id ?? 0, categories.find((item) => item.category_id === product.category_id)!.category_name) : t("Uncategorized")}</span>
                         </label>
                       ))}
                     </div>
@@ -1038,7 +1056,7 @@ function DeleteCategoryDialog({
   onClose: () => void;
   onDelete: (action: "move" | "uncategorized" | "delete", targetCategoryId?: number) => Promise<void>;
 }) {
-  const { t } = usePreferences();
+  const { t, categoryName, productName } = usePreferences();
   useModalScrollLock();
   const affected = products.filter((product) => product.category_id === category.category_id);
   const soldProducts = affected.filter((product) => product.has_sales);
@@ -1070,7 +1088,7 @@ function DeleteCategoryDialog({
         <header className="flex shrink-0 items-start justify-between border-b border-line px-5 py-4 sm:px-6">
           <div>
             <div className="text-xs font-bold uppercase tracking-widest text-danger">{t("Category management")}</div>
-            <h2 id="delete-category-title" className="mt-1 font-display text-xl font-bold">{t("Delete category?")} <span className="text-danger">{category.category_name}</span></h2>
+            <h2 id="delete-category-title" className="mt-1 font-display text-xl font-bold">{t("Delete category?")} <span className="text-danger">{categoryName(category.category_id, category.category_name)}</span></h2>
             <p className="mt-1 text-sm text-ink-muted">{affected.length} {t("products assigned to this category")}</p>
           </div>
           <button type="button" className="flex size-10 shrink-0 items-center justify-center rounded-xl border border-line text-xl text-ink-muted hover:bg-surface-strong" onClick={onClose} aria-label="Close">×</button>
@@ -1083,7 +1101,7 @@ function DeleteCategoryDialog({
               <div className="max-h-40 space-y-1 overflow-y-auto overscroll-contain pr-1">
                 {affected.map((product) => (
                   <div key={product.product_id} className="flex items-center justify-between gap-3 rounded-lg px-2 py-2 text-sm">
-                    <span className="min-w-0 truncate">{product.product_name}</span>
+                    <span className="min-w-0 truncate">{productName(product.product_id, product.product_name)}</span>
                     <span className={`shrink-0 text-xs font-medium ${product.has_sales ? "text-ink-muted" : "text-accent-strong"}`}>{product.has_sales ? t("Has sales history") : t("Never sold")}</span>
                   </div>
                 ))}
@@ -1095,7 +1113,7 @@ function DeleteCategoryDialog({
             {destinations.length > 0 && (
               <label className={`block cursor-pointer rounded-xl border p-3.5 ${action === "move" ? "border-accent bg-accent-soft/50" : "border-line"}`}>
                 <span className="flex items-start gap-3"><input type="radio" name="category-delete-action" className="mt-1 size-4 accent-current" checked={action === "move"} onChange={() => setAction("move")} /><span><span className="block text-sm font-semibold">{t("Move products to another category")}</span><span className="mt-0.5 block text-xs text-ink-muted">{t("Keep every product and its sales history.")}</span></span></span>
-                {action === "move" && <select className="mt-3 min-h-11 w-full rounded-xl border border-line bg-white px-3 text-sm" value={targetId} onChange={(event) => setTargetId(event.target.value)}>{destinations.map((item) => <option key={item.category_id} value={item.category_id}>{item.category_name}</option>)}</select>}
+                {action === "move" && <select className="mt-3 min-h-11 w-full rounded-xl border border-line bg-white px-3 text-sm" value={targetId} onChange={(event) => setTargetId(event.target.value)}>{destinations.map((item) => <option key={item.category_id} value={item.category_id}>{categoryName(item.category_id, item.category_name)}</option>)}</select>}
               </label>
             )}
             <label className={`block cursor-pointer rounded-xl border p-3.5 ${action === "uncategorized" ? "border-accent bg-accent-soft/50" : "border-line"}`}>
@@ -1479,7 +1497,7 @@ function statisticsQuery(filters: Filters): URLSearchParams {
 }
 
 function Analysis({ data, loading }: { data: AppData; loading: boolean }) {
-  const { t, language, productName, categoryName, formatMoney } = usePreferences();
+  const { t, language, productName, categoryName, campaignName, ensureTranslations, formatMoney } = usePreferences();
   const [filters, setFilters] = useState<Filters>(DEFAULT_FILTERS);
   const [view, setView] = useState<"sales" | "marketing">("sales");
   const [trendProductId, setTrendProductId] = useState(0);
@@ -1514,9 +1532,17 @@ function Analysis({ data, loading }: { data: AppData; loading: boolean }) {
   }, [query, loading]);
 
   useEffect(() => {
-    void loadAnalyticsDetails();
     getCampaigns().then(setCampaignOptions).catch(() => setCampaignOptions([]));
   }, []);
+
+  useEffect(() => {
+    if (campaignOptions.length) {
+      void ensureTranslations(campaignOptions.map((campaign) => ({
+        source_text: campaign.campaign_name,
+        context: "campaign" as const,
+      })));
+    }
+  }, [campaignOptions, ensureTranslations]);
 
   const summary = statistics?.summary;
   const topProduct = statistics?.products.find((product) => product.units > 0);
@@ -1625,7 +1651,7 @@ function Analysis({ data, loading }: { data: AppData; loading: boolean }) {
                 <option value="__none__">{t("No campaign code")}</option>
                 {campaignOptions.map((campaign) => (
                   <option key={campaign.promocode} value={campaign.promocode}>
-                    {campaign.campaign_name} ({campaign.promocode})
+                    {campaignName(campaign.campaign_name)} ({campaign.promocode})
                   </option>
                 ))}
               </select>
