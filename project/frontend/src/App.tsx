@@ -12,6 +12,7 @@ import {
   addProduct,
   createCategory,
   deleteCategory,
+  deleteProduct,
   exportAnalytics,
   getCategories,
   getCampaigns,
@@ -366,6 +367,39 @@ function App() {
           onClose={() => {
             setProductModalOpen(false);
             setEditingProduct(null);
+          }}
+          onDeleted={(result) => {
+            const archiveCategory = result.archive_category;
+            setData((current) => {
+              const categories = archiveCategory && !current.categories.some(
+                (item) => item.category_id === archiveCategory.category_id,
+              )
+                ? [...current.categories, archiveCategory]
+                : current.categories;
+              return {
+                ...current,
+                categories,
+                products: result.action === "deleted"
+                  ? current.products.filter((item) => item.product_id !== result.product_id)
+                  : current.products.map((item) => item.product_id === result.product_id && archiveCategory
+                    ? {
+                        ...item,
+                        category_id: archiveCategory.category_id,
+                        category_name: archiveCategory.category_name,
+                        active: false,
+                      }
+                    : item),
+              };
+            });
+            setSelection((current) => {
+              const { [result.product_id]: removed, ...rest } = current;
+              void removed;
+              return rest;
+            });
+            setProductModalOpen(false);
+            setEditingProduct(null);
+            setToast(result.action === "deleted" ? "Product deleted" : "Product archived to Archived Products");
+            window.setTimeout(() => setToast(""), 3200);
           }}
           onSaved={(product) => {
             setData((current) => ({
@@ -1140,11 +1174,13 @@ function ProductFormModal({
   product,
   onClose,
   onSaved,
+  onDeleted,
 }: {
   categories: Category[];
   product: Product | null;
   onClose: () => void;
   onSaved: (product: Product) => void;
+  onDeleted: (result: Awaited<ReturnType<typeof deleteProduct>>) => void;
 }) {
   const { t, categoryName } = usePreferences();
   useModalScrollLock();
@@ -1161,6 +1197,7 @@ function ProductFormModal({
   const [localImagePreview, setLocalImagePreview] = useState("");
   const [error, setError] = useState("");
   const [saving, setSaving] = useState(false);
+  const [deleting, setDeleting] = useState(false);
 
   useEffect(() => {
     if (!imageFile) {
@@ -1224,6 +1261,24 @@ function ProductFormModal({
       setError(caught instanceof Error ? caught.message : "The product could not be saved.");
     } finally {
       setSaving(false);
+    }
+  }
+
+  async function handleDelete(): Promise<void> {
+    if (!product || deleting || saving) return;
+    const confirmed = window.confirm(
+      `Delete ${product.product_name}? Products with sales history will be archived instead so existing orders remain intact. Products without sales history will be permanently deleted.`,
+    );
+    if (!confirmed) return;
+    setDeleting(true);
+    setError("");
+    try {
+      const result = await deleteProduct(product.product_id);
+      onDeleted(result);
+    } catch (caught) {
+      setError(caught instanceof Error ? caught.message : "The product could not be deleted.");
+    } finally {
+      setDeleting(false);
     }
   }
 
@@ -1348,13 +1403,25 @@ function ProductFormModal({
             </div>
           </div>
           </div>
-          <div className="flex shrink-0 flex-col-reverse gap-2 border-t border-line bg-white px-5 py-4 sm:flex-row sm:justify-end sm:gap-3 sm:px-6">
+          <div className="flex shrink-0 flex-col-reverse gap-2 border-t border-line bg-white px-5 py-4 sm:flex-row sm:items-center sm:justify-between sm:gap-3 sm:px-6">
+            {product ? (
+              <button
+                type="button"
+                onClick={() => void handleDelete()}
+                disabled={saving || deleting}
+                className="w-full rounded-xl border border-danger/30 px-4 py-2.5 text-sm font-semibold text-danger hover:bg-danger-soft disabled:cursor-not-allowed disabled:opacity-50 sm:w-auto"
+              >
+                {deleting ? "Deleting…" : "Delete product"}
+              </button>
+            ) : <span />}
+            <div className="flex flex-col-reverse gap-2 sm:flex-row sm:gap-3">
             <Button type="button" onClick={onClose} className="w-full sm:w-auto">
               Cancel
             </Button>
-            <Button variant="primary" type="submit" disabled={saving} className="w-full sm:w-auto">
+            <Button variant="primary" type="submit" disabled={saving || deleting} className="w-full sm:w-auto">
               {saving ? "Saving…" : product ? "Save changes" : "Add product"}
             </Button>
+            </div>
           </div>
         </form>
       </section>

@@ -625,6 +625,18 @@ export async function updateProduct(productId: number, input: NewProductInput): 
   return normalizeProduct(product);
 }
 
+export interface DeleteProductResult {
+  product_id: number;
+  action: "deleted" | "archived";
+  archive_category: Category | null;
+}
+
+export function deleteProduct(productId: number): Promise<DeleteProductResult> {
+  return apiRequest<DeleteProductResult>(`/products/${productId}`, {
+    method: "DELETE",
+  });
+}
+
 export async function setProductActive(productId: number, active: boolean): Promise<Product> {
   const product = await apiRequest<Product & { active?: boolean | number }>(`/products/${productId}/active`, {
     method: "PATCH",
