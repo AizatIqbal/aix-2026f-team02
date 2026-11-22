@@ -628,20 +628,28 @@ async def upload_product_image(file: UploadFile = File(...)):
 
     filename = f"{uuid.uuid4().hex}{extension}"
     supabase_url = os.getenv("SUPABASE_URL", "").rstrip("/")
-    supabase_secret_key = os.getenv("SUPABASE_SECRET_KEY", "")
+    supabase_secret_key = os.getenv("SUPABASE_SECRET_KEY", "").strip()
+    supabase_service_role_jwt = os.getenv("SUPABASE_SERVICE_ROLE_JWT", "").strip()
     storage_bucket = os.getenv("SUPABASE_STORAGE_BUCKET", "product-images")
 
     if supabase_url and supabase_secret_key:
+        if not supabase_service_role_jwt:
+            raise HTTPException(
+                status_code=503,
+                detail="Supabase Storage authorization is not configured",
+            )
+
         object_path = f"products/{filename}"
         upload_url = (
             f"{supabase_url}/storage/v1/object/"
             f"{quote(storage_bucket, safe='')}/{quote(object_path, safe='/')}"
         )
         content_type = "image/png" if extension == ".png" else "image/jpeg"
-        # Current Supabase sb_secret_* API keys belong in the apikey header.
-        # Do not send them as Bearer tokens: they are not JWTs.
+        # The sb_secret_* key identifies the project client; the legacy
+        # service_role JWT supplies the Bearer authorization required by Storage.
         headers = {
             "apikey": supabase_secret_key,
+            "Authorization": f"Bearer {supabase_service_role_jwt}",
             "Content-Type": content_type,
             "x-upsert": "false",
         }
@@ -651,7 +659,12 @@ async def upload_product_image(file: UploadFile = File(...)):
                 response = await client.post(upload_url, content=content, headers=headers)
                 response.raise_for_status()
         except httpx.HTTPStatusError as exc:
-            # Do not expose storage credentials or upstream response bodies to clients.
+            # Log Supabase's response for backend diagnostics without exposing it to clients.
+            print(
+                "[SUPABASE STORAGE ERROR]",
+                "Status:", exc.response.status_code,
+                "Response:", exc.response.text[:1000],
+            )
             raise HTTPException(
                 status_code=502,
                 detail=f"Product image storage upload failed (HTTP {exc.response.status_code})",
