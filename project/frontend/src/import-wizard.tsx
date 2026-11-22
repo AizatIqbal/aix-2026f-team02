@@ -190,104 +190,95 @@ export function ImportWizard({
       ),
     [types],
   );
-  const validations = useMemo(
-    () =>
-      mappedRows.map((row, index) => {
-        const missing = requiredFields.filter((field) => {
-          const value = row[field];
-          return value === undefined || value === null || String(value).trim() === "";
-        });
-        const invalidNumbers = ["price", "customer_age"].filter(
-          (field) =>
-            row[field] !== undefined && String(row[field]).trim() !== "" &&
-            (!Number.isFinite(numberValue(row[field])) || numberValue(row[field]) < 0 ||
-              (field === "customer_age" && (!Number.isInteger(numberValue(row[field])) || numberValue(row[field]) > 120))),
-        );
-        const invalidText = [
-          ...(row.product_name !== undefined && String(row.product_name).trim().length > 100
-            ? ["product_name (max 100 characters)"]
-            : []),
-          ...(row.category_name !== undefined && String(row.category_name).trim().length > 50
-            ? ["category_name (max 50 characters)"]
-            : []),
-          ...(row.customer_name !== undefined && String(row.customer_name).trim().length > 100
-            ? ["customer_name (max 100 characters)"]
-            : []),
-          ...(row.customer_phone !== undefined && String(row.customer_phone).trim().length > 20
-            ? ["customer_phone (max 20 characters)"]
-            : []),
-          ...(row.customer_gender !== undefined && String(row.customer_gender).trim().length > 20
-            ? ["customer_gender (max 20 characters)"]
-            : []),
-        ];
+  const validations = useMemo(() => {
+    // Build lookup sets once, then validate each imported row in one pass.
+    // This avoids rescanning every preceding row for each duplicate check.
+    const existingCategoryNames = new Set(
+      categories.map((item) => item.category_name.trim().toLowerCase()),
+    );
+    const seenCategoryNames = new Set<string>();
+    const existingPhones = new Set(
+      existingCustomers.map((customer) => customer.customer_phone.replace(/[^0-9]/g, "")),
+    );
+    const seenPhones = new Set<string>();
+    const categoryIdsByName = new Map(
+      categories.map((category) => [category.category_name.trim().toLowerCase(), category.category_id]),
+    );
+    const existingProductKeys = new Set(
+      products.map((product) => `${product.product_name.trim().toLowerCase()}|${product.category_id ?? ""}`),
+    );
+    const seenProductKeys = new Set<string>();
 
-        const name = String(row.product_name ?? "")
-          .trim()
-          .toLowerCase();
-        const categoryName = String(row.category_name ?? "")
-          .trim()
-          .toLowerCase();
-        const categoryId = /^\d+$/.test(categoryName) ? Number(categoryName) : null;
-        const phoneKey = String(row.customer_phone ?? "").replace(/[^0-9]/g, "");
-        const duplicate = types.includes("categories")
-          ? categories.some(
-              (item) =>
-                item.category_name.trim().toLowerCase() ===
-                String(row.category_name ?? "")
-                  .trim()
-                  .toLowerCase(),
-            ) ||
-            mappedRows.slice(0, index).some(
-              (other) =>
-                String(other.category_name ?? "")
-                  .trim()
-                  .toLowerCase() ===
-                String(row.category_name ?? "")
-                  .trim()
-                  .toLowerCase(),
-            )
-          : types.includes("customers")
-            ? Boolean(phoneKey) && (
-                existingCustomers.some((customer) => customer.customer_phone.replace(/[^0-9]/g, "") === phoneKey) ||
-                mappedRows.slice(0, index).some((other) =>
-                  String(other.customer_phone ?? "").replace(/[^0-9]/g, "") === phoneKey,
-                )
-              )
-            : Boolean(name && categoryName) &&
-            (products.some((product) => {
-              if (product.product_name.trim().toLowerCase() !== name) return false;
-              if (categoryId !== null) return product.category_id === categoryId;
-              return categories.some(
-                (category) =>
-                  category.category_id === product.category_id &&
-                  category.category_name.trim().toLowerCase() === categoryName,
-              );
-            }) ||
-              mappedRows.slice(0, index).some(
-                (other) =>
-                  String(other.product_name ?? "")
-                    .trim()
-                    .toLowerCase() === name &&
-                  String(other.category_name ?? "")
-                    .trim()
-                    .toLowerCase() === categoryName,
-              ));
+    return mappedRows.map((row) => {
+      const missing = requiredFields.filter((field) => {
+        const value = row[field];
+        return value === undefined || value === null || String(value).trim() === "";
+      });
+      const invalidNumbers = ["price", "customer_age"].filter(
+        (field) =>
+          row[field] !== undefined && String(row[field]).trim() !== "" &&
+          (!Number.isFinite(numberValue(row[field])) || numberValue(row[field]) < 0 ||
+            (field === "customer_age" && (!Number.isInteger(numberValue(row[field])) || numberValue(row[field]) > 120))),
+      );
+      const invalidText = [
+        ...(row.product_name !== undefined && String(row.product_name).trim().length > 100
+          ? ["product_name (max 100 characters)"]
+          : []),
+        ...(row.category_name !== undefined && String(row.category_name).trim().length > 50
+          ? ["category_name (max 50 characters)"]
+          : []),
+        ...(row.customer_name !== undefined && String(row.customer_name).trim().length > 100
+          ? ["customer_name (max 100 characters)"]
+          : []),
+        ...(row.customer_phone !== undefined && String(row.customer_phone).trim().length > 20
+          ? ["customer_phone (max 20 characters)"]
+          : []),
+        ...(row.customer_gender !== undefined && String(row.customer_gender).trim().length > 20
+          ? ["customer_gender (max 20 characters)"]
+          : []),
+      ];
 
-        return {
-          row,
-          missing,
-          invalidNumbers,
-          invalidText,
-          duplicate,
-          valid:
-            missing.length === 0 &&
-            invalidNumbers.length === 0 &&
-            invalidText.length === 0 &&
-            !duplicate,
-        };
-      }),
-    [categories, existingCustomers, mappedRows, products, requiredFields, types],
-  );
+      const name = String(row.product_name ?? "").trim().toLowerCase();
+      const categoryName = String(row.category_name ?? "").trim().toLowerCase();
+      const categoryId = /^\\d+$/.test(categoryName) ? Number(categoryName) : null;
+      const phoneKey = String(row.customer_phone ?? "").replace(/[^0-9]/g, "");
+      let duplicate = false;
+
+      if (types.includes("categories")) {
+        duplicate = existingCategoryNames.has(categoryName) || seenCategoryNames.has(categoryName);
+        seenCategoryNames.add(categoryName);
+      } else if (types.includes("customers")) {
+        duplicate = Boolean(phoneKey) && (existingPhones.has(phoneKey) || seenPhones.has(phoneKey));
+        if (phoneKey) seenPhones.add(phoneKey);
+      } else if (name && categoryName) {
+        const resolvedCategoryId = categoryId ?? categoryIdsByName.get(categoryName);
+        const existingMatch =
+          resolvedCategoryId !== undefined &&
+          resolvedCategoryId !== null &&
+          existingProductKeys.has(`${name}|${resolvedCategoryId}`);
+        const categoryKey =
+          resolvedCategoryId !== undefined && resolvedCategoryId !== null
+            ? `id:${resolvedCategoryId}`
+            : `name:${categoryName}`;
+        const importedKey = `${name}|${categoryKey}`;
+        duplicate = existingMatch || seenProductKeys.has(importedKey);
+        seenProductKeys.add(importedKey);
+      }
+
+      return {
+        row,
+        missing,
+        invalidNumbers,
+        invalidText,
+        duplicate,
+        valid:
+          missing.length === 0 &&
+          invalidNumbers.length === 0 &&
+          invalidText.length === 0 &&
+          !duplicate,
+      };
+    });
+  }, [categories, existingCustomers, mappedRows, products, requiredFields, types]);
   const validRows = validations.filter((item) => item.valid);
   const invalidRows = validations.filter((item) => !item.valid);
 

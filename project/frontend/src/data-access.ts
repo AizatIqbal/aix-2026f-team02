@@ -4,6 +4,32 @@ export interface Category {
   category_name: string;
 }
 
+export type TranslationLanguage = "en" | "ko";
+export type TranslationContext = "product" | "category" | "campaign" | "general";
+
+export interface TranslationSource {
+  source_text: string;
+  context: TranslationContext;
+}
+
+export interface TranslationRecord {
+  translation_id: number;
+  source_text: string;
+  translated_text: string;
+  source_language: TranslationLanguage;
+  target_language: TranslationLanguage;
+  context: TranslationContext;
+  provider: string;
+  is_verified: boolean;
+  updated_at: string | null;
+}
+
+export interface TranslationResolveRecord extends Omit<TranslationRecord, "translation_id" | "updated_at" | "translated_text"> {
+  translation_id: number | null;
+  translated_text: string | null;
+  updated_at?: string | null;
+}
+
 export interface Customer {
   customer_phone: string;
   customer_name: string;
@@ -368,6 +394,66 @@ export function getCategories(): Promise<Category[]> {
   return apiRequest<Category[]>("/categories");
 }
 
+export async function resolveTranslations(
+  items: TranslationSource[],
+  target_language: TranslationLanguage,
+): Promise<TranslationResolveRecord[]> {
+  const response = await apiRequest<{ translations: TranslationResolveRecord[] }>("/translations/resolve", {
+    method: "POST",
+    body: JSON.stringify({ items, target_language }),
+  });
+  return response.translations;
+}
+
+export async function generateTranslations(
+  items: TranslationSource[],
+  target_language: TranslationLanguage,
+): Promise<TranslationResolveRecord[]> {
+  const response = await apiRequest<{ translations: TranslationResolveRecord[] }>("/translations/generate", {
+    method: "POST",
+    body: JSON.stringify({ items, target_language }),
+  });
+  return response.translations;
+}
+
+export async function getTranslations(options: {
+  source_language?: TranslationLanguage;
+  target_language?: TranslationLanguage;
+  context?: TranslationContext;
+  search?: string;
+  limit?: number;
+  offset?: number;
+} = {}): Promise<{ items: TranslationRecord[]; total: number }> {
+  const params = new URLSearchParams();
+  if (options.source_language) params.set("source_language", options.source_language);
+  if (options.target_language) params.set("target_language", options.target_language);
+  if (options.context) params.set("context", options.context);
+  if (options.search) params.set("search", options.search);
+  params.set("limit", String(options.limit ?? 200));
+  params.set("offset", String(options.offset ?? 0));
+  return apiRequest<{ items: TranslationRecord[]; total: number }>(`/translations?${params.toString()}`);
+}
+
+export function updateTranslation(translationId: number, translated_text: string): Promise<TranslationRecord> {
+  return apiRequest<TranslationRecord>(`/translations/${translationId}`, {
+    method: "PUT",
+    body: JSON.stringify({ translated_text }),
+  });
+}
+
+export function createManualTranslation(input: {
+  source_text: string;
+  translated_text: string;
+  source_language: TranslationLanguage;
+  target_language: TranslationLanguage;
+  context: TranslationContext;
+}): Promise<TranslationRecord> {
+  return apiRequest<TranslationRecord>("/translations", {
+    method: "POST",
+    body: JSON.stringify(input),
+  });
+}
+
 export interface CreateCategoryResult {
   category: Category;
   moved_product_ids: number[];
@@ -460,6 +546,14 @@ export function evaluateDiscount(query: string, productId: number, unitCost = ""
 
 export async function getOrders(): Promise<Order[]> {
   const records = await apiRequest<BackendOrder[]>("/orders");
+  return records.map(normalizeOrder);
+}
+
+/** Fetch only sales linked to one campaign, rather than downloading all orders. */
+export async function getCampaignOrders(promocode: string): Promise<Order[]> {
+  const records = await apiRequest<BackendOrder[]>(
+    `/campaigns/${encodeURIComponent(promocode)}/orders`,
+  );
   return records.map(normalizeOrder);
 }
 

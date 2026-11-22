@@ -2,7 +2,7 @@
 import { useEffect, useMemo, useState, type FormEvent } from "react";
 import {
   getCampaigns,
-  getOrders,
+  getCampaignOrders,
   addCampaign,
   updateCampaign,
   type Campaign,
@@ -33,7 +33,7 @@ export function MarketingCampaigns({
 }: {
   onOpenAnalysis: () => void;
 }) {
-  const { t, formatMoney } = usePreferences();
+  const { t, formatMoney, ensureTranslations, campaignName } = usePreferences();
   const [campaigns, setCampaigns] = useState<Campaign[]>([]);
   const [finished, setFinished] = useState(false);
   const [editing, setEditing] = useState<Campaign | null>(null);
@@ -59,6 +59,12 @@ export function MarketingCampaigns({
     void reload();
   }, []);
 
+  useEffect(() => {
+    if (campaigns.length) {
+      void ensureTranslations(campaigns.map((campaign) => ({ source_text: campaign.campaign_name, context: "campaign" as const })));
+    }
+  }, [campaigns, ensureTranslations]);
+
   const active = useMemo(
     () => campaigns.filter(
       c => c.start_date <= today && c.end_date >= today
@@ -80,15 +86,8 @@ export function MarketingCampaigns({
     setLinkedLoading(true);
 
     try {
-      const allOrders = await getOrders();
-
-      setLinkedOrders(
-        allOrders.filter(
-          order =>
-            (order.promocode || "").toUpperCase() ===
-            campaign.promocode.toUpperCase()
-        )
-      );
+      const campaignOrders = await getCampaignOrders(campaign.promocode);
+      setLinkedOrders(campaignOrders);
     } catch (caught) {
       setLinkedError(
         caught instanceof Error
@@ -222,7 +221,7 @@ export function MarketingCampaigns({
                   </span>
 
                   <h2 className="mt-3 font-display text-lg font-bold">
-                    {c.campaign_name}
+                    {campaignName(c.campaign_name)}
                   </h2>
 
                   <p className="text-xs text-ink-muted">
@@ -311,7 +310,7 @@ export function MarketingCampaigns({
                 </h2>
 
                 <p className="mt-1 text-sm text-ink-muted">
-                  {linkedCampaign.campaign_name} · {linkedCampaign.promocode}
+                  {campaignName(linkedCampaign.campaign_name)} · {linkedCampaign.promocode}
                 </p>
               </div>
 

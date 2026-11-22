@@ -182,8 +182,13 @@ export function MarketingAnalysis({
   statistics: Statistics;
   query: string;
 }) {
-  const { t, formatMoney } = usePreferences();
+  const { t, formatMoney, campaignName, ensureTranslations } = usePreferences();
   const campaigns = statistics.by_campaign ?? [];
+  useEffect(() => {
+    if (campaigns.length) {
+      void ensureTranslations(campaigns.map((item) => ({ source_text: item.campaign_name, context: "campaign" as const })));
+    }
+  }, [campaigns, ensureTranslations]);
   return (
     <div className="grid gap-5 lg:grid-cols-2">
       <Surface className="min-w-0 p-5 lg:col-span-2">
@@ -201,7 +206,7 @@ export function MarketingAnalysis({
                   <div className="mt-4 space-y-3">{campaigns.map(c => {
                     const value = Number(c[chart.key]);
                     return <div key={c.promocode}>
-                      <div className="mb-1 flex justify-between gap-3 text-xs"><span className="truncate font-medium">{c.campaign_name}</span><span className="shrink-0 tabular-nums">{chart.format(value)}</span></div>
+                      <div className="mb-1 flex justify-between gap-3 text-xs"><span className="truncate font-medium">{campaignName(c.campaign_name)}</span><span className="shrink-0 tabular-nums">{chart.format(value)}</span></div>
                       <div className="h-2.5 overflow-hidden rounded-full bg-surface-strong"><div className="h-full rounded-full bg-accent" style={{ width: `${(value / max) * 100}%` }} /></div>
                     </div>;
                   })}</div>
@@ -221,7 +226,7 @@ export function MarketingAnalysis({
               key: campaign.promocode,
               cells: [
                 <span>
-                  {campaign.campaign_name}
+                  {campaignName(campaign.campaign_name)}
                   <small className="ml-1.5 text-ink-muted">{campaign.promocode}</small>
                 </span>,
                 campaign.channel,
