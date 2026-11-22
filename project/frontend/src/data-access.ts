@@ -29,12 +29,13 @@ export interface Campaign {
 
 export interface Product {
   product_id: number;
-  category_id: number;
-  category_name?: string;
+  category_id: number | null;
+  category_name?: string | null;
   product_name: string;
   price: number;
   image_url?: string | null;
   active?: boolean;
+  has_sales?: boolean;
 }
 
 export interface Order {
@@ -98,7 +99,7 @@ export interface CampaignValidation {
 
 export interface NewProductInput {
   product_name: string;
-  category_id: number;
+  category_id: number | null;
   price: number;
   image_url?: string | null;
 }
@@ -106,7 +107,7 @@ export interface NewProductInput {
 export interface ImportProductInput {
   product_name: string;
   price: number;
-  category_id?: number;
+  category_id?: number | null;
   category_name?: string;
   source_product_id?: number;
 }
@@ -202,7 +203,7 @@ interface SalesTotals {
 
 export type StatisticsGroup = "day" | "week" | "month" | "year";
 type PeriodTotals = SalesTotals & { period: string };
-type ProductTotals = SalesTotals & { product_id: number; product_name: string; category_id?: number };
+type ProductTotals = SalesTotals & { product_id: number; product_name: string; category_id?: number | null };
 
 /** Sales of one customer group (an age group, a gender, or both). */
 export type CustomerGroupTotals = SalesTotals & {
@@ -231,7 +232,7 @@ export interface Statistics {
   })[];
   by_hour: (SalesTotals & { hour: number })[];
   by_weekday: (SalesTotals & { weekday: number })[];
-  by_category: (SalesTotals & { category_id: number })[];
+  by_category: (SalesTotals & { category_id: number | null })[];
   by_campaign: (SalesTotals & {
     promocode: string;
     campaign_name: string;
@@ -365,6 +366,40 @@ function normalizeOrderItems(orderId: number, items: BackendOrderItem[]): OrderI
 
 export function getCategories(): Promise<Category[]> {
   return apiRequest<Category[]>("/categories");
+}
+
+export interface CreateCategoryResult {
+  category: Category;
+  moved_product_ids: number[];
+}
+
+export interface DeleteCategoryResult {
+  category_id: number;
+  action: "move" | "uncategorized" | "delete";
+  target_category: Category | null;
+  moved_product_ids: number[];
+  deleted_product_ids: number[];
+  archived_product_ids: number[];
+  uncategorized_product_ids: number[];
+  archive_category: Category | null;
+}
+
+export function createCategory(category_name: string, product_ids: number[] = []): Promise<CreateCategoryResult> {
+  return apiRequest<CreateCategoryResult>("/categories", {
+    method: "POST",
+    body: JSON.stringify({ category_name, product_ids }),
+  });
+}
+
+export function deleteCategory(
+  categoryId: number,
+  action: "move" | "uncategorized" | "delete",
+  target_category_id?: number,
+): Promise<DeleteCategoryResult> {
+  return apiRequest<DeleteCategoryResult>(`/categories/${categoryId}`, {
+    method: "DELETE",
+    body: JSON.stringify({ action, target_category_id }),
+  });
 }
 
 export async function getProducts(): Promise<Product[]> {

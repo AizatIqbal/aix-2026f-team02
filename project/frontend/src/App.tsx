@@ -10,6 +10,8 @@ import {
 } from "react";
 import {
   addProduct,
+  createCategory,
+  deleteCategory,
   exportAnalytics,
   getCategories,
   getCampaigns,
@@ -100,7 +102,7 @@ function App() {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
   const [selection, setSelection] = useState<Record<number, number>>({});
-  const [category, setCategory] = useState<number | "all">("all");
+  const [category, setCategory] = useState<number | "all" | "uncategorized">("all");
   const [clock, setClock] = useState(new Date());
   const [toast, setToast] = useState("");
   const [checkoutOpen, setCheckoutOpen] = useState(false);
@@ -217,9 +219,82 @@ function App() {
             selection={selection}
             loading={loading}
             onCategoryChange={setCategory}
+            onCreateCategory={async (name, productIds) => {
+              const result = await createCategory(name, productIds);
+              setData((current) => ({
+                ...current,
+                categories: [...current.categories, result.category],
+                products: current.products.map((product) =>
+                  result.moved_product_ids.includes(product.product_id)
+                    ? { ...product, category_id: result.category.category_id, category_name: result.category.category_name }
+                    : product,
+                ),
+              }));
+              setCategory(result.category.category_id);
+              setToast(
+                result.moved_product_ids.length
+                  ? `${result.category.category_name} created · ${result.moved_product_ids.length} products moved`
+                  : `${result.category.category_name} category created`,
+              );
+              window.setTimeout(() => setToast(""), 2800);
+              return result;
+            }}
+            onDeleteCategory={async (categoryId, action, targetCategoryId) => {
+              const result = await deleteCategory(categoryId, action, targetCategoryId);
+              setData((current) => {
+                let products = current.products;
+                let categories = current.categories.filter((item) => item.category_id !== categoryId);
+                if (result.action === "move" && result.target_category) {
+                  products = products.map((product) =>
+                    result.moved_product_ids.includes(product.product_id)
+                      ? { ...product, category_id: result.target_category!.category_id, category_name: result.target_category!.category_name }
+                      : product,
+                  );
+                } else if (result.action === "uncategorized") {
+                  const uncategorizedIds = new Set(result.uncategorized_product_ids);
+                  products = products.map((product) => uncategorizedIds.has(product.product_id)
+                    ? { ...product, category_id: null, category_name: null }
+                    : product);
+                } else {
+                  const deletedIds = new Set(result.deleted_product_ids);
+                  products = products
+                    .filter((product) => !deletedIds.has(product.product_id))
+                    .map((product) => result.archived_product_ids.includes(product.product_id) && result.archive_category
+                      ? { ...product, category_id: result.archive_category.category_id, category_name: result.archive_category.category_name, active: false }
+                      : product);
+                  if (result.archive_category && !categories.some((item) => item.category_id === result.archive_category!.category_id)) {
+                    categories = [...categories, result.archive_category];
+                  }
+                }
+                return { ...current, categories, products };
+              });
+              if (category === categoryId) {
+                setCategory(result.action === "move" && result.target_category
+                  ? result.target_category.category_id
+                  : "all");
+              }
+              if (result.action === "delete") {
+                const removedFromMenu = new Set([...result.deleted_product_ids, ...result.archived_product_ids]);
+                setSelection((current) => Object.fromEntries(Object.entries(current).filter(([id]) => !removedFromMenu.has(Number(id)))));
+              }
+              const message = result.action === "move"
+                ? `Category deleted · ${result.moved_product_ids.length} products moved`
+                : result.action === "uncategorized"
+                  ? `Category deleted · ${result.uncategorized_product_ids.length} products left uncategorized`
+                  : `Category deleted · ${result.deleted_product_ids.length} products removed · ${result.archived_product_ids.length} kept for sales history`;
+              setToast(message);
+              window.setTimeout(() => setToast(""), 3600);
+              return result;
+            }}
             onQuantityChange={updateQuantity}
             managementMode={managementMode}
-            onManagementModeChange={setManagementMode}
+            onManagementModeChange={(enabled) => {
+              if (!enabled && typeof category === "number") {
+                const selected = data.categories.find((item) => item.category_id === category);
+                if (selected?.category_name.toLowerCase().startsWith("archived")) setCategory("all");
+              }
+              setManagementMode(enabled);
+            }}
             onAddProduct={() => {
               setEditingProduct(null);
               setProductModalOpen(true);
@@ -359,9 +434,13 @@ function App() {
             selection={selection}
             onClose={() => setCheckoutOpen(false)}
             onSaved={(saved) => {
+              const soldProductIds = new Set(saved.orderItems.map((item) => item.product_id));
               setData((current) => ({
                 ...current,
                 orders: [...current.orders, saved.order],
+                products: current.products.map((product) =>
+                  soldProductIds.has(product.product_id) ? { ...product, has_sales: true } : product,
+                ),
               }));
               setSelection({});
             }}
@@ -524,6 +603,8 @@ function Menu({
   loading,
   managementMode,
   onCategoryChange,
+  onCreateCategory,
+  onDeleteCategory,
   onQuantityChange,
   onManagementModeChange,
   onAddProduct,
@@ -533,11 +614,13 @@ function Menu({
 }: {
   categories: Category[];
   products: Product[];
-  selectedCategory: number | "all";
+  selectedCategory: number | "all" | "uncategorized";
   selection: Record<number, number>;
   loading: boolean;
   managementMode: boolean;
-  onCategoryChange: (category: number | "all") => void;
+  onCategoryChange: (category: number | "all" | "uncategorized") => void;
+  onCreateCategory: (name: string, productIds: number[]) => Promise<unknown>;
+  onDeleteCategory: (categoryId: number, action: "move" | "uncategorized" | "delete", targetCategoryId?: number) => Promise<unknown>;
   onQuantityChange: (productId: number, delta: number) => void;
   onManagementModeChange: (enabled: boolean) => void;
   onAddProduct: () => void;
@@ -547,14 +630,22 @@ function Menu({
 }) {
   const { t, productName, categoryName, formatMoney } = usePreferences();
   const [feedbackProductId, setFeedbackProductId] = useState<number | null>(null);
+  const [categoryDialog, setCategoryDialog] = useState<"create" | null>(null);
+  const [categoryToDelete, setCategoryToDelete] = useState<Category | null>(null);
   const availableProducts = managementMode
     ? products
     : products.filter((product) => product.active !== false);
+  const uncategorizedProducts = availableProducts.filter((product) => product.category_id === null);
   const visibleProducts =
     selectedCategory === "all"
       ? availableProducts
-      : availableProducts.filter((product) => product.category_id === selectedCategory);
+      : selectedCategory === "uncategorized"
+        ? uncategorizedProducts
+        : availableProducts.filter((product) => product.category_id === selectedCategory);
   const categoryMap = new Map(categories.map((item) => [item.category_id, item.category_name]));
+  const categoryChips = managementMode
+    ? categories
+    : categories.filter((item) => !item.category_name.toLowerCase().startsWith("archived"));
 
   function addProduct(productId: number): void {
     if (managementMode) return;
@@ -583,23 +674,57 @@ function Menu({
         </div>
       </div>
       <div className="mb-6 flex flex-wrap items-center gap-2">
-        <div className="flex min-w-0 flex-1 gap-2 overflow-x-auto pb-1">
+        <div className="flex min-w-0 flex-1 items-center gap-2 overflow-x-auto pb-2 pt-2">
           <Button
             variant={selectedCategory === "all" ? "primary" : "chip"}
             onClick={() => onCategoryChange("all")}
           >
             {t("All")}
           </Button>
-          {categories.map((item) => (
+          {uncategorizedProducts.length > 0 && (
             <Button
-              key={item.category_id}
-              variant={selectedCategory === item.category_id ? "primary" : "chip"}
-              onClick={() => onCategoryChange(item.category_id)}
+              variant={selectedCategory === "uncategorized" ? "primary" : "chip"}
+              onClick={() => onCategoryChange("uncategorized")}
               className="whitespace-nowrap"
             >
-              {categoryName(item.category_id, item.category_name)}
+              {t("Uncategorized")} · {uncategorizedProducts.length}
             </Button>
+          )}
+          {categoryChips.map((item) => (
+            <div key={item.category_id} className="relative shrink-0">
+              <Button
+                variant={selectedCategory === item.category_id ? "primary" : "chip"}
+                onClick={() => onCategoryChange(item.category_id)}
+                className={`whitespace-nowrap ${managementMode ? "pr-8" : ""}`}
+              >
+                {categoryName(item.category_id, item.category_name)}
+              </Button>
+              {managementMode && (
+                <button
+                  type="button"
+                  aria-label={`Delete ${item.category_name} category`}
+                  title={`Delete ${item.category_name}`}
+                  onClick={(event) => {
+                    event.stopPropagation();
+                    setCategoryToDelete(item);
+                  }}
+                  className="absolute -right-1.5 -top-1.5 z-10 flex size-6 items-center justify-center rounded-full border border-danger/20 bg-white text-sm font-bold text-danger shadow-sm transition hover:bg-danger-soft focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-danger"
+                >
+                  ×
+                </button>
+              )}
+            </div>
           ))}
+          {managementMode && (
+            <IconButton
+              label="Add category"
+              title="Add category"
+              className="size-11 shrink-0 rounded-full border-dashed border-accent/50 text-accent-strong hover:bg-accent-soft"
+              onClick={() => setCategoryDialog("create")}
+            >
+              <Icon name="plus" />
+            </IconButton>
+          )}
         </div>
         <div className="flex shrink-0 items-center gap-2">
           <Button
@@ -658,7 +783,9 @@ function Menu({
                       </>
                     )}
                     <span className="pointer-events-none absolute left-3 top-3 rounded-full bg-white/90 px-2 py-1 text-[10px] font-semibold text-ink-muted shadow-sm">
-                      {categoryName(product.category_id, categoryMap.get(product.category_id) ?? "Uncategorized")}
+                      {product.category_id === null
+                        ? t("Uncategorized")
+                        : categoryName(product.category_id, categoryMap.get(product.category_id) ?? t("Uncategorized"))}
                     </span>
                     {inactive && (
                       <span className="pointer-events-none absolute right-3 top-3 rounded-full bg-ink px-2 py-1 text-[10px] font-bold text-white shadow-sm">
@@ -745,7 +872,248 @@ function Menu({
           })}
         </div>
       )}
+      {categoryDialog === "create" && (
+        <CreateCategoryDialog
+          categories={categories}
+          products={products}
+          onClose={() => setCategoryDialog(null)}
+          onCreate={async (name, productIds) => {
+            await onCreateCategory(name, productIds);
+            setCategoryDialog(null);
+          }}
+        />
+      )}
+      {categoryToDelete && (
+        <DeleteCategoryDialog
+          category={categoryToDelete}
+          categories={categories}
+          products={products}
+          onClose={() => setCategoryToDelete(null)}
+          onDelete={async (action, targetCategoryId) => {
+            await onDeleteCategory(categoryToDelete.category_id, action, targetCategoryId);
+            setCategoryToDelete(null);
+          }}
+        />
+      )}
     </section>
+  );
+}
+
+function CreateCategoryDialog({
+  categories,
+  products,
+  onClose,
+  onCreate,
+}: {
+  categories: Category[];
+  products: Product[];
+  onClose: () => void;
+  onCreate: (name: string, productIds: number[]) => Promise<void>;
+}) {
+  const { t } = usePreferences();
+  useModalScrollLock();
+  const [name, setName] = useState("");
+  const selectableProducts = products.filter((product) =>
+    !categories.some((item) => item.category_id === product.category_id && item.category_name.toLowerCase().startsWith("archived")),
+  );
+  const uncategorizedProducts = selectableProducts.filter((product) => product.category_id === null);
+  const categorizedProducts = selectableProducts.filter((product) => product.category_id !== null);
+  const [moveExisting, setMoveExisting] = useState(uncategorizedProducts.length > 0);
+  const [selectedIds, setSelectedIds] = useState<number[]>(() => uncategorizedProducts.map((product) => product.product_id));
+  const [saving, setSaving] = useState(false);
+  const [error, setError] = useState("");
+
+  function toggleProduct(productId: number): void {
+    setSelectedIds((current) => current.includes(productId)
+      ? current.filter((id) => id !== productId)
+      : [...current, productId]);
+  }
+
+  async function submit(event: FormEvent<HTMLFormElement>): Promise<void> {
+    event.preventDefault();
+    const trimmed = name.trim();
+    if (!trimmed) {
+      setError("Enter a category name.");
+      return;
+    }
+    if (categories.some((category) => category.category_name.trim().toLowerCase() === trimmed.toLowerCase())) {
+      setError("A category with this name already exists.");
+      return;
+    }
+    setSaving(true);
+    setError("");
+    try {
+      await onCreate(trimmed, moveExisting ? selectedIds : []);
+    } catch (caught) {
+      setError(caught instanceof Error ? caught.message : "The category could not be created.");
+      setSaving(false);
+    }
+  }
+
+  return (
+    <div className="fixed inset-0 z-[70] grid place-items-center overflow-y-auto overscroll-contain bg-ink/45 p-3 backdrop-blur-sm sm:p-5" role="presentation" onMouseDown={onClose}>
+      <section className="my-auto flex max-h-[calc(100dvh-1.5rem)] min-h-0 w-full max-w-lg flex-col overflow-hidden rounded-2xl bg-white shadow-2xl" role="dialog" aria-modal="true" aria-labelledby="create-category-title" onMouseDown={(event) => event.stopPropagation()}>
+        <header className="flex shrink-0 items-start justify-between border-b border-line px-5 py-4 sm:px-6">
+          <div>
+            <div className="text-xs font-bold uppercase tracking-widest text-accent">{t("Menu setup")}</div>
+            <h2 id="create-category-title" className="mt-1 font-display text-xl font-bold">{t("Add category")}</h2>
+            <p className="mt-1 text-sm text-ink-muted">{t("Create a category, then optionally move existing products into it.")}</p>
+          </div>
+          <button type="button" className="flex size-10 shrink-0 items-center justify-center rounded-xl border border-line text-xl text-ink-muted hover:bg-surface-strong" onClick={onClose} aria-label="Close">×</button>
+        </header>
+        <form onSubmit={(event) => void submit(event)} className="flex min-h-0 flex-1 flex-col overflow-hidden">
+          <div className="min-h-0 flex-1 space-y-4 overflow-y-auto overscroll-contain p-5 sm:p-6">
+            {error && <div role="alert" className="rounded-xl bg-danger-soft px-4 py-3 text-sm font-medium text-danger">{error}</div>}
+            <label className="block text-sm font-semibold">{t("Category name")}
+              <Input className="mt-2 w-full" value={name} onChange={(event) => setName(event.target.value)} maxLength={50} placeholder="e.g. Beverages" autoFocus required />
+            </label>
+            <label className="flex cursor-pointer items-start gap-3 rounded-xl border border-line p-3.5">
+              <input type="checkbox" className="mt-1 size-4 accent-current" checked={moveExisting} onChange={(event) => setMoveExisting(event.target.checked)} />
+              <span>
+                <span className="block text-sm font-semibold">{t("Move existing products into this category")}</span>
+                <span className="mt-0.5 block text-xs text-ink-muted">{uncategorizedProducts.length > 0
+                  ? t("Uncategorized products are selected first. Review or change the selection below.")
+                  : t("Optional. Leave unchecked to create the category without changing existing products.")}</span>
+              </span>
+            </label>
+            {moveExisting && (
+              <div className="rounded-xl border border-line p-3">
+                <div className="mb-2 flex items-center justify-between gap-3">
+                  <span className="text-sm font-semibold">{t("Select products")}</span>
+                  <span className="text-xs text-ink-muted">{selectedIds.length} {t("selected")}</span>
+                </div>
+                <div className="max-h-64 space-y-3 overflow-y-auto overscroll-contain pr-1">
+                  {selectableProducts.length === 0 && <p className="py-3 text-sm text-ink-muted">{t("There are no existing products to move.")}</p>}
+                  {uncategorizedProducts.length > 0 && (
+                    <div>
+                      <div className="mb-1 flex items-center justify-between gap-2 px-2">
+                        <span className="text-xs font-bold uppercase tracking-wide text-accent-strong">{t("Uncategorized products")} · {uncategorizedProducts.length}</span>
+                        <button type="button" className="text-xs font-semibold text-accent-strong hover:underline" onClick={() => setSelectedIds((current) => Array.from(new Set([...current, ...uncategorizedProducts.map((product) => product.product_id)])))}>{t("Select all")}</button>
+                      </div>
+                      {uncategorizedProducts.map((product) => (
+                        <label key={product.product_id} className="flex cursor-pointer items-center gap-3 rounded-lg bg-accent-soft/40 px-2 py-2 text-sm hover:bg-accent-soft">
+                          <input type="checkbox" className="size-4 accent-current" checked={selectedIds.includes(product.product_id)} onChange={() => toggleProduct(product.product_id)} />
+                          <span className="min-w-0 flex-1 truncate">{product.product_name}</span>
+                          <span className="shrink-0 text-xs text-accent-strong">{t("No category")}</span>
+                        </label>
+                      ))}
+                    </div>
+                  )}
+                  {categorizedProducts.length > 0 && (
+                    <div>
+                      {uncategorizedProducts.length > 0 && <div className="mb-1 px-2 text-xs font-bold uppercase tracking-wide text-ink-faint">{t("Other products")}</div>}
+                      {categorizedProducts.map((product) => (
+                        <label key={product.product_id} className="flex cursor-pointer items-center gap-3 rounded-lg px-2 py-2 text-sm hover:bg-surface-strong">
+                          <input type="checkbox" className="size-4 accent-current" checked={selectedIds.includes(product.product_id)} onChange={() => toggleProduct(product.product_id)} />
+                          <span className="min-w-0 flex-1 truncate">{product.product_name}</span>
+                          <span className="shrink-0 text-xs text-ink-faint">{categories.find((item) => item.category_id === product.category_id)?.category_name ?? t("Uncategorized")}</span>
+                        </label>
+                      ))}
+                    </div>
+                  )}
+                </div>
+              </div>
+            )}
+          </div>
+          <footer className="flex shrink-0 flex-col-reverse gap-2 border-t border-line bg-white px-5 py-4 sm:flex-row sm:justify-end sm:px-6">
+            <Button type="button" onClick={onClose} className="w-full sm:w-auto">{t("Cancel")}</Button>
+            <Button variant="primary" type="submit" disabled={saving || !name.trim()} className="w-full sm:w-auto">{saving ? t("Creating…") : t("Create category")}</Button>
+          </footer>
+        </form>
+      </section>
+    </div>
+  );
+}
+
+function DeleteCategoryDialog({
+  category,
+  categories,
+  products,
+  onClose,
+  onDelete,
+}: {
+  category: Category;
+  categories: Category[];
+  products: Product[];
+  onClose: () => void;
+  onDelete: (action: "move" | "uncategorized" | "delete", targetCategoryId?: number) => Promise<void>;
+}) {
+  const { t } = usePreferences();
+  useModalScrollLock();
+  const affected = products.filter((product) => product.category_id === category.category_id);
+  const soldProducts = affected.filter((product) => product.has_sales);
+  const unsoldProducts = affected.filter((product) => !product.has_sales);
+  const destinations = categories.filter((item) => item.category_id !== category.category_id);
+  const [action, setAction] = useState<"move" | "uncategorized" | "delete">(affected.length > 0 && destinations.length > 0 ? "move" : affected.length > 0 ? "uncategorized" : "delete");
+  const [targetId, setTargetId] = useState(destinations[0] ? String(destinations[0].category_id) : "");
+  const [saving, setSaving] = useState(false);
+  const [error, setError] = useState("");
+
+  async function submit(): Promise<void> {
+    if (action === "move" && !targetId) {
+      setError("Choose a destination category, or choose to leave products uncategorized.");
+      return;
+    }
+    setSaving(true);
+    setError("");
+    try {
+      await onDelete(action, action === "move" ? Number(targetId) : undefined);
+    } catch (caught) {
+      setError(caught instanceof Error ? caught.message : "The category could not be deleted.");
+      setSaving(false);
+    }
+  }
+
+  return (
+    <div className="fixed inset-0 z-[70] grid place-items-center overflow-y-auto overscroll-contain bg-ink/45 p-3 backdrop-blur-sm sm:p-5" role="presentation" onMouseDown={onClose}>
+      <section className="my-auto flex max-h-[calc(100dvh-1.5rem)] min-h-0 w-full max-w-xl flex-col overflow-hidden rounded-2xl bg-white shadow-2xl" role="dialog" aria-modal="true" aria-labelledby="delete-category-title" onMouseDown={(event) => event.stopPropagation()}>
+        <header className="flex shrink-0 items-start justify-between border-b border-line px-5 py-4 sm:px-6">
+          <div>
+            <div className="text-xs font-bold uppercase tracking-widest text-danger">{t("Category management")}</div>
+            <h2 id="delete-category-title" className="mt-1 font-display text-xl font-bold">{t("Delete category?")} <span className="text-danger">{category.category_name}</span></h2>
+            <p className="mt-1 text-sm text-ink-muted">{affected.length} {t("products assigned to this category")}</p>
+          </div>
+          <button type="button" className="flex size-10 shrink-0 items-center justify-center rounded-xl border border-line text-xl text-ink-muted hover:bg-surface-strong" onClick={onClose} aria-label="Close">×</button>
+        </header>
+        <div className="min-h-0 flex-1 space-y-4 overflow-y-auto overscroll-contain p-5 sm:p-6">
+          {error && <div role="alert" className="rounded-xl bg-danger-soft px-4 py-3 text-sm font-medium text-danger">{error}</div>}
+          {affected.length > 0 && (
+            <div className="rounded-xl border border-line p-3">
+              <div className="mb-2 flex items-center justify-between"><span className="text-sm font-semibold">{t("Products affected")}</span><span className="text-xs text-ink-muted">{soldProducts.length} sold · {unsoldProducts.length} never sold</span></div>
+              <div className="max-h-40 space-y-1 overflow-y-auto overscroll-contain pr-1">
+                {affected.map((product) => (
+                  <div key={product.product_id} className="flex items-center justify-between gap-3 rounded-lg px-2 py-2 text-sm">
+                    <span className="min-w-0 truncate">{product.product_name}</span>
+                    <span className={`shrink-0 text-xs font-medium ${product.has_sales ? "text-ink-muted" : "text-accent-strong"}`}>{product.has_sales ? t("Has sales history") : t("Never sold")}</span>
+                  </div>
+                ))}
+              </div>
+            </div>
+          )}
+          <fieldset className="space-y-2">
+            <legend className="mb-2 text-sm font-semibold">{t("What should happen to these products?")}</legend>
+            {destinations.length > 0 && (
+              <label className={`block cursor-pointer rounded-xl border p-3.5 ${action === "move" ? "border-accent bg-accent-soft/50" : "border-line"}`}>
+                <span className="flex items-start gap-3"><input type="radio" name="category-delete-action" className="mt-1 size-4 accent-current" checked={action === "move"} onChange={() => setAction("move")} /><span><span className="block text-sm font-semibold">{t("Move products to another category")}</span><span className="mt-0.5 block text-xs text-ink-muted">{t("Keep every product and its sales history.")}</span></span></span>
+                {action === "move" && <select className="mt-3 min-h-11 w-full rounded-xl border border-line bg-white px-3 text-sm" value={targetId} onChange={(event) => setTargetId(event.target.value)}>{destinations.map((item) => <option key={item.category_id} value={item.category_id}>{item.category_name}</option>)}</select>}
+              </label>
+            )}
+            <label className={`block cursor-pointer rounded-xl border p-3.5 ${action === "uncategorized" ? "border-accent bg-accent-soft/50" : "border-line"}`}>
+              <span className="flex items-start gap-3"><input type="radio" name="category-delete-action" className="mt-1 size-4 accent-current" checked={action === "uncategorized"} onChange={() => setAction("uncategorized")} /><span><span className="block text-sm font-semibold">{t("Leave products without a category")}</span><span className="mt-0.5 block text-xs text-ink-muted">{t("Keep every product and its sales history, but remove the category assignment.")}</span></span></span>
+            </label>
+            <label className={`block cursor-pointer rounded-xl border p-3.5 ${action === "delete" ? "border-danger/40 bg-danger-soft/40" : "border-line"}`}>
+              <span className="flex items-start gap-3"><input type="radio" name="category-delete-action" className="mt-1 size-4 accent-current" checked={action === "delete"} onChange={() => setAction("delete")} /><span><span className="block text-sm font-semibold">{t("Delete category and its products")}</span><span className="mt-0.5 block text-xs text-ink-muted">{t("Permanently delete products that have never been sold. Products with sales history will be deactivated and retained under Archived Products so past orders remain intact.")}</span></span></span>
+            </label>
+          </fieldset>
+          {action === "delete" && soldProducts.length > 0 && <p className="rounded-xl bg-surface-secondary px-3 py-2.5 text-xs leading-relaxed text-ink-muted">{soldProducts.length} product{soldProducts.length === 1 ? " has" : "s have"} sales history and cannot be permanently erased without damaging historical orders. {unsoldProducts.length} unsold product{unsoldProducts.length === 1 ? " will" : "s will"} be permanently deleted.</p>}
+          {affected.length === 0 && <p className="text-sm text-ink-muted">{t("This category is empty and can be deleted immediately.")}</p>}
+        </div>
+        <footer className="flex shrink-0 flex-col-reverse gap-2 border-t border-line bg-white px-5 py-4 sm:flex-row sm:justify-end sm:px-6">
+          <Button type="button" onClick={onClose} className="w-full sm:w-auto">{t("Cancel")}</Button>
+          <Button variant={action === "delete" ? "danger" : "primary"} type="button" onClick={() => void submit()} disabled={saving || (action === "move" && !targetId)} className="w-full sm:w-auto">{saving ? t("Deleting…") : action === "move" ? t("Move & delete category") : action === "uncategorized" ? t("Remove category") : t("Delete category")}</Button>
+        </footer>
+      </section>
+    </div>
   );
 }
 
@@ -764,7 +1132,11 @@ function ProductFormModal({
   useModalScrollLock();
 
   const [name, setName] = useState(product?.product_name ?? "");
-  const [categoryId, setCategoryId] = useState(product?.category_id.toString() ?? "");
+  const [categoryId, setCategoryId] = useState(
+    product
+      ? product.category_id == null ? "" : String(product.category_id)
+      : String(categories.find((item) => !item.category_name.toLowerCase().startsWith("archived"))?.category_id ?? ""),
+  );
   const [price, setPrice] = useState(product?.price.toString() ?? "");
   const [imageUrl, setImageUrl] = useState(product?.image_url ?? "");
   const [imageFile, setImageFile] = useState<File | null>(null);
@@ -807,8 +1179,8 @@ function ProductFormModal({
   async function submit(event: FormEvent<HTMLFormElement>): Promise<void> {
     event.preventDefault();
     const numericPrice = Number(price);
-    if (!name.trim() || !categoryId || !Number.isFinite(numericPrice) || numericPrice <= 0) {
-      setError("Enter a product name, category, and valid price.");
+    if (!name.trim() || !Number.isFinite(numericPrice) || numericPrice <= 0) {
+      setError("Enter a product name and valid price.");
       return;
     }
     setSaving(true);
@@ -822,7 +1194,7 @@ function ProductFormModal({
 
       const input = {
         product_name: name.trim(),
-        category_id: Number(categoryId),
+        category_id: categoryId ? Number(categoryId) : null,
         price: numericPrice,
         image_url: savedImageUrl,
       };
@@ -887,15 +1259,16 @@ function ProductFormModal({
               />
             </label>
             <label className="block text-sm font-semibold">
-              {t("Category")} <span className="text-danger">*</span>
+              {t("Category (optional)")}
               <select
                 className="mt-2 min-h-11 w-full rounded-xl border border-line bg-white px-3 text-sm outline-none focus:border-accent focus:ring-2 focus:ring-accent/15"
                 value={categoryId}
                 onChange={(event) => setCategoryId(event.target.value)}
-                required
               >
-                <option value="">{t("Choose a category")}</option>
-                {categories.map((item) => (
+                <option value="">{t("No category")}</option>
+                {categories.filter((item) =>
+                  !item.category_name.toLowerCase().startsWith("archived") || item.category_id === product?.category_id
+                ).map((item) => (
                   <option key={item.category_id} value={item.category_id}>
                     {categoryName(item.category_id, item.category_name)}
                   </option>
@@ -1050,9 +1423,6 @@ function SummaryBar({
               <div className="text-xs font-bold uppercase tracking-wide text-ink">
                 {t("Current order")}
               </div>
-              <span className="rounded-full bg-surface-strong px-2 py-0.5 text-[10px] font-semibold text-ink-muted">
-                {t("Draft")}
-              </span>
             </div>
             <div className="mt-0.5 truncate text-xs text-ink-faint">
               {itemStatus}
@@ -1520,7 +1890,9 @@ function ChartGrid({
     value: Number(row.net),
   }));
   const byCategory = statistics.by_category.map((row) => ({
-    label: categoryName(row.category_id, categoryNames.get(row.category_id) ?? `Category ${row.category_id}`),
+    label: row.category_id === null
+      ? t("Uncategorized")
+      : categoryName(row.category_id, categoryNames.get(row.category_id) ?? `Category ${row.category_id}`),
     value: Number(row.net),
   }));
   const periodIndex = statistics.periods.findIndex((point) => point.period === barPeriod);
