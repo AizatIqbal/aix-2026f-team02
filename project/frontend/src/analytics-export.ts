@@ -253,7 +253,7 @@ function salesOverTime(statistics: Statistics): { sheet: Sheet; rows: Layout["ti
 
 function productRankings(
   statistics: Statistics,
-  categoryName: (id: number | undefined) => string,
+  categoryName: (id: number | null | undefined) => string,
 ): { sheet: Sheet; rows: Layout["products"] } {
   const grid = new Grid();
   const products = statistics.products;
@@ -318,7 +318,7 @@ function productRankings(
 
 function categoriesSheet(
   statistics: Statistics,
-  categoryName: (id: number | undefined) => string,
+  categoryName: (id: number | null | undefined) => string,
 ): { sheet: Sheet; rows: Layout["categories"] } {
   const grid = new Grid();
   const categories = [...statistics.by_category].sort((a, b) => Number(b.net) - Number(a.net));
@@ -596,7 +596,7 @@ function notesSheet(statistics: Statistics): Sheet {
 // Overview sheet
 // ---------------------------------------------------------------------------
 
-function takeaways(statistics: Statistics, categoryName: (id: number | undefined) => string): string[] {
+function takeaways(statistics: Statistics, categoryName: (id: number | null | undefined) => string): string[] {
   const lines: string[] = [];
   const net = Number(statistics.summary.net);
   const byNet = <T extends { net: string }>(rows: T[]) => [...rows].sort((a, b) => Number(b.net) - Number(a.net));
@@ -668,7 +668,7 @@ function takeaways(statistics: Statistics, categoryName: (id: number | undefined
   return lines;
 }
 
-function describeFilters(context: ReportContext, categoryName: (id: number | undefined) => string): string {
+function describeFilters(context: ReportContext, categoryName: (id: number | null | undefined) => string): string {
   const filters = context.filters;
   if (context.scope === "full" || !filters) return "all sales, no filters";
   const parts: string[] = [];
@@ -682,7 +682,7 @@ function overviewSheet(
   statistics: Statistics,
   context: ReportContext,
   layout: Layout,
-  categoryName: (id: number | undefined) => string,
+  categoryName: (id: number | null | undefined) => string,
 ): Sheet {
   const grid = new Grid();
   const summary = statistics.summary;
@@ -809,7 +809,7 @@ function overviewSheet(
 /** Every sheet of the report. Pure data, so it can be tested without a browser. */
 export function buildReportSheets(statistics: Statistics, context: ReportContext): Sheet[] {
   const names = new Map(context.categories.map((category) => [category.category_id, category.category_name]));
-  const categoryName = (id: number | undefined) => (id === undefined ? "" : names.get(id) ?? `Category ${id}`);
+  const categoryName = (id: number | null | undefined) => (id == null ? "Uncategorized" : names.get(id) ?? `Category ${id}`);
 
   const time = salesOverTime(statistics);
   const products = productRankings(statistics, categoryName);

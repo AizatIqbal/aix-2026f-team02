@@ -448,7 +448,10 @@ def analyze(snapshot: dict, filters: Filters) -> dict:
         ],
         "by_category": [
             {"category_id": category_id, **result(values)}
-            for category_id, values in sorted(categories.items())
+            for category_id, values in sorted(
+                categories.items(),
+                key=lambda item: (item[0] is None, item[0] if item[0] is not None else 0),
+            )
         ],
         "by_campaign": [
             {

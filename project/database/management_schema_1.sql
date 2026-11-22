@@ -39,7 +39,7 @@ CREATE TABLE IF NOT EXISTS campaign (
 
 CREATE TABLE IF NOT EXISTS product (
   product_id   INT AUTO_INCREMENT PRIMARY KEY,
-  category_id  INT           NOT NULL,
+  category_id  INT           NULL,
   product_name VARCHAR(100)  NOT NULL,
   price        DECIMAL(10,2) NOT NULL,
   KEY idx_product_category (category_id),

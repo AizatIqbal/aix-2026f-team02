@@ -13,6 +13,7 @@ from pydantic import BaseModel, Field
 from sqlalchemy import text
 from sqlalchemy.exc import IntegrityError
 from datetime import date
+from typing import Literal
 
 from app.db.database_manager import DatabaseManager
 from app.statistics_routes import router as statistics_router
@@ -67,10 +68,16 @@ app.add_middleware(
 
 class CategoryCreate(BaseModel):
     category_name: str = Field(min_length=1, max_length=50)
+    product_ids: list[int] = Field(default_factory=list, max_length=1000)
+
+
+class CategoryDelete(BaseModel):
+    action: Literal["move", "uncategorized", "delete"] = "move"
+    target_category_id: int | None = Field(default=None, gt=0)
 
 
 class ProductCreate(BaseModel):
-    category_id: int = Field(gt=0)
+    category_id: int | None = Field(default=None, gt=0)
     product_name: str = Field(min_length=1, max_length=100)
     price: Decimal = Field(ge=0)
     image_url: str | None = Field(default=None, max_length=512)
@@ -199,38 +206,188 @@ def get_categories():
 @app.post("/api/v1/categories", tags=["categories"], status_code=201)
 def create_category(category: CategoryCreate):
     name = category.category_name.strip()
-
     if not name:
-        raise HTTPException(
-            status_code=422,
-            detail="Category name cannot be empty",
-        )
+        raise HTTPException(status_code=422, detail="Category name cannot be empty")
 
     db = DatabaseManager()
-
     try:
-        db.execute_query(
-            """
-            INSERT INTO category (category_name)
-            VALUES (:name)
-            """,
-            {"name": name},
-        )
+        # Create the category and optionally reassign selected products in one
+        # transaction so a partial move cannot leave the menu half-updated.
+        with db.engine.begin() as connection:
+            duplicate = connection.execute(
+                text("SELECT category_id FROM category WHERE LOWER(category_name) = LOWER(:name) LIMIT 1"),
+                {"name": name},
+            ).first()
+            if duplicate:
+                raise HTTPException(status_code=409, detail="Category already exists")
 
-        return db.fetch_one(
-            """
-            SELECT category_id, category_name
-            FROM category
-            WHERE LOWER(category_name) = LOWER(:name)
-            """,
-            {"name": name},
-        )
+            category_id = connection.execute(
+                text("INSERT INTO category (category_name) VALUES (:name) RETURNING category_id"),
+                {"name": name},
+            ).scalar_one()
 
-    except IntegrityError:
-        raise HTTPException(
-            status_code=409,
-            detail="Category already exists",
-        )
+            product_ids = list(dict.fromkeys(category.product_ids))
+            moved_product_ids: list[int] = []
+            for product_id in product_ids:
+                existing = connection.execute(
+                    text("SELECT product_id FROM product WHERE product_id = :product_id FOR UPDATE"),
+                    {"product_id": product_id},
+                ).first()
+                if not existing:
+                    raise HTTPException(status_code=404, detail=f"Product {product_id} was not found")
+                connection.execute(
+                    text("UPDATE product SET category_id = :category_id WHERE product_id = :product_id"),
+                    {"category_id": category_id, "product_id": product_id},
+                )
+                moved_product_ids.append(product_id)
+
+            created = connection.execute(
+                text("SELECT category_id, category_name FROM category WHERE category_id = :category_id"),
+                {"category_id": category_id},
+            ).mappings().one()
+
+        return {"category": dict(created), "moved_product_ids": moved_product_ids}
+    except IntegrityError as exc:
+        raise HTTPException(status_code=409, detail="Category already exists") from exc
+    finally:
+        db.close()
+
+
+@app.delete("/api/v1/categories/{category_id}", tags=["categories"])
+def delete_category(category_id: int, request: CategoryDelete):
+    """Delete a category while keeping sold products referenced by past orders."""
+    db = DatabaseManager()
+    try:
+        with db.engine.begin() as connection:
+            category_row = connection.execute(
+                text("SELECT category_id, category_name FROM category WHERE category_id = :category_id FOR UPDATE"),
+                {"category_id": category_id},
+            ).mappings().first()
+            if not category_row:
+                raise HTTPException(status_code=404, detail="Category not found")
+
+            product_rows = connection.execute(
+                text("""
+                    SELECT p.product_id, p.product_name,
+                           EXISTS (SELECT 1 FROM order_item oi WHERE oi.product_id = p.product_id) AS has_sales
+                    FROM product p
+                    WHERE p.category_id = :category_id
+                    ORDER BY p.product_name, p.product_id
+                    FOR UPDATE
+                """),
+                {"category_id": category_id},
+            ).mappings().all()
+            product_ids = [int(row["product_id"]) for row in product_rows]
+
+            if request.action == "uncategorized":
+                if product_ids:
+                    connection.execute(
+                        text("UPDATE product SET category_id = NULL WHERE category_id = :source_id"),
+                        {"source_id": category_id},
+                    )
+                connection.execute(
+                    text("DELETE FROM category WHERE category_id = :category_id"),
+                    {"category_id": category_id},
+                )
+                return {
+                    "category_id": category_id,
+                    "action": "uncategorized",
+                    "target_category": None,
+                    "moved_product_ids": [],
+                    "deleted_product_ids": [],
+                    "archived_product_ids": [],
+                    "uncategorized_product_ids": product_ids,
+                    "archive_category": None,
+                }
+
+            if request.action == "move":
+                if request.target_category_id is None:
+                    raise HTTPException(status_code=422, detail="Choose a destination category")
+                if request.target_category_id == category_id:
+                    raise HTTPException(status_code=422, detail="Choose a different destination category")
+                target = connection.execute(
+                    text("SELECT category_id, category_name FROM category WHERE category_id = :category_id FOR UPDATE"),
+                    {"category_id": request.target_category_id},
+                ).mappings().first()
+                if not target:
+                    raise HTTPException(status_code=404, detail="Destination category not found")
+                if product_ids:
+                    connection.execute(
+                        text("UPDATE product SET category_id = :target_id WHERE category_id = :source_id"),
+                        {"target_id": request.target_category_id, "source_id": category_id},
+                    )
+                connection.execute(
+                    text("DELETE FROM category WHERE category_id = :category_id"),
+                    {"category_id": category_id},
+                )
+                return {
+                    "category_id": category_id,
+                    "action": "move",
+                    "target_category": dict(target),
+                    "moved_product_ids": product_ids,
+                    "deleted_product_ids": [],
+                    "archived_product_ids": [],
+                    "uncategorized_product_ids": [],
+                    "archive_category": None,
+                }
+
+            # Permanent deletion is allowed for products that were never sold.
+            # Products referenced by order_item are retained, deactivated, and
+            # moved to an archive category so historical receipts remain valid.
+            sold_ids = [int(row["product_id"]) for row in product_rows if row["has_sales"]]
+            unsold_ids = [int(row["product_id"]) for row in product_rows if not row["has_sales"]]
+
+            archive_category = None
+            if sold_ids:
+                archive_name = "Archived Products"
+                archive_row = connection.execute(
+                    text("SELECT category_id, category_name FROM category WHERE LOWER(category_name) = LOWER(:name) LIMIT 1 FOR UPDATE"),
+                    {"name": archive_name},
+                ).mappings().first()
+                if archive_row and int(archive_row["category_id"]) == category_id:
+                    archive_name = f"Archived - {category_row['category_name'][:35]}"
+                    archive_row = connection.execute(
+                        text("SELECT category_id, category_name FROM category WHERE LOWER(category_name) = LOWER(:name) LIMIT 1 FOR UPDATE"),
+                        {"name": archive_name},
+                    ).mappings().first()
+                if archive_row:
+                    archive_category = dict(archive_row)
+                else:
+                    archive_id = connection.execute(
+                        text("INSERT INTO category (category_name) VALUES (:name) RETURNING category_id"),
+                        {"name": archive_name},
+                    ).scalar_one()
+                    archive_category = {"category_id": int(archive_id), "category_name": archive_name}
+
+                for product_id in sold_ids:
+                    connection.execute(
+                        text("UPDATE product SET category_id = :archive_id, is_active = FALSE WHERE product_id = :product_id"),
+                        {"archive_id": archive_category["category_id"], "product_id": product_id},
+                    )
+
+            for product_id in unsold_ids:
+                connection.execute(
+                    text("DELETE FROM product WHERE product_id = :product_id"),
+                    {"product_id": product_id},
+                )
+
+            connection.execute(
+                text("DELETE FROM category WHERE category_id = :category_id"),
+                {"category_id": category_id},
+            )
+
+            return {
+                "category_id": category_id,
+                "action": "delete",
+                "target_category": None,
+                "moved_product_ids": [],
+                "deleted_product_ids": unsold_ids,
+                "archived_product_ids": sold_ids,
+                "uncategorized_product_ids": [],
+                "archive_category": archive_category,
+            }
+    except IntegrityError as exc:
+        raise HTTPException(status_code=409, detail="The category could not be deleted because it is still referenced by other records") from exc
     finally:
         db.close()
 
@@ -340,23 +497,20 @@ def bulk_import(payload: BulkImportRequest):
                             })
                             category_ids_by_name[key] = category_id
 
-                if category_id is None:
-                    skipped_products += 1
-                    continue
-
-                category_exists = connection.execute(
-                    text("SELECT category_id FROM category WHERE category_id = :id"),
-                    {"id": category_id},
-                ).first()
-                if not category_exists:
-                    skipped_products += 1
-                    continue
+                if category_id is not None:
+                    category_exists = connection.execute(
+                        text("SELECT category_id FROM category WHERE category_id = :id"),
+                        {"id": category_id},
+                    ).first()
+                    if not category_exists:
+                        skipped_products += 1
+                        continue
 
                 duplicate = connection.execute(
                     text("""
                         SELECT product_id
                         FROM product
-                        WHERE category_id = :category_id
+                        WHERE category_id IS NOT DISTINCT FROM :category_id
                           AND LOWER(product_name) = LOWER(:product_name)
                         LIMIT 1
                     """),
@@ -380,7 +534,7 @@ def bulk_import(payload: BulkImportRequest):
                 ).scalar_one())
                 imported_products.append({
                     "product_id": product_id,
-                    "category_id": int(category_id),
+                    "category_id": int(category_id) if category_id is not None else None,
                     "product_name": product_name,
                     "price": item.price,
                     "image_url": None,
@@ -541,9 +695,12 @@ def get_products():
                 p.product_name,
                 p.price,
                 p.image_url,
-                p.is_active AS active
+                p.is_active AS active,
+                EXISTS (
+                    SELECT 1 FROM order_item oi WHERE oi.product_id = p.product_id
+                ) AS has_sales
             FROM product p
-            JOIN category c
+            LEFT JOIN category c
                 ON p.category_id = c.category_id
             ORDER BY p.product_id
             """
@@ -565,20 +722,21 @@ def create_product(product: ProductCreate):
     db = DatabaseManager()
 
     try:
-        category = db.fetch_one(
-            """
-            SELECT category_id
-            FROM category
-            WHERE category_id = :category_id
-            """,
-            {"category_id": product.category_id},
-        )
-
-        if not category:
-            raise HTTPException(
-                status_code=404,
-                detail="Category not found",
+        if product.category_id is not None:
+            category = db.fetch_one(
+                """
+                SELECT category_id
+                FROM category
+                WHERE category_id = :category_id
+                """,
+                {"category_id": product.category_id},
             )
+
+            if not category:
+                raise HTTPException(
+                    status_code=404,
+                    detail="Category not found",
+                )
 
         db.execute_query(
             """
@@ -613,9 +771,10 @@ def create_product(product: ProductCreate):
                 product_name,
                 price,
                 image_url,
-                is_active AS active
+                is_active AS active,
+                EXISTS (SELECT 1 FROM order_item oi WHERE oi.product_id = product.product_id) AS has_sales
             FROM product
-            WHERE category_id = :category_id
+            WHERE category_id IS NOT DISTINCT FROM :category_id
               AND LOWER(product_name) = LOWER(:product_name)
             ORDER BY product_id DESC
             LIMIT 1
@@ -638,12 +797,13 @@ def update_product(product_id: int, product: ProductUpdate):
 
     db = DatabaseManager()
     try:
-        category = db.fetch_one(
-            "SELECT category_id FROM category WHERE category_id = :category_id",
-            {"category_id": product.category_id},
-        )
-        if not category:
-            raise HTTPException(status_code=404, detail="Category not found")
+        if product.category_id is not None:
+            category = db.fetch_one(
+                "SELECT category_id FROM category WHERE category_id = :category_id",
+                {"category_id": product.category_id},
+            )
+            if not category:
+                raise HTTPException(status_code=404, detail="Category not found")
 
         existing = db.fetch_one(
             "SELECT product_id FROM product WHERE product_id = :product_id",
@@ -671,7 +831,8 @@ def update_product(product_id: int, product: ProductUpdate):
         )
         return db.fetch_one(
             """
-            SELECT product_id, category_id, product_name, price, image_url, is_active AS active
+            SELECT product_id, category_id, product_name, price, image_url, is_active AS active,
+                   EXISTS (SELECT 1 FROM order_item oi WHERE oi.product_id = product.product_id) AS has_sales
             FROM product WHERE product_id = :product_id
             """,
             {"product_id": product_id},
@@ -696,7 +857,8 @@ def set_product_active(product_id: int, status: ProductActiveUpdate):
         )
         return db.fetch_one(
             """
-            SELECT product_id, category_id, product_name, price, image_url, is_active AS active
+            SELECT product_id, category_id, product_name, price, image_url, is_active AS active,
+                   EXISTS (SELECT 1 FROM order_item oi WHERE oi.product_id = product.product_id) AS has_sales
             FROM product WHERE product_id = :product_id
             """,
             {"product_id": product_id},
