@@ -121,7 +121,8 @@ function App() {
   useEffect(() => {
     if (appMode === "simple") {
       // Simple Mode keeps customer lookup inside checkout, not the Customer Dashboard.
-      if (tab !== "menu" && tab !== "orders") setTab("menu");
+      // The simplified Analysis dashboard remains available alongside Sell and Orders.
+      if (tab !== "menu" && tab !== "analysis" && tab !== "orders") setTab("menu");
     }
   }, [appMode, tab]);
 
@@ -331,7 +332,7 @@ function App() {
             }}
           />
         ) : tab === "analysis" ? (
-          <Analysis data={data} loading={loading} />
+          <Analysis data={data} loading={loading} appMode={appMode} />
         ) : tab === "marketing" ? (
           <Suspense fallback={<LoadingGrid />}><MarketingCampaigns onOpenAnalysis={() => setTab("analysis")} /></Suspense>
         ) : tab === "customers" && appMode === "advanced" ? (
@@ -593,7 +594,6 @@ function Header({
               <Icon name="grid" /> {t("Sell")}
             </span>
           </Button>
-          {appMode === "advanced" && <>
           <Button
             variant="ghost"
             onClick={() => onTabChange("analysis")}
@@ -603,10 +603,11 @@ function Header({
               <Icon name="chart" /> {t("Analysis")}
             </span>
           </Button>
-          <Button variant="ghost" onClick={() => onTabChange("marketing")} className={tab === "marketing" ? "bg-accent-soft text-accent-strong" : ""}>
-            <span className="flex items-center gap-2"><Icon name="megaphone" /> {t("Marketing")}</span>
-          </Button>
-          </>}
+          {appMode === "advanced" && (
+            <Button variant="ghost" onClick={() => onTabChange("marketing")} className={tab === "marketing" ? "bg-accent-soft text-accent-strong" : ""}>
+              <span className="flex items-center gap-2"><Icon name="megaphone" /> {t("Marketing")}</span>
+            </Button>
+          )}
           {appMode === "advanced" && (
             <Button
               variant="ghost"
@@ -1563,7 +1564,15 @@ function statisticsQuery(filters: Filters): URLSearchParams {
   return query;
 }
 
-function Analysis({ data, loading }: { data: AppData; loading: boolean }) {
+function Analysis({
+  data,
+  loading,
+  appMode,
+}: {
+  data: AppData;
+  loading: boolean;
+  appMode: "simple" | "advanced";
+}) {
   const { t, language, productName, categoryName, campaignName, ensureTranslations, formatMoney } = usePreferences();
   const [filters, setFilters] = useState<Filters>(DEFAULT_FILTERS);
   const [view, setView] = useState<"sales" | "marketing">("sales");
@@ -1577,7 +1586,10 @@ function Analysis({ data, loading }: { data: AppData; loading: boolean }) {
   const [campaignOptions, setCampaignOptions] = useState<Campaign[]>([]);
   const [reportLoading, setReportLoading] = useState(true);
   const [reportError, setReportError] = useState("");
-  const query = useMemo(() => statisticsQuery(filters), [filters]);
+  const query = useMemo(
+    () => statisticsQuery(appMode === "simple" ? { ...DEFAULT_FILTERS, preset: filters.preset } : filters),
+    [appMode, filters],
+  );
 
   useEffect(() => {
     if (loading) return;
@@ -1612,7 +1624,6 @@ function Analysis({ data, loading }: { data: AppData; loading: boolean }) {
   }, [campaignOptions, ensureTranslations]);
 
   const summary = statistics?.summary;
-  const topProduct = statistics?.products.find((product) => product.units > 0);
 
   function toggleDay(day: string): void {
     setFilters((current) => ({
@@ -1661,6 +1672,18 @@ function Analysis({ data, loading }: { data: AppData; loading: boolean }) {
   }
 
   if (loading) return <LoadingAnalysis />;
+
+  if (appMode === "simple") {
+    return (
+      <SimpleAnalysisDashboard
+        statistics={statistics}
+        reportLoading={reportLoading}
+        reportError={reportError}
+        filters={filters}
+        onPresetChange={(preset) => setFilters((current) => ({ ...current, preset }))}
+      />
+    );
+  }
 
   return (
     <section>
@@ -1871,7 +1894,7 @@ function Analysis({ data, loading }: { data: AppData; loading: boolean }) {
         </div>
       </Surface>
       {view === "sales" && (
-        <div className="mb-5 grid grid-cols-2 gap-3 lg:grid-cols-5">
+        <div className="mb-5 grid grid-cols-2 gap-3 lg:grid-cols-4">
           <Kpi label={t("Net revenue")} value={formatMoney(Number(summary?.net ?? 0))} />
           <Kpi label={t("Orders")} value={String(summary?.orders ?? 0)} />
           <Kpi
@@ -1879,7 +1902,6 @@ function Analysis({ data, loading }: { data: AppData; loading: boolean }) {
             value={formatMoney(Number(summary?.average_order_value ?? 0))}
           />
           <Kpi label={t("Items sold")} value={String(summary?.units ?? 0)} />
-          <Kpi label={t("Top product")} value={topProduct ? productName(topProduct.product_id, topProduct.product_name) : "—"} />
         </div>
       )}
       {reportError ? (
@@ -1928,6 +1950,110 @@ function Analysis({ data, loading }: { data: AppData; loading: boolean }) {
                 </Suspense>
               </LazySection>
             </>
+          )}
+        </div>
+      )}
+    </section>
+  );
+}
+
+function SimpleAnalysisDashboard({
+  statistics,
+  reportLoading,
+  reportError,
+  filters,
+  onPresetChange,
+}: {
+  statistics: Statistics | null;
+  reportLoading: boolean;
+  reportError: string;
+  filters: Filters;
+  onPresetChange: (preset: DatePreset) => void;
+}) {
+  const { t, language, productName, formatMoney } = usePreferences();
+  const topFiveProducts = (statistics?.products ?? [])
+    .filter((product) => product.units > 0)
+    .sort((a, b) => b.units - a.units || a.product_id - b.product_id)
+    .slice(0, 5)
+    .map((product) => ({
+      label: productName(product.product_id, product.product_name),
+      value: product.units,
+    }));
+  const revenueByPeriod = (statistics?.periods ?? []).map((row) => ({
+    label: row.period,
+    value: Number(row.net),
+  }));
+
+  return (
+    <section>
+      <div className="mb-6">
+        <div className="font-display text-3xl font-bold tracking-tight">{t("Analysis")}</div>
+        <div className="mt-1 text-sm text-ink-muted">
+          {t("See how your sales are performing at a glance.")}
+        </div>
+      </div>
+
+      <Surface className="mb-5 p-4">
+        <FilterGroup label={t("Date range")}>
+          <div className="flex flex-wrap gap-1 rounded-xl bg-surface-strong p-1">
+            {(["today", "7d", "30d", "all"] as DatePreset[]).map((preset) => (
+              <Button
+                key={preset}
+                variant="ghost"
+                onClick={() => onPresetChange(preset)}
+                className={`min-h-9 px-3 ${filters.preset === preset ? "bg-white text-accent-strong shadow-sm" : ""}`}
+              >
+                {preset === "today" ? t("Today") : preset === "all" ? t("All") : t(preset)}
+              </Button>
+            ))}
+          </div>
+        </FilterGroup>
+      </Surface>
+
+      {reportError ? (
+        <EmptyState title={t("Could not load sales report")} message={reportError} />
+      ) : !statistics ? (
+        <LoadingAnalysis />
+      ) : (
+        <div
+          aria-busy={reportLoading}
+          className={`transition-opacity ${reportLoading ? "pointer-events-none opacity-60" : ""}`}
+        >
+          <div className="mb-5 grid grid-cols-1 gap-3 sm:grid-cols-2">
+            <Kpi label={t("Net revenue")} value={formatMoney(Number(statistics.summary.net ?? 0))} />
+            <Kpi label={t("Orders")} value={String(statistics.summary.orders ?? 0)} />
+          </div>
+
+          {statistics.summary.orders === 0 ? (
+            <EmptyState
+              title={t("No sales match these filters")}
+              message={t("Adjust the date range or complete a new sale to see analytics.")}
+            />
+          ) : (
+            <div className="grid gap-5 lg:grid-cols-2">
+              <PeriodChart
+                title={t("Revenue over time")}
+                data={revenueByPeriod}
+                group={statistics.group}
+                metric="net revenue"
+                locale={language === "ko" ? "ko-KR" : "en-US"}
+                weekPrefix={t("Week of")}
+                valueFormatter={formatMoney}
+              />
+              {topFiveProducts.length > 0 ? (
+                <BarChart
+                  title={t("Top 5 products by quantity")}
+                  data={topFiveProducts}
+                  valueFormatter={(value) => value.toLocaleString(language === "ko" ? "ko-KR" : "en-US")}
+                  horizontal
+                />
+              ) : (
+                <Surface className="min-w-0 p-5">
+                  <div className="mb-5 font-display text-lg font-bold">{t("Top 5 products by quantity")}</div>
+                  <div className="text-sm text-ink-muted">{t("No product sales in this period.")}</div>
+                </Surface>
+              )}
+            </div>
           )}
         </div>
       )}
