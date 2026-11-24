@@ -217,7 +217,7 @@ export function SettingsDrawer({ onClose }: { onClose: () => void }) {
             modeSummary,
             <>
               <p className="text-xs leading-5 text-ink-muted">{t("Choose the workspace that fits your business needs.")}</p>
-              <p className="rounded-xl bg-surface-strong px-3 py-2 text-xs leading-5 text-ink-muted">{t("Simple Mode keeps selling and order history visible. Advanced Mode adds Analysis, Marketing, Customers, and Import.")}</p>
+              <p className="rounded-xl bg-surface-strong px-3 py-2 text-xs leading-5 text-ink-muted">{t("Simple Mode keeps selling, basic Analysis, and order history visible. Advanced Mode adds detailed analytics, Marketing, and full customer management.")}</p>
               <p className="text-xs leading-5 text-ink-faint">{t("Switching modes only changes which tools appear. Your existing data remains saved.")}</p>
               <div className="space-y-2">
                 {modeOption("simple", t("Simple Mode"), t("Essential tools for daily sales."))}
