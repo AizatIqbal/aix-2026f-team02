@@ -27,6 +27,13 @@ def test_create_order_uses_returning_and_persists_order_items(monkeypatch):
     )
     with engine.begin() as connection:
         connection.execute(text("""
+            CREATE TABLE pointnull_settings (
+                setting_id INTEGER PRIMARY KEY,
+                operating_currency VARCHAR(3) NOT NULL DEFAULT 'KRW'
+            )
+        """))
+        connection.execute(text("INSERT INTO pointnull_settings (setting_id, operating_currency) VALUES (1, 'KRW')"))
+        connection.execute(text("""
             CREATE TABLE product (
                 product_id INTEGER PRIMARY KEY,
                 product_name VARCHAR(100) NOT NULL,
@@ -42,7 +49,11 @@ def test_create_order_uses_returning_and_persists_order_items(monkeypatch):
                 customer_phone VARCHAR(20),
                 promocode VARCHAR(30),
                 discount NUMERIC(10, 2) NOT NULL DEFAULT 0,
-                total NUMERIC(10, 2) NOT NULL DEFAULT 0
+                total NUMERIC(10, 2) NOT NULL DEFAULT 0,
+                currency_code VARCHAR(3) NOT NULL DEFAULT 'KRW',
+                reporting_total NUMERIC(14, 2) NOT NULL DEFAULT 0,
+                reporting_discount NUMERIC(14, 2) NOT NULL DEFAULT 0,
+                reporting_currency_code VARCHAR(3) NOT NULL DEFAULT 'KRW'
             )
         """))
         connection.execute(text("""
@@ -51,7 +62,9 @@ def test_create_order_uses_returning_and_persists_order_items(monkeypatch):
                 order_id INTEGER NOT NULL,
                 product_id INTEGER NOT NULL,
                 quantity INTEGER NOT NULL,
-                price NUMERIC(10, 2) NOT NULL
+                price NUMERIC(10, 2) NOT NULL,
+                reporting_price NUMERIC(14, 2) NOT NULL,
+                reporting_currency_code VARCHAR(3) NOT NULL
             )
         """))
         connection.execute(text(

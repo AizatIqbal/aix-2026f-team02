@@ -483,6 +483,8 @@ const ko: Record<string, string> = {
   "Export report": "보고서 내보내기",
   "Uses the selected date range, days, times, and categories.": "선택한 기간, 요일, 시간 및 카테고리를 사용합니다.",
   "Could not load sales report": "판매 보고서를 불러오지 못했습니다",
+  "No data available yet": "아직 데이터가 없습니다",
+  "Your Simple Analysis will appear here once you record your first sale.": "첫 판매를 기록하면 여기에 간단 분석이 표시됩니다.",
   "No sales match these filters": "필터에 해당하는 판매 내역이 없습니다",
   "Adjust the filters or complete a new sale to see analytics.": "필터를 조정하거나 새 판매를 완료하면 분석 결과를 확인할 수 있습니다.",
   "Adjust the date range or complete a new sale to see analytics.": "조회 기간을 변경하거나 새 판매를 완료하면 분석 결과를 확인할 수 있습니다.",

@@ -1,4 +1,54 @@
 
+export type BusinessCurrency = "KRW" | "MYR" | "USD";
+
+export interface CurrencySettings {
+  currency: BusinessCurrency;
+  initialized: boolean;
+  supported_currencies: BusinessCurrency[];
+  updated_at: string;
+  rate_provider: string;
+}
+
+export type AppEnvironmentMode = "development" | "demo" | "production";
+
+export interface AppEnvironment {
+  mode: AppEnvironmentMode;
+  is_demo: boolean;
+}
+
+export interface CurrencyMigrationPreview {
+  current_currency: BusinessCurrency;
+  target_currency: BusinessCurrency;
+  rate: string;
+  rate_date: string;
+  provider: string;
+  product_count: number;
+  campaign_count: number;
+  products_restored: number;
+  products_converted: number;
+  campaigns_restored: number;
+  campaigns_converted: number;
+  products: Array<{ product_id: number; product_name: string; current_price: string; new_price: string; action: string }>;
+  campaigns: Array<{ promocode: string; campaign_name: string; current_budget: string; new_budget: string; current_discount: string; new_discount: string; action: string }>;
+  historical_orders_unchanged: boolean;
+  reporting_note: string;
+}
+
+export interface CurrencyChangeResult {
+  currency: BusinessCurrency;
+  changed: boolean;
+  migration_id?: number;
+  from_currency?: BusinessCurrency;
+  to_currency?: BusinessCurrency;
+  exchange_rate?: string;
+  rate_date?: string;
+  rate_provider?: string;
+  products_migrated?: number;
+  campaigns_migrated?: number;
+  historical_transactions_rewritten?: boolean;
+  message?: string;
+}
+
 export interface Category {
   category_id: number;
   category_name: string;
@@ -74,6 +124,7 @@ export interface Order {
   promocode: string | null;
   discount: number;
   total: number;
+  currency_code?: BusinessCurrency;
   item_count?: number;
 }
 
@@ -96,6 +147,7 @@ export interface OrderItem {
   category_name?: string | null;
   quantity: number;
   price: number;
+  currency_code?: BusinessCurrency;
   subtotal?: number;
 }
 
@@ -120,6 +172,7 @@ export interface CampaignValidation {
   valid: boolean;
   code: string;
   discount: number;
+  currency_code?: BusinessCurrency;
   message: string;
 }
 
@@ -169,6 +222,7 @@ export interface ImportResult {
 
 export interface AnalyticsExportRequest {
   scope: "current" | "full";
+  currency: BusinessCurrency;
   /** Statistics query to export: the on-screen one, or only a grouping for the full report. */
   query: URLSearchParams;
   /** Report already on screen for this query; saves fetching it again. */
@@ -336,6 +390,7 @@ interface BackendOrder {
   promocode?: string | null;
   discount: number;
   total: number;
+  currency_code?: BusinessCurrency;
   item_count?: number;
 }
 
@@ -346,6 +401,7 @@ interface BackendOrderItem {
   category_name?: string | null;
   quantity: number;
   price: number;
+  currency_code?: BusinessCurrency;
   subtotal?: number;
 }
 
@@ -373,6 +429,7 @@ function normalizeOrder(order: BackendOrder): Order {
     promocode: order.promocode ?? null,
     discount: Number(order.discount),
     total: Number(order.total),
+    currency_code: order.currency_code ?? "KRW",
     item_count: order.item_count === undefined ? undefined : Number(order.item_count),
   };
 }
@@ -386,8 +443,62 @@ function normalizeOrderItems(orderId: number, items: BackendOrderItem[]): OrderI
     category_name: item.category_name ?? null,
     quantity: Number(item.quantity),
     price: Number(item.price),
+    currency_code: item.currency_code,
     subtotal: item.subtotal === undefined ? undefined : Number(item.subtotal),
   }));
+}
+
+export function getAppEnvironment(): Promise<AppEnvironment> {
+  return apiRequest<AppEnvironment>("/environment");
+}
+
+export function getCurrencySettings(): Promise<CurrencySettings> {
+  return apiRequest<CurrencySettings>("/currency");
+}
+
+export function initializeBusinessCurrency(currency: BusinessCurrency): Promise<{
+  currency: BusinessCurrency;
+  initialized: boolean;
+  changed: boolean;
+}> {
+  return apiRequest<{ currency: BusinessCurrency; initialized: boolean; changed: boolean }>("/currency/initialize", {
+    method: "POST",
+    body: JSON.stringify({ currency }),
+  });
+}
+
+export function previewCurrencyChange(target_currency: BusinessCurrency): Promise<CurrencyMigrationPreview> {
+  return apiRequest<CurrencyMigrationPreview>("/currency/preview", {
+    method: "POST",
+    body: JSON.stringify({ target_currency }),
+  });
+}
+
+export function changeBusinessCurrency(
+  target_currency: BusinessCurrency,
+  exchange_rate_override?: string,
+): Promise<CurrencyChangeResult> {
+  return apiRequest<CurrencyChangeResult>("/currency/change", {
+    method: "POST",
+    body: JSON.stringify({
+      target_currency,
+      confirmed: true,
+      ...(exchange_rate_override ? { exchange_rate_override } : {}),
+    }),
+  });
+}
+
+export function getCurrencyHistory(): Promise<Array<{
+  migration_id: number;
+  from_currency: BusinessCurrency;
+  to_currency: BusinessCurrency;
+  exchange_rate: string;
+  rate_date: string;
+  rate_provider: string;
+  migration_method: string;
+  migrated_at: string;
+}>> {
+  return apiRequest("/currency/history");
 }
 
 export function getCategories(): Promise<Category[]> {
@@ -710,5 +821,6 @@ export async function exportAnalytics(request: AnalyticsExportRequest): Promise<
     scope: request.scope,
     categories: request.categories,
     filters: request.filters,
+    currency: request.currency,
   });
 }

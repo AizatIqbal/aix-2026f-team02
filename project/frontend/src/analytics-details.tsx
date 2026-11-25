@@ -347,7 +347,7 @@ function RecommendationPanel() {
 }
 
 function DiscountPanel({ products, query }: { products: Statistics["products"]; query: string }) {
-  const { t, productName } = usePreferences();
+  const { t, productName, currency } = usePreferences();
   const [productId, setProductId] = useState("");
   const [unitCost, setUnitCost] = useState("");
   const [result, setResult] = useState<DiscountSuggestion | null>(null);
@@ -397,7 +397,7 @@ function DiscountPanel({ products, query }: { products: Statistics["products"]; 
           </select>
         </label>
         <label className="block text-sm font-semibold">
-          {t("Unit cost (₩), optional")}
+          {t(`Unit cost (${currency === "MYR" ? "RM" : currency === "USD" ? "$" : "₩"}), optional`)}
           <Input
             className="block w-full"
             type="number"

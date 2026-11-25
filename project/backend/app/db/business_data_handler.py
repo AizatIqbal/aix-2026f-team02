@@ -173,7 +173,8 @@ class SQLAlchemyBusinessDataHandler:
                 orders = _fetch_all(
                     connection,
                     f"""
-                    SELECT order_id, customer_phone, promocode, order_date, order_time, discount, total
+                    SELECT order_id, customer_phone, promocode, order_date, order_time,
+                           reporting_discount AS discount, reporting_total AS total
                     FROM orders
                     {order_filter}
                     ORDER BY order_id
@@ -183,7 +184,8 @@ class SQLAlchemyBusinessDataHandler:
                 order_items = _fetch_all(
                     connection,
                     f"""
-                    SELECT oi.order_item_id, oi.order_id, oi.product_id, oi.quantity, oi.price
+                    SELECT oi.order_item_id, oi.order_id, oi.product_id, oi.quantity,
+                           oi.reporting_price AS price
                     FROM order_item oi
                     {item_filter}
                     ORDER BY oi.order_item_id

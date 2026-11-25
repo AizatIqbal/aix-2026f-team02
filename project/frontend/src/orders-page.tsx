@@ -305,7 +305,7 @@ export function OrdersPage() {
                           )}
                         </td>
                         <td className="px-5 py-4 font-semibold tabular-nums">{Number(order.item_count ?? 0).toLocaleString()}</td>
-                        <td className="px-5 py-4 font-display font-bold tabular-nums">{formatMoney(order.total)}</td>
+                        <td className="px-5 py-4 font-display font-bold tabular-nums">{formatMoney(order.total, order.currency_code)}</td>
                         <td className="px-5 py-4 text-right">
                           <Button className="min-h-9 px-3" onClick={(event) => { event.stopPropagation(); void openOrderDetails(order); }}>
                             <span className="flex items-center gap-1.5">View details <Icon name="arrow" className="size-4" /></span>
@@ -414,7 +414,7 @@ function OrderDetail({
               <DetailField label={t("Order ID")} value={`ORD-${String(order.order_id).padStart(4, "0")}`} />
               <DetailField label={t("Date & time")} value={`${DATE.format(dateTime)} at ${TIME.format(dateTime)}`} />
               <DetailField label={t("Customer")} value={order.customer_name ?? t("Guest customer")} secondary={order.customer_phone ?? t("No customer linked")} />
-              <DetailField label={t("Total amount")} value={formatMoney(order.total)} />
+              <DetailField label={t("Total amount")} value={formatMoney(order.total, order.currency_code)} />
             </div>
           </Surface>
 
@@ -442,9 +442,9 @@ function OrderDetail({
                       <tr key={item.order_item_id ?? `${item.order_id}-${item.product_id}`}>
                         <td className="px-5 py-4 font-semibold">{item.product_name ? productName(item.product_id, item.product_name) : `Product #${item.product_id}`}</td>
                         <td className="px-5 py-4 text-ink-muted">{item.category_name ? categoryLabel(item.category_name) : t("Uncategorized")}</td>
-                        <td className="px-5 py-4 text-right tabular-nums">{formatMoney(item.price)}</td>
+                        <td className="px-5 py-4 text-right tabular-nums">{formatMoney(item.price, order.currency_code)}</td>
                         <td className="px-5 py-4 text-right font-semibold tabular-nums">{item.quantity}</td>
-                        <td className="px-5 py-4 text-right font-semibold tabular-nums">{formatMoney(item.price * item.quantity)}</td>
+                        <td className="px-5 py-4 text-right font-semibold tabular-nums">{formatMoney(item.price * item.quantity, order.currency_code)}</td>
                       </tr>
                     ))}
                   </tbody>
@@ -459,9 +459,9 @@ function OrderDetail({
             <h3 className="font-display text-lg font-bold">Order summary</h3>
             <div className="mt-4 space-y-3 text-sm">
               <SummaryLine label="Total items" value={totalItems.toLocaleString()} />
-              <SummaryLine label="Subtotal" value={formatMoney(subtotal)} />
-              {order.discount > 0 && <SummaryLine label="Discount" value={`−${formatMoney(order.discount)}`} accent />}
-              <div className="border-t border-line pt-3"><SummaryLine label="Final total" value={formatMoney(order.total)} strong /></div>
+              <SummaryLine label="Subtotal" value={formatMoney(subtotal, order.currency_code)} />
+              {order.discount > 0 && <SummaryLine label="Discount" value={`−${formatMoney(order.discount, order.currency_code)}`} accent />}
+              <div className="border-t border-line pt-3"><SummaryLine label="Final total" value={formatMoney(order.total, order.currency_code)} strong /></div>
             </div>
           </Surface>
         </div>

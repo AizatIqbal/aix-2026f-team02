@@ -2026,8 +2026,8 @@ function SimpleAnalysisDashboard({
 
           {statistics.summary.orders === 0 ? (
             <EmptyState
-              title={t("No sales match these filters")}
-              message={t("Adjust the date range or complete a new sale to see analytics.")}
+              title={t("No data available yet")}
+              message={t("Your Simple Analysis will appear here once you record your first sale.")}
             />
           ) : (
             <div className="grid gap-5 lg:grid-cols-2">

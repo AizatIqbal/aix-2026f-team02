@@ -30,17 +30,17 @@ def make_handler():
             "INSERT INTO customer VALUES ('010-0000-0001', 'Lee', 31, 'Male')",
             "INSERT INTO customer VALUES ('010-0000-0002', 'Park', NULL, NULL)",
             # order_id, date, time, phone, promocode, discount, total
-            "INSERT INTO orders VALUES (2, '2026-11-03', '09:30:00', '010-0000-0001', NULL, 1.00, 29.00)",
-            "INSERT INTO orders VALUES (3, '2026-11-03', '18:00:00', '010-0000-0002', NULL, 0, 30.00)",
-            "INSERT INTO orders VALUES (4, '2026-11-09', '12:00:00', NULL, NULL, 0, 8.00)",
-            "INSERT INTO orders VALUES (5, '2026-10-20', '12:00:00', '010-0000-0002', NULL, 0, 12.00)",
+            "INSERT INTO orders (order_id, order_date, order_time, customer_phone, promocode, discount, total, reporting_discount, reporting_total) VALUES (2, '2026-11-03', '09:30:00', '010-0000-0001', NULL, 1.00, 29.00, 1.00, 29.00)",
+            "INSERT INTO orders (order_id, order_date, order_time, customer_phone, promocode, discount, total, reporting_discount, reporting_total) VALUES (3, '2026-11-03', '18:00:00', '010-0000-0002', NULL, 0, 30.00, 0, 30.00)",
+            "INSERT INTO orders (order_id, order_date, order_time, customer_phone, promocode, discount, total, reporting_discount, reporting_total) VALUES (4, '2026-11-09', '12:00:00', NULL, NULL, 0, 8.00, 0, 8.00)",
+            "INSERT INTO orders (order_id, order_date, order_time, customer_phone, promocode, discount, total, reporting_discount, reporting_total) VALUES (5, '2026-10-20', '12:00:00', '010-0000-0002', NULL, 0, 12.00, 0, 12.00)",
             # order_item_id, order_id, product_id, quantity, price
-            "INSERT INTO order_item VALUES (2, 2, 1, 1, 10.00)",
-            "INSERT INTO order_item VALUES (3, 2, 2, 1, 12.00)",
-            "INSERT INTO order_item VALUES (4, 2, 3, 1, 8.00)",
-            "INSERT INTO order_item VALUES (5, 3, 1, 3, 10.00)",
-            "INSERT INTO order_item VALUES (6, 4, 3, 1, 8.00)",
-            "INSERT INTO order_item VALUES (7, 5, 2, 1, 12.00)",
+            "INSERT INTO order_item (order_item_id, order_id, product_id, quantity, price, reporting_price) VALUES (2, 2, 1, 1, 10.00, 10.00)",
+            "INSERT INTO order_item (order_item_id, order_id, product_id, quantity, price, reporting_price) VALUES (3, 2, 2, 1, 12.00, 12.00)",
+            "INSERT INTO order_item (order_item_id, order_id, product_id, quantity, price, reporting_price) VALUES (4, 2, 3, 1, 8.00, 8.00)",
+            "INSERT INTO order_item (order_item_id, order_id, product_id, quantity, price, reporting_price) VALUES (5, 3, 1, 3, 10.00, 10.00)",
+            "INSERT INTO order_item (order_item_id, order_id, product_id, quantity, price, reporting_price) VALUES (6, 4, 3, 1, 8.00, 8.00)",
+            "INSERT INTO order_item (order_item_id, order_id, product_id, quantity, price, reporting_price) VALUES (7, 5, 2, 1, 12.00, 12.00)",
         ]:
             connection.execute(text(statement))
     return SQLAlchemyBusinessDataHandler(FakeDatabaseManager(engine))
