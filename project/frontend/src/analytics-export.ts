@@ -4,7 +4,7 @@
 // shows, so the file always matches what is on screen. The workbook has an
 // overview page (key figures, takeaways, charts) followed by detail sheets.
 
-import type { Category, CustomerGroupTotals, Statistics } from "./data-access";
+import type { BusinessCurrency, Category, CustomerGroupTotals, Statistics } from "./data-access";
 import {
   cellRef,
   excelDate,
@@ -20,6 +20,7 @@ import {
 
 export interface ReportContext {
   scope: "current" | "full";
+  currency: BusinessCurrency;
   categories: Category[];
   /** Screen filters to describe on the Overview sheet (current view only). */
   filters?: {
@@ -41,7 +42,13 @@ const SCALE_HIGH = "7FA06C";
 const MUTED = "637064";
 const WEAK = "FBE9E7";
 
-const MONEY = '"₩"#,##0';
+let MONEY = '"₩"#,##0';
+let ACTIVE_CURRENCY: BusinessCurrency = "KRW";
+
+function setMoneyCurrency(currency: BusinessCurrency): void {
+  ACTIVE_CURRENCY = currency;
+  MONEY = currency === "KRW" ? '"₩"#,##0' : currency === "MYR" ? '"RM"#,##0.00' : '"$"#,##0.00';
+}
 const INTEGER = "#,##0";
 const PERCENT = "0.0%";
 const ONE_DECIMAL = "0.0";
@@ -179,7 +186,15 @@ function sum(col: number, first: number, last: number, values: number[]): Input 
 }
 
 const count = (value: number) => value.toLocaleString("en-US");
-const won = (value: number) => `₩${Math.round(value).toLocaleString("en-US")}`;
+const won = (value: number) => {
+  const locale = ACTIVE_CURRENCY === "MYR" ? "en-MY" : ACTIVE_CURRENCY === "KRW" ? "en-KR" : "en-US";
+  return new Intl.NumberFormat(locale, {
+    style: "currency",
+    currency: ACTIVE_CURRENCY,
+    minimumFractionDigits: ACTIVE_CURRENCY === "KRW" ? 0 : 2,
+    maximumFractionDigits: ACTIVE_CURRENCY === "KRW" ? 0 : 2,
+  }).format(value);
+};
 const percent = (fraction: number) => `${Math.round(fraction * 100)}%`;
 
 /** "2026-10-01" -> "1 Oct 2026" */
@@ -808,6 +823,7 @@ function overviewSheet(
 
 /** Every sheet of the report. Pure data, so it can be tested without a browser. */
 export function buildReportSheets(statistics: Statistics, context: ReportContext): Sheet[] {
+  setMoneyCurrency(context.currency);
   const names = new Map(context.categories.map((category) => [category.category_id, category.category_name]));
   const categoryName = (id: number | null | undefined) => (id == null ? "Uncategorized" : names.get(id) ?? `Category ${id}`);
 

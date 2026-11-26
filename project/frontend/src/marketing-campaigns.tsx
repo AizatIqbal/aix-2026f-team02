@@ -33,7 +33,7 @@ export function MarketingCampaigns({
 }: {
   onOpenAnalysis: () => void;
 }) {
-  const { t, formatMoney, ensureTranslations, campaignName } = usePreferences();
+  const { t, formatMoney, ensureTranslations, campaignName, currency } = usePreferences();
   const [campaigns, setCampaigns] = useState<Campaign[]>([]);
   const [finished, setFinished] = useState(false);
   const [editing, setEditing] = useState<Campaign | null>(null);
@@ -359,7 +359,7 @@ export function MarketingCampaigns({
                         </td>
 
                         <td className="p-2 text-right tabular-nums">
-                          {formatMoney(Number(order.total))}
+                          {formatMoney(Number(order.total), order.currency_code)}
                         </td>
                       </tr>
                     ))}
@@ -477,13 +477,13 @@ export function MarketingCampaigns({
               </label>
 
               <label className="block min-w-0 text-sm font-semibold">
-                Budget (₩)
+                Budget ({currency === "MYR" ? "RM" : currency === "USD" ? "$" : "₩"})
 
                 <Input
                   className="mt-1 block w-full min-w-0"
                   type="number"
                   min="0"
-                  step="1"
+                  step={currency === "KRW" ? "1" : "0.01"}
                   required
                   value={draft.budget}
                   onChange={e =>
@@ -493,13 +493,13 @@ export function MarketingCampaigns({
               </label>
 
               <label className="block min-w-0 text-sm font-semibold">
-                Discount (₩)
+                Discount ({currency === "MYR" ? "RM" : currency === "USD" ? "$" : "₩"})
 
                 <Input
                   className="mt-1 block w-full min-w-0"
                   type="number"
                   min="0"
-                  step="1"
+                  step={currency === "KRW" ? "1" : "0.01"}
                   required
                   value={draft.discount_value}
                   onChange={e =>

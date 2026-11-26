@@ -102,7 +102,7 @@ function suggestField(column: string, available: { value: string; label: string 
 
 function numberValue(value: unknown): number {
   if (typeof value === "number") return value;
-  return Number(String(value).replace(/[₩$€£,\s]/g, ""));
+  return Number(String(value).replace(/(?:RM|[₩$€£,\s])/gi, ""));
 }
 
 function dateValue(value: unknown): string {

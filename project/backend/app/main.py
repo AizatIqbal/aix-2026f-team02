@@ -15,9 +15,10 @@ from sqlalchemy.exc import IntegrityError
 from datetime import date
 from typing import Literal
 
-from app.db.database_manager import DatabaseManager
+from app.db.database_manager import DatabaseManager, APP_ENV
 from app.statistics_routes import router as statistics_router
 from app.translations import router as translations_router
+from app.currency_routes import router as currency_router
 
 
 app = FastAPI(
@@ -25,9 +26,12 @@ app = FastAPI(
     version="0.1.0",
 )
 
+app.include_router(currency_router)
+
 # Product images are stored outside the source tree and served as static files.
 BACKEND_DIR = Path(__file__).resolve().parents[1]
-UPLOAD_ROOT = BACKEND_DIR / "uploads"
+# Keep local fallback uploads separate between demo and non-demo modes.
+UPLOAD_ROOT = BACKEND_DIR / ("uploads_demo" if APP_ENV == "demo" else "uploads")
 PRODUCT_IMAGE_DIR = UPLOAD_ROOT / "products"
 MAX_PRODUCT_IMAGE_BYTES = 5 * 1024 * 1024  # 5 MB
 PNG_SIGNATURE = b"\x89PNG\r\n\x1a\n"
@@ -155,6 +159,12 @@ class BulkImportRequest(BaseModel):
 
 
 # HEALTH CHECKS
+
+@app.get("/api/v1/environment", tags=["environment"])
+def get_application_environment():
+    """Expose the active backend mode, never database credentials or URLs."""
+    return {"mode": APP_ENV, "is_demo": APP_ENV == "demo"}
+
 
 @app.get("/api/v1/health", tags=["health"])
 def health_check():
@@ -604,6 +614,37 @@ def bulk_import(payload: BulkImportRequest):
 
 # PRODUCTS
 
+def _supabase_storage_settings() -> tuple[str, str, str, str]:
+    """Select Storage credentials in the same environment as the database.
+
+    Demo never falls back to production Storage credentials.
+    """
+    if APP_ENV == "demo":
+        prefix = "DEMO_"
+        fallback = False
+    elif APP_ENV == "production":
+        prefix = "PRODUCTION_"
+        fallback = True
+    else:
+        prefix = ""
+        fallback = False
+
+    def setting(name: str, default: str = "") -> str:
+        value = os.getenv(f"{prefix}{name}", "").strip() if prefix else ""
+        if not value and fallback:
+            value = os.getenv(name, "").strip()
+        if not value and not prefix:
+            value = os.getenv(name, "").strip()
+        return value or default
+
+    return (
+        setting("SUPABASE_URL").rstrip("/"),
+        setting("SUPABASE_SECRET_KEY"),
+        setting("SUPABASE_SERVICE_ROLE_JWT"),
+        setting("SUPABASE_STORAGE_BUCKET", "product-images"),
+    )
+
+
 @app.post("/api/v1/products/images", tags=["products"], status_code=201)
 async def upload_product_image(file: UploadFile = File(...)):
     """Upload a PNG/JPEG product image and return its public relative URL."""
@@ -627,10 +668,12 @@ async def upload_product_image(file: UploadFile = File(...)):
         )
 
     filename = f"{uuid.uuid4().hex}{extension}"
-    supabase_url = os.getenv("SUPABASE_URL", "").rstrip("/")
-    supabase_secret_key = os.getenv("SUPABASE_SECRET_KEY", "").strip()
-    supabase_service_role_jwt = os.getenv("SUPABASE_SERVICE_ROLE_JWT", "").strip()
-    storage_bucket = os.getenv("SUPABASE_STORAGE_BUCKET", "product-images")
+    (
+        supabase_url,
+        supabase_secret_key,
+        supabase_service_role_jwt,
+        storage_bucket,
+    ) = _supabase_storage_settings()
 
     if supabase_url and supabase_secret_key:
         if not supabase_service_role_jwt:
@@ -831,6 +874,7 @@ def update_product(product_id: int, product: ProductUpdate):
             UPDATE product
             SET category_id = :category_id,
                 product_name = :product_name,
+                price_updated_at = CASE WHEN price IS DISTINCT FROM :price THEN NOW() ELSE price_updated_at END,
                 price = :price,
                 image_url = :image_url
             WHERE product_id = :product_id
@@ -970,9 +1014,11 @@ def get_order_items():
     try:
         return db.fetch_all(
             """
-            SELECT order_item_id, order_id, product_id, quantity, price
-            FROM order_item
-            ORDER BY order_item_id
+            SELECT oi.order_item_id, oi.order_id, oi.product_id, oi.quantity, oi.price,
+                   o.currency_code
+            FROM order_item oi
+            JOIN orders o ON o.order_id = oi.order_id
+            ORDER BY oi.order_item_id
             """
         )
     finally:
@@ -996,7 +1042,8 @@ def get_orders():
                 customer_phone,
                 promocode,
                 discount,
-                total
+                total,
+                currency_code
             FROM orders
             ORDER BY order_id DESC
             """
@@ -1045,8 +1092,8 @@ def get_orders_page(
         order_by = {
             "newest": "o.order_date DESC, o.order_time DESC, o.order_id DESC",
             "oldest": "o.order_date ASC, o.order_time ASC, o.order_id ASC",
-            "highest": "o.total DESC, o.order_date DESC, o.order_time DESC",
-            "lowest": "o.total ASC, o.order_date DESC, o.order_time DESC",
+            "highest": "o.reporting_total DESC, o.order_date DESC, o.order_time DESC",
+            "lowest": "o.reporting_total ASC, o.order_date DESC, o.order_time DESC",
         }.get(sort, "o.order_date DESC, o.order_time DESC, o.order_id DESC")
 
         # One aggregate round-trip for order totals and item quantities.
@@ -1055,7 +1102,7 @@ def get_orders_page(
         summary = db.fetch_one(
             f"""
             WITH filtered_orders AS (
-                SELECT o.order_id, o.total
+                SELECT o.order_id, o.reporting_total AS total
                 FROM orders o
                 LEFT JOIN customer c ON c.customer_phone = o.customer_phone
                 {where_sql}
@@ -1095,6 +1142,7 @@ def get_orders_page(
                 o.promocode,
                 o.discount,
                 o.total,
+                o.currency_code,
                 COALESCE((
                     SELECT SUM(oi.quantity)
                     FROM order_item oi
@@ -1139,7 +1187,8 @@ def get_order(order_id: int):
                 c.customer_name,
                 o.promocode,
                 o.discount,
-                o.total
+                o.total,
+                o.currency_code
             FROM orders o
             LEFT JOIN customer c ON c.customer_phone = o.customer_phone
             WHERE o.order_id = :order_id
@@ -1252,10 +1301,19 @@ def create_order(order: OrderCreate):
                 raise HTTPException(status_code=422, detail="Discount cannot exceed order subtotal")
 
             total = subtotal - discount
+            operating_currency = connection.execute(
+                text("SELECT operating_currency FROM pointnull_settings WHERE setting_id = 1")
+            ).scalar_one()
             order_id = int(connection.execute(
                 text("""
-                    INSERT INTO orders (customer_phone, promocode, discount, total)
-                    VALUES (:customer_phone, :promocode, :discount, :total)
+                    INSERT INTO orders (
+                        customer_phone, promocode, discount, total, currency_code,
+                        reporting_total, reporting_discount, reporting_currency_code
+                    )
+                    VALUES (
+                        :customer_phone, :promocode, :discount, :total, :currency,
+                        :total, :discount, :currency
+                    )
                     RETURNING order_id
                 """),
                 {
@@ -1263,13 +1321,20 @@ def create_order(order: OrderCreate):
                     "promocode": promocode,
                     "discount": discount,
                     "total": total,
+                    "currency": operating_currency,
                 },
             ).scalar_one())
 
             connection.execute(
                 text("""
-                    INSERT INTO order_item (order_id, product_id, quantity, price)
-                    VALUES (:order_id, :product_id, :quantity, :price)
+                    INSERT INTO order_item (
+                        order_id, product_id, quantity, price,
+                        reporting_price, reporting_currency_code
+                    )
+                    VALUES (
+                        :order_id, :product_id, :quantity, :price,
+                        :price, :currency
+                    )
                 """),
                 [
                     {
@@ -1277,6 +1342,7 @@ def create_order(order: OrderCreate):
                         "product_id": item["product_id"],
                         "quantity": item["quantity"],
                         "price": item["price"],
+                        "currency": operating_currency,
                     }
                     for item in order_items
                 ],
@@ -1311,7 +1377,7 @@ def get_customer_summaries():
                 c.customer_age,
                 c.customer_gender,
                 COUNT(o.order_id) AS total_orders,
-                COALESCE(SUM(o.total), 0) AS total_spent,
+                COALESCE(SUM(o.reporting_total), 0) AS total_spent,
                 MAX(o.order_date) AS last_order_date
             FROM customer c
             LEFT JOIN orders o ON o.customer_phone = c.customer_phone
@@ -1342,7 +1408,8 @@ def get_customer_orders(customer_phone: str, limit: int = Query(default=8, ge=1,
                 customer_phone,
                 promocode,
                 discount,
-                total
+                total,
+                currency_code
             FROM orders
             WHERE customer_phone = :phone
             ORDER BY order_date DESC, order_time DESC, order_id DESC
@@ -1551,7 +1618,8 @@ def get_campaign_orders(promocode: str):
                 c.customer_name,
                 o.promocode,
                 o.discount,
-                o.total
+                o.total,
+                o.currency_code
             FROM orders o
             LEFT JOIN customer c ON c.customer_phone = o.customer_phone
             WHERE o.promocode = :promocode
@@ -1634,7 +1702,11 @@ def update_campaign(promocode: str, campaign: CampaignCreate):
             raise HTTPException(status_code=404, detail="Campaign not found")
         db.execute_query("""
             UPDATE campaign SET campaign_name=:name, channel=:channel, start_date=:start_date,
-                end_date=:end_date, budget=:budget, discount_value=:discount_value
+                end_date=:end_date,
+                updated_at = CASE WHEN budget IS DISTINCT FROM :budget
+                                  OR discount_value IS DISTINCT FROM :discount_value
+                                  THEN NOW() ELSE updated_at END,
+                budget=:budget, discount_value=:discount_value
             WHERE UPPER(promocode)=UPPER(:promocode)
         """, {"name": campaign.campaign_name.strip(), "channel": campaign.channel.strip(),
               "start_date": campaign.start_date, "end_date": campaign.end_date,
@@ -1673,11 +1745,17 @@ def validate_campaign(request: CampaignValidationRequest):
         if discount <= 0:
             return {"valid": False, "code": code, "discount": 0, "message": "This campaign does not have a discount configured."}
 
+        currency = db.fetch_one(
+            "SELECT operating_currency FROM pointnull_settings WHERE setting_id = 1"
+        )["operating_currency"]
+        symbol = {"KRW": "₩", "MYR": "RM", "USD": "$"}.get(currency, currency)
+        fraction_digits = 0 if currency == "KRW" else 2
         return {
             "valid": True,
             "code": campaign["promocode"],
             "discount": discount,
-            "message": f"{campaign['campaign_name']} applied. You save ₩{discount:,.0f}.",
+            "currency_code": currency,
+            "message": f"{campaign['campaign_name']} applied. You save {symbol}{discount:,.{fraction_digits}f}.",
         }
     finally:
         db.close()

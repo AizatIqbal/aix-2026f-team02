@@ -51,7 +51,10 @@ def make_engine_with_canonical_schema():
                 customer_phone VARCHAR(20),
                 promocode VARCHAR(30),
                 discount NUMERIC(10, 2) NOT NULL,
-                total NUMERIC(10, 2) NOT NULL
+                total NUMERIC(10, 2) NOT NULL,
+                reporting_discount NUMERIC(10, 2) NOT NULL,
+                reporting_total NUMERIC(10, 2) NOT NULL,
+                reporting_currency_code VARCHAR(3) NOT NULL DEFAULT 'KRW'
             )
         """))
         connection.execute(text("""
@@ -60,7 +63,9 @@ def make_engine_with_canonical_schema():
                 order_id INTEGER NOT NULL,
                 product_id INTEGER NOT NULL,
                 quantity INTEGER NOT NULL,
-                price NUMERIC(10, 2) NOT NULL
+                price NUMERIC(10, 2) NOT NULL,
+                reporting_price NUMERIC(14, 2) NOT NULL,
+                reporting_currency_code VARCHAR(3) NOT NULL DEFAULT 'KRW'
             )
         """))
         connection.execute(text("INSERT INTO category VALUES (1, 'Beverages')"))
@@ -69,13 +74,14 @@ def make_engine_with_canonical_schema():
         connection.execute(text("INSERT INTO campaign VALUES ('WELCOME', 'Welcome', 'email', '2026-11-01', '2026-11-30', 500)"))
         connection.execute(text("""
             INSERT INTO orders
-                (order_id, order_date, order_time, customer_phone, promocode, discount, total)
-            VALUES (1, '2026-11-01', '10:00:00', '010-0000-0000', 'WELCOME', 2.00, 18.00)
+                (order_id, order_date, order_time, customer_phone, promocode, discount, total,
+                 reporting_discount, reporting_total)
+            VALUES (1, '2026-11-01', '10:00:00', '010-0000-0000', 'WELCOME', 2.00, 18.00, 2.00, 18.00)
         """))
         connection.execute(text("""
             INSERT INTO order_item
-                (order_item_id, order_id, product_id, quantity, price)
-            VALUES (1, 1, 1, 2, 10.00)
+                (order_item_id, order_id, product_id, quantity, price, reporting_price)
+            VALUES (1, 1, 1, 2, 10.00, 10.00)
         """))
     return engine
 
@@ -98,7 +104,7 @@ def test_handler_reads_canonical_management_schema_names():
 def test_handler_rejects_percentage_discount_for_decimal_schema():
     engine = make_engine_with_canonical_schema()
     with engine.begin() as connection:
-        connection.execute(text("UPDATE orders SET discount = '15%' WHERE order_id = 1"))
+        connection.execute(text("UPDATE orders SET reporting_discount = '15%' WHERE order_id = 1"))
     try:
         handler = SQLAlchemyBusinessDataHandler(FakeDatabaseManager(engine))
         try:

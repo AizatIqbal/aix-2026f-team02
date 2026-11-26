@@ -985,7 +985,7 @@ function CustomerDetail({
                           </div>
 
                           <div className="font-semibold tabular-nums">
-                            {formatMoney(order.total)}
+                            {formatMoney(order.total, order.currency_code)}
                           </div>
                         </div>
                     ))}

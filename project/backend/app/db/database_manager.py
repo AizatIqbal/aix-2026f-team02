@@ -53,16 +53,72 @@ def _get_engine(database_url):
     )
 
 
+APP_ENV = os.getenv("APP_ENV", "development").strip().lower()
+SUPPORTED_APP_ENVS = {"development", "demo", "production"}
+if APP_ENV not in SUPPORTED_APP_ENVS:
+    raise RuntimeError(
+        "APP_ENV must be one of: development, demo, production"
+    )
+
+
+def _selected_database_url() -> str:
+    """Select the database using one explicit environment switch.
+
+    Demo mode intentionally has no DATABASE_URL fallback: a missing demo URL
+    must fail closed rather than accidentally connecting to production.
+    """
+    if APP_ENV == "demo":
+        raw_url = os.getenv("DEMO_DATABASE_URL", "").strip()
+        if not raw_url:
+            raise RuntimeError(
+                "DEMO_DATABASE_URL is required when APP_ENV=demo; refusing to use the default database."
+            )
+        production_url = (
+            os.getenv("PRODUCTION_DATABASE_URL", "").strip()
+            or os.getenv("DATABASE_URL", "").strip()
+        )
+        if not production_url:
+            raise RuntimeError(
+                "Set PRODUCTION_DATABASE_URL or the existing DATABASE_URL so demo mode can verify database isolation."
+            )
+        try:
+            demo_target = make_url(raw_url)
+            production_target = make_url(production_url)
+            demo_identity = (demo_target.host, demo_target.port, demo_target.database)
+            production_identity = (production_target.host, production_target.port, production_target.database)
+        except Exception as exc:
+            raise RuntimeError("Could not validate demo and production database targets") from exc
+        if demo_identity == production_identity:
+            raise RuntimeError(
+                "DEMO_DATABASE_URL points to the same host/database as production; refusing demo mode."
+            )
+        return raw_url
+
+    if APP_ENV == "production":
+        raw_url = (
+            os.getenv("PRODUCTION_DATABASE_URL", "").strip()
+            or os.getenv("DATABASE_URL", "").strip()
+        )
+        if not raw_url:
+            raise RuntimeError(
+                "Set PRODUCTION_DATABASE_URL (or the existing DATABASE_URL) when APP_ENV=production."
+            )
+        return raw_url
+
+    raw_url = os.getenv("DATABASE_URL", "").strip()
+    if not raw_url:
+        raise RuntimeError("DATABASE_URL is missing from the environment")
+    return raw_url
+
+
 class DatabaseManager:
     """Manages PostgreSQL access through a shared, reusable connection pool."""
 
     def __init__(self):
-        raw_database_url = os.getenv("DATABASE_URL", "").strip()
-        if not raw_database_url:
-            raise RuntimeError("DATABASE_URL is missing from the environment")
-
+        raw_database_url = _selected_database_url()
         database_url = _build_database_url(raw_database_url)
         self.database_name = database_url.database or "postgres"
+        self.environment = APP_ENV
         self.engine = _get_engine(database_url)
 
     def connect(self):
