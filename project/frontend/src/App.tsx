@@ -1659,6 +1659,9 @@ function Analysis({
         statistics: current && !reportLoading ? (statistics ?? undefined) : undefined,
         categories: data.categories,
         filters: current ? filters : undefined,
+        // Amounts are stored in won and the export doesn't convert them,
+        // so label the file in won whatever display currency is picked.
+        currency: "KRW",
       });
       setExportOpen(false);
       setExportStatus({ state: "success", message: `${filename} · ${t("downloaded")}` });
